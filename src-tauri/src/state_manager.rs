@@ -1,19 +1,23 @@
+use chrono::Utc;
+use serde::{Deserialize, Serialize};
 use std::sync::{Arc, Mutex};
 use std::time::{Duration, Instant};
-use chrono::{DateTime, Utc};
-use serde::{Deserialize, Serialize};
-use tokio::time::{interval, MissedTickBehavior};
 use tokio::sync::mpsc;
+use tokio::time::{interval, MissedTickBehavior};
 use uuid::Uuid;
 
-use crate::database::{DatabaseManager, models::{Session, SessionType, UserSettings as DbUserSettings}};
-use crate::api_models::{FocusSession, BreakSession, BreakType, SessionState, UserSettings};
+use crate::api_models::{BreakSession, BreakType, FocusSession, SessionState, UserSettings};
+use crate::database::{
+    models::{SessionType, UserSettings as DbUserSettings},
+    DatabaseManager,
+};
 
 /// Core application state enumeration
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
 pub enum AppState {
     Idle,
     FocusRunning,
+    FocusPaused,
     FocusPreAlert,
     FocusEnding,
     BreakRunning,
@@ -23,15 +27,35 @@ pub enum AppState {
 /// Events emitted by the state manager
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub enum StateEvent {
-    StateChanged { from: AppState, to: AppState },
-    SessionStarted { session_id: String },
-    SessionPaused { session_id: String },
-    SessionResumed { session_id: String },
-    SessionCompleted { session_id: String },
-    PreAlertTriggered { session_id: String, remaining_seconds: u32 },
-    BreakStarted { break_session: BreakSession },
-    BreakCompleted { session_id: String },
-    TimerTick { remaining_seconds: u32 },
+    StateChanged {
+        from: AppState,
+        to: AppState,
+    },
+    SessionStarted {
+        session_id: String,
+    },
+    SessionPaused {
+        session_id: String,
+    },
+    SessionResumed {
+        session_id: String,
+    },
+    SessionCompleted {
+        session_id: String,
+    },
+    PreAlertTriggered {
+        session_id: String,
+        remaining_seconds: u32,
+    },
+    BreakStarted {
+        break_session: BreakSession,
+    },
+    BreakCompleted {
+        session_id: String,
+    },
+    TimerTick {
+        remaining_seconds: u32,
+    },
 }
 
 /// Timer state for precise timing
@@ -104,7 +128,9 @@ impl StateManager {
     /// Create a new state manager
     pub fn new(database: Arc<Mutex<DatabaseManager>>) -> Result<Self, Box<dyn std::error::Error>> {
         let settings = {
-            let db = database.lock().map_err(|e| format!("Failed to lock database: {}", e))?;
+            let db = database
+                .lock()
+                .map_err(|e| format!("Failed to lock database: {}", e))?;
             match db.get_user_settings() {
                 Ok(Some(db_settings)) => db_settings.into(),
                 Ok(None) => {
@@ -155,10 +181,16 @@ impl StateManager {
     }
 
     /// Update settings
-    pub fn update_settings(&mut self, new_settings: UserSettings) -> Result<(), Box<dyn std::error::Error>> {
+    pub fn update_settings(
+        &mut self,
+        new_settings: UserSettings,
+    ) -> Result<(), Box<dyn std::error::Error>> {
         let db_settings: DbUserSettings = new_settings.clone().into();
         {
-            let db = self.database.lock().map_err(|e| format!("Failed to lock database: {}", e))?;
+            let db = self
+                .database
+                .lock()
+                .map_err(|e| format!("Failed to lock database: {}", e))?;
             db.save_user_settings(&db_settings)?;
         }
         self.settings = new_settings;
@@ -166,7 +198,10 @@ impl StateManager {
     }
 
     /// Start a new focus session
-    pub fn start_focus_session(&mut self, strict_mode: bool) -> Result<Vec<StateEvent>, Box<dyn std::error::Error>> {
+    pub fn start_focus_session(
+        &mut self,
+        strict_mode: bool,
+    ) -> Result<Vec<StateEvent>, Box<dyn std::error::Error>> {
         if !matches!(self.current_state, AppState::Idle) {
             return Err("Cannot start focus session: not in idle state".into());
         }
@@ -191,7 +226,10 @@ impl StateManager {
 
         // Save to database
         {
-            let db = self.database.lock().map_err(|e| format!("Failed to lock database: {}", e))?;
+            let db = self
+                .database
+                .lock()
+                .map_err(|e| format!("Failed to lock database: {}", e))?;
             let db_session = focus_session.to_db_session();
             db.create_session(&db_session)?;
         }
@@ -204,7 +242,10 @@ impl StateManager {
         self.pre_alert_triggered = false;
 
         Ok(vec![
-            StateEvent::StateChanged { from: old_state, to: self.current_state.clone() },
+            StateEvent::StateChanged {
+                from: old_state,
+                to: self.current_state.clone(),
+            },
             StateEvent::SessionStarted { session_id },
         ])
     }
@@ -219,9 +260,18 @@ impl StateManager {
                 if let Some(ref mut session) = self.current_session {
                     session.is_running = false;
                     session.state = SessionState::Idle;
-                    
+
+                    let old_state = self.current_state.clone();
+                    self.current_state = AppState::FocusPaused;
+
                     let session_id = session.id.clone();
-                    return Ok(vec![StateEvent::SessionPaused { session_id }]);
+                    return Ok(vec![
+                        StateEvent::StateChanged {
+                            from: old_state,
+                            to: self.current_state.clone(),
+                        },
+                        StateEvent::SessionPaused { session_id },
+                    ]);
                 }
             }
             _ => return Err("No active session to pause".into()),
@@ -231,6 +281,10 @@ impl StateManager {
 
     /// Resume the current session
     pub fn resume_session(&mut self) -> Result<Vec<StateEvent>, Box<dyn std::error::Error>> {
+        if !matches!(self.current_state, AppState::FocusPaused) {
+            return Err("No paused session to resume".into());
+        }
+
         if let Some(ref mut session) = self.current_session {
             if !session.is_running {
                 if let Some(ref mut timer) = self.timer_state {
@@ -244,6 +298,7 @@ impl StateManager {
                 };
 
                 // Update app state
+                let old_state = self.current_state.clone();
                 self.current_state = if matches!(session.state, SessionState::PreAlert) {
                     AppState::FocusPreAlert
                 } else {
@@ -251,7 +306,13 @@ impl StateManager {
                 };
 
                 let session_id = session.id.clone();
-                return Ok(vec![StateEvent::SessionResumed { session_id }]);
+                return Ok(vec![
+                    StateEvent::StateChanged {
+                        from: old_state,
+                        to: self.current_state.clone(),
+                    },
+                    StateEvent::SessionResumed { session_id },
+                ]);
             }
         }
         Err("No paused session to resume".into())
@@ -264,7 +325,10 @@ impl StateManager {
         if let Some(session) = self.current_session.take() {
             // Update session in database
             {
-                let db = self.database.lock().map_err(|e| format!("Failed to lock database: {}", e))?;
+                let db = self
+                    .database
+                    .lock()
+                    .map_err(|e| format!("Failed to lock database: {}", e))?;
                 let mut db_session = session.to_db_session();
                 db_session.end_time = Some(Utc::now());
                 db_session.completed = session.remaining == 0;
@@ -290,7 +354,10 @@ impl StateManager {
                 // Session was manually ended, return to idle
                 let old_state = self.current_state.clone();
                 self.current_state = AppState::Idle;
-                events.push(StateEvent::StateChanged { from: old_state, to: self.current_state.clone() });
+                events.push(StateEvent::StateChanged {
+                    from: old_state,
+                    to: self.current_state.clone(),
+                });
             }
         }
 
@@ -306,11 +373,18 @@ impl StateManager {
             (BreakType::Short, self.settings.short_break_duration)
         };
 
-        let break_session = BreakSession::new(break_type.clone(), duration_minutes, self.settings.strict_mode);
-        
+        let break_session = BreakSession::new(
+            break_type.clone(),
+            duration_minutes,
+            self.settings.strict_mode,
+        );
+
         // Save break session to database
         {
-            let db = self.database.lock().map_err(|e| format!("Failed to lock database: {}", e))?;
+            let db = self
+                .database
+                .lock()
+                .map_err(|e| format!("Failed to lock database: {}", e))?;
             let db_session = break_session.to_db_session(Utc::now());
             db.create_session(&db_session)?;
         }
@@ -327,7 +401,10 @@ impl StateManager {
         self.current_break = Some(break_session.clone());
 
         Ok(vec![
-            StateEvent::StateChanged { from: old_state, to: self.current_state.clone() },
+            StateEvent::StateChanged {
+                from: old_state,
+                to: self.current_state.clone(),
+            },
             StateEvent::BreakStarted { break_session },
         ])
     }
@@ -339,8 +416,13 @@ impl StateManager {
         if let Some(break_session) = self.current_break.take() {
             // Update break session in database
             {
-                let db = self.database.lock().map_err(|e| format!("Failed to lock database: {}", e))?;
-                let mut db_session = break_session.to_db_session(Utc::now() - chrono::Duration::seconds(break_session.duration as i64));
+                let db = self
+                    .database
+                    .lock()
+                    .map_err(|e| format!("Failed to lock database: {}", e))?;
+                let mut db_session = break_session.to_db_session(
+                    Utc::now() - chrono::Duration::seconds(break_session.duration as i64),
+                );
                 db_session.end_time = Some(Utc::now());
                 db_session.completed = true;
                 db_session.actual_duration = Some(break_session.duration as i32);
@@ -355,10 +437,63 @@ impl StateManager {
             self.current_state = AppState::Idle;
             self.timer_state = None;
 
-            events.push(StateEvent::StateChanged { from: old_state, to: self.current_state.clone() });
+            events.push(StateEvent::StateChanged {
+                from: old_state,
+                to: self.current_state.clone(),
+            });
         }
 
         Ok(events)
+    }
+
+    /// Start a break session manually (for immediate lock functionality)
+    pub fn start_break(
+        &mut self,
+        break_type: BreakType,
+    ) -> Result<Vec<StateEvent>, Box<dyn std::error::Error>> {
+        if !matches!(self.current_state, AppState::Idle) {
+            return Err("Cannot start break: not in idle state".into());
+        }
+
+        let duration_minutes = match break_type {
+            BreakType::Short => self.settings.short_break_duration,
+            BreakType::Long => self.settings.long_break_duration,
+        };
+
+        let break_session = BreakSession::new(
+            break_type.clone(),
+            duration_minutes,
+            self.settings.strict_mode,
+        );
+
+        // Store break session in database
+        {
+            let db = self
+                .database
+                .lock()
+                .map_err(|e| format!("Failed to lock database: {}", e))?;
+            let db_session = break_session.to_db_session(Utc::now());
+            db.insert_session(&db_session)?;
+        }
+
+        // Update state
+        let old_state = self.current_state.clone();
+        self.current_state = match break_type {
+            BreakType::Long => AppState::LongBreakRunning,
+            BreakType::Short => AppState::BreakRunning,
+        };
+
+        // Set up timer
+        self.timer_state = Some(TimerState::new(duration_minutes * 60));
+        self.current_break = Some(break_session.clone());
+
+        Ok(vec![
+            StateEvent::StateChanged {
+                from: old_state,
+                to: self.current_state.clone(),
+            },
+            StateEvent::BreakStarted { break_session },
+        ])
     }
 
     /// Handle timer tick - should be called regularly (e.g., every second)
@@ -380,32 +515,40 @@ impl StateManager {
                         session.remaining = remaining_seconds;
 
                         // Check for pre-alert trigger
-                        if remaining_seconds <= self.settings.pre_alert_seconds && 
-                           remaining_seconds > 0 && 
-                           !self.pre_alert_triggered &&
-                           matches!(self.current_state, AppState::FocusRunning) {
-                            
+                        if remaining_seconds <= self.settings.pre_alert_seconds
+                            && remaining_seconds > 0
+                            && !self.pre_alert_triggered
+                            && matches!(self.current_state, AppState::FocusRunning)
+                        {
                             self.pre_alert_triggered = true;
                             let old_state = self.current_state.clone();
                             self.current_state = AppState::FocusPreAlert;
                             session.state = SessionState::PreAlert;
 
-                            events.push(StateEvent::StateChanged { from: old_state, to: self.current_state.clone() });
-                            events.push(StateEvent::PreAlertTriggered { 
-                                session_id: session.id.clone(), 
-                                remaining_seconds 
+                            events.push(StateEvent::StateChanged {
+                                from: old_state,
+                                to: self.current_state.clone(),
+                            });
+                            events.push(StateEvent::PreAlertTriggered {
+                                session_id: session.id.clone(),
+                                remaining_seconds,
                             });
                         }
 
                         // Check for session completion
-                        if timer.is_finished() && !matches!(self.current_state, AppState::FocusEnding) {
+                        if timer.is_finished()
+                            && !matches!(self.current_state, AppState::FocusEnding)
+                        {
                             let old_state = self.current_state.clone();
                             self.current_state = AppState::FocusEnding;
                             session.state = SessionState::Ending;
                             session.remaining = 0;
 
-                            events.push(StateEvent::StateChanged { from: old_state, to: self.current_state.clone() });
-                            
+                            events.push(StateEvent::StateChanged {
+                                from: old_state,
+                                to: self.current_state.clone(),
+                            });
+
                             // Auto-end the session after a brief moment
                             let end_events = self.end_session()?;
                             events.extend(end_events);
@@ -436,23 +579,29 @@ impl StateManager {
 
     /// Recover active session on app restart
     fn recover_active_session(&mut self) -> Result<(), Box<dyn std::error::Error>> {
-        let db = self.database.lock().map_err(|e| format!("Failed to lock database: {}", e))?;
-        
+        let db = self
+            .database
+            .lock()
+            .map_err(|e| format!("Failed to lock database: {}", e))?;
+
         // Look for the most recent incomplete session
         if let Some(db_session) = db.get_active_session()? {
             let current_time = Utc::now();
-            
+
             match db_session.session_type {
                 SessionType::Focus => {
-                    if let Some(focus_session) = FocusSession::from_db_session(db_session, current_time) {
+                    if let Some(focus_session) =
+                        FocusSession::from_db_session(db_session, current_time)
+                    {
                         if focus_session.is_running && focus_session.remaining > 0 {
                             // Recover focus session
                             let elapsed_seconds = focus_session.duration - focus_session.remaining;
                             let mut timer_state = TimerState::new(focus_session.duration);
-                            
+
                             // Adjust timer to account for elapsed time
-                            timer_state.start_time = Instant::now() - Duration::from_secs(elapsed_seconds as u64);
-                            
+                            timer_state.start_time =
+                                Instant::now() - Duration::from_secs(elapsed_seconds as u64);
+
                             self.current_session = Some(focus_session);
                             self.timer_state = Some(timer_state);
                             self.current_state = AppState::FocusRunning;
@@ -491,16 +640,18 @@ impl StateManager {
     }
 
     /// Start the timer service for this state manager
-    pub fn start_timer_service(state_manager: Arc<Mutex<StateManager>>) -> mpsc::UnboundedReceiver<Vec<StateEvent>> {
+    pub fn start_timer_service(
+        state_manager: Arc<Mutex<StateManager>>,
+    ) -> mpsc::UnboundedReceiver<Vec<StateEvent>> {
         let (tx, rx) = mpsc::unbounded_channel();
-        
+
         tokio::spawn(async move {
             let mut interval = interval(Duration::from_secs(1));
             interval.set_missed_tick_behavior(MissedTickBehavior::Skip);
-            
+
             loop {
                 interval.tick().await;
-                
+
                 // Handle timer tick
                 if let Ok(mut manager) = state_manager.try_lock() {
                     match manager.handle_timer_tick() {
@@ -522,7 +673,7 @@ impl StateManager {
                 }
             }
         });
-        
+
         rx
     }
 }
@@ -553,11 +704,11 @@ mod tests {
     fn test_start_focus_session() {
         let mut manager = create_test_state_manager();
         let events = manager.start_focus_session(false).unwrap();
-        
+
         assert_eq!(manager.get_state(), AppState::FocusRunning);
         assert!(manager.get_current_session().is_some());
         assert_eq!(events.len(), 2);
-        
+
         let session = manager.get_current_session().unwrap();
         assert_eq!(session.duration, 25 * 60); // 25 minutes default
         assert_eq!(session.is_strict, false);
@@ -568,13 +719,13 @@ mod tests {
     fn test_pause_resume_session() {
         let mut manager = create_test_state_manager();
         manager.start_focus_session(false).unwrap();
-        
+
         // Pause
         let pause_events = manager.pause_session().unwrap();
         assert_eq!(pause_events.len(), 1);
         let session = manager.get_current_session().unwrap();
         assert!(!session.is_running);
-        
+
         // Resume
         let resume_events = manager.resume_session().unwrap();
         assert_eq!(resume_events.len(), 1);
@@ -585,16 +736,16 @@ mod tests {
     #[test]
     fn test_timer_state() {
         let mut timer = TimerState::new(60); // 1 minute
-        
+
         assert!(!timer.is_finished());
         assert!(!timer.is_paused());
-        
+
         timer.pause();
         assert!(timer.is_paused());
-        
+
         timer.resume();
         assert!(!timer.is_paused());
-        
+
         // Timer should have some remaining time
         assert!(timer.remaining().as_secs() <= 60);
     }
@@ -602,11 +753,11 @@ mod tests {
     #[test]
     fn test_state_transitions() {
         let mut manager = create_test_state_manager();
-        
+
         // Idle -> FocusRunning
         manager.start_focus_session(false).unwrap();
         assert_eq!(manager.get_state(), AppState::FocusRunning);
-        
+
         // End session manually (incomplete)
         manager.end_session().unwrap();
         assert_eq!(manager.get_state(), AppState::Idle);
@@ -616,7 +767,7 @@ mod tests {
     fn test_cycle_counting() {
         let mut manager = create_test_state_manager();
         assert_eq!(manager.get_cycle_count(), 0);
-        
+
         manager.reset_cycle_count();
         assert_eq!(manager.get_cycle_count(), 0);
     }

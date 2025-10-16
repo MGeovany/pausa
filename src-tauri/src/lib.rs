@@ -1,16 +1,16 @@
-use std::path::PathBuf;
 use std::sync::{Arc, Mutex};
 use tauri::Manager;
-use tokio::sync::mpsc;
 
 mod api_models;
 mod database;
+mod hotkey_manager;
 mod state_manager;
 mod window_manager;
 
 pub use api_models::*;
 use database::DatabaseManager;
-use state_manager::{StateEvent, StateManager};
+use hotkey_manager::HotkeyManager;
+use state_manager::StateManager;
 use window_manager::WindowManager;
 
 // Placeholder command - will be replaced in later tasks
@@ -322,10 +322,25 @@ pub fn run() {
             let window_manager = WindowManager::new(app.handle().clone());
             let window_manager_arc = Arc::new(Mutex::new(window_manager));
 
+            // Initialize hotkey manager
+            let hotkey_manager = HotkeyManager::new(
+                app.handle().clone(),
+                Arc::clone(&state_manager_arc),
+                Arc::clone(&window_manager_arc),
+            );
+
+            // Initialize hotkeys
+            if let Err(e) = hotkey_manager.initialize() {
+                eprintln!("Warning: Failed to initialize hotkeys: {}", e);
+            }
+
+            let hotkey_manager_arc = Arc::new(Mutex::new(hotkey_manager));
+
             // Store managers in app state
             app.manage(db_arc);
             app.manage(state_manager_arc);
             app.manage(window_manager_arc);
+            app.manage(hotkey_manager_arc);
 
             println!("Pausa application initialized successfully");
             Ok(())
@@ -355,7 +370,17 @@ pub fn run() {
             window_manager::show_settings,
             window_manager::hide_settings,
             window_manager::handle_focus_widget_drag,
-            window_manager::is_window_visible
+            window_manager::is_window_visible,
+            hotkey_manager::get_hotkey_configs,
+            hotkey_manager::update_hotkey_config,
+            hotkey_manager::set_hotkey_enabled,
+            hotkey_manager::refresh_hotkey_state,
+            hotkey_manager::route_hotkey_event,
+            hotkey_manager::save_hotkey_configurations,
+            hotkey_manager::load_custom_hotkeys,
+            hotkey_manager::reset_hotkeys_to_defaults,
+            hotkey_manager::check_hotkey_conflicts,
+            hotkey_manager::get_available_modifiers
         ])
         .run(tauri::generate_context!())
         .expect("error while running tauri application");

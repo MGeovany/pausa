@@ -67,15 +67,15 @@
     - Test always-on-top and click-through functionality
     - _Requirements: 3.3, 3.4_
 
-- [ ] 5. Create global hotkey system
-  - [ ] 5.1 Implement global hotkey registration in Rust
+- [x] 5. Create global hotkey system
+  - [x] 5.1 Implement global hotkey registration in Rust
     - Register ⌘/Ctrl + Space for command palette toggle
     - Register ⌘/Ctrl + Shift + F for focus session toggle
     - Register ⌘/Ctrl + Shift + L for immediate lock/break
     - Handle hotkey conflicts and platform-specific implementations
     - _Requirements: 1.1, 1.2, 9.1, 9.2_
 
-  - [ ] 5.2 Create hotkey event handling system
+  - [x] 5.2 Create hotkey event handling system
     - Route hotkey events to appropriate window managers
     - Implement hotkey state management (enable/disable based on app state)
     - Add hotkey customization support in settings
