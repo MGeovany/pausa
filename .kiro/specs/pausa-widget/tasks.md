@@ -34,7 +34,7 @@
     - Handle session persistence and recovery on app restart
     - _Requirements: 3.5, 4.1, 5.1, 5.5_
 
-  - [ ] 3.2 Create Tauri commands for state management
+  - [x] 3.2 Create Tauri commands for state management
     - Implement start_focus_session, pause_session, resume_session commands
     - Add get_current_session and get_session_stats commands
     - Create update_settings and get_settings commands

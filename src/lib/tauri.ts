@@ -1,7 +1,7 @@
 // Tauri API wrapper with error handling
 import { invoke } from '@tauri-apps/api/core';
 import { listen } from '@tauri-apps/api/event';
-import type { TauriResult, AppEvent } from '../types';
+import type { AppEvent, FocusSession, BreakSession, UserSettings, SessionStats } from '../types';
 
 // Generic invoke wrapper with error handling
 export async function invokeCommand<T>(
@@ -9,13 +9,9 @@ export async function invokeCommand<T>(
   args?: Record<string, unknown>
 ): Promise<T> {
   try {
-    const result = await invoke<TauriResult<T>>(command, args);
-
-    if (!result.success && result.error) {
-      throw new Error(`${result.error.type}: ${result.error.message}`);
-    }
-
-    return result.data as T;
+    // Tauri automatically handles Result<T, String> from Rust
+    const result = await invoke<T>(command, args);
+    return result;
   } catch (error) {
     console.error(`Failed to invoke command ${command}:`, error);
     throw error;
@@ -31,43 +27,49 @@ export function setupEventListeners(
   });
 }
 
-// Tauri command definitions (will be implemented in backend)
+// Tauri command definitions
 export const tauriCommands = {
   // Session management
   startFocusSession: (strict: boolean) =>
-    invokeCommand('start_focus_session', { strict }),
+    invokeCommand<FocusSession>('start_focus_session', { strict }),
 
   pauseSession: () =>
-    invokeCommand('pause_session'),
+    invokeCommand<void>('pause_session'),
 
   resumeSession: () =>
-    invokeCommand('resume_session'),
+    invokeCommand<void>('resume_session'),
 
   endSession: () =>
-    invokeCommand('end_session'),
+    invokeCommand<void>('end_session'),
 
   getCurrentSession: () =>
-    invokeCommand('get_current_session'),
+    invokeCommand<FocusSession | null>('get_current_session'),
+
+  getCurrentBreak: () =>
+    invokeCommand<BreakSession | null>('get_current_break'),
+
+  completeBreak: () =>
+    invokeCommand<void>('complete_break'),
 
   // Settings management
   getSettings: () =>
-    invokeCommand('get_settings'),
+    invokeCommand<UserSettings>('get_settings'),
 
-  updateSettings: (settings: Record<string, unknown>) =>
-    invokeCommand('update_settings', { settings }),
+  updateSettings: (settings: UserSettings) =>
+    invokeCommand<void>('update_settings', { settings }),
 
   // Statistics
   getSessionStats: (days: number) =>
-    invokeCommand('get_session_stats', { days }),
+    invokeCommand<SessionStats[]>('get_session_stats', { days }),
 
-  // Window management
-  showWindow: (windowType: string) =>
-    invokeCommand('show_window', { windowType }),
+  // State information
+  getAppState: () =>
+    invokeCommand<string>('get_app_state'),
 
-  hideWindow: (windowType: string) =>
-    invokeCommand('hide_window', { windowType }),
+  // Testing
+  testStateManager: () =>
+    invokeCommand<string>('test_state_manager'),
 
-  // Emergency override
-  verifyEmergencyPin: (pin: string) =>
-    invokeCommand('verify_emergency_pin', { pin }),
+  getDatabaseStats: () =>
+    invokeCommand<string>('get_database_stats'),
 } as const;

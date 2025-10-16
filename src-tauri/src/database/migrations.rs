@@ -1,4 +1,4 @@
-use rusqlite::{Connection, Result as SqliteResult};
+use rusqlite::{Connection, Result as SqliteResult, OptionalExtension};
 use crate::database::{DatabaseError, DatabaseResult};
 use crate::database::schema::{INITIAL_SCHEMA, SCHEMA_VERSION};
 
@@ -28,13 +28,13 @@ impl MigrationManager {
     
     /// Get current database schema version
     pub fn get_current_version(conn: &Connection) -> DatabaseResult<i32> {
-        let version: i32 = conn.query_row(
+        let version: Option<i32> = conn.query_row(
             "SELECT MAX(version) FROM schema_version",
             [],
             |row| row.get(0)
-        ).map_err(DatabaseError::Sqlite)?;
+        ).optional().map_err(DatabaseError::Sqlite)?;
         
-        Ok(version)
+        Ok(version.unwrap_or(0))
     }
     
     /// Run migrations to bring database up to current version

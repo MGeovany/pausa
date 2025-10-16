@@ -1,15 +1,19 @@
-use serde::{Deserialize, Serialize};
 use chrono::{DateTime, Utc};
+use serde::{Deserialize, Serialize};
 use uuid::Uuid;
 
-use crate::database::models::{UserSettings as DbUserSettings, Session as DbSession, SessionStats as DbSessionStats, SessionType};
+use crate::database::models::{
+    Session as DbSession, SessionStats as DbSessionStats, SessionType,
+    UserSettings as DbUserSettings,
+};
 
 /// API model for user settings - simplified for frontend use
 #[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
 pub struct UserSettings {
-    pub focus_duration: u32,        // minutes
-    pub short_break_duration: u32,  // minutes
-    pub long_break_duration: u32,   // minutes
+    pub focus_duration: u32,       // minutes
+    pub short_break_duration: u32, // minutes
+    pub long_break_duration: u32,  // minutes
     pub cycles_per_long_break: u32,
     pub pre_alert_seconds: u32,
     pub strict_mode: bool,
@@ -23,7 +27,7 @@ impl Default for UserSettings {
             short_break_duration: 5, // 5 minutes
             long_break_duration: 15, // 15 minutes
             cycles_per_long_break: 4,
-            pre_alert_seconds: 120,  // 2 minutes
+            pre_alert_seconds: 120, // 2 minutes
             strict_mode: false,
             pin_hash: None,
         }
@@ -32,11 +36,12 @@ impl Default for UserSettings {
 
 /// API model for active focus sessions
 #[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
 pub struct FocusSession {
     pub id: String,
     pub start_time: DateTime<Utc>,
-    pub duration: u32,      // total duration in seconds
-    pub remaining: u32,     // remaining time in seconds
+    pub duration: u32,  // total duration in seconds
+    pub remaining: u32, // remaining time in seconds
     pub is_running: bool,
     pub is_strict: bool,
     pub state: SessionState,
@@ -54,11 +59,13 @@ pub enum SessionState {
 
 /// API model for break sessions
 #[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
 pub struct BreakSession {
     pub id: String,
+    #[serde(rename = "type")]
     pub break_type: BreakType,
-    pub duration: u32,      // total duration in seconds
-    pub remaining: u32,     // remaining time in seconds
+    pub duration: u32,  // total duration in seconds
+    pub remaining: u32, // remaining time in seconds
     pub activity: BreakActivity,
     pub allow_emergency: bool,
 }
@@ -73,6 +80,7 @@ pub enum BreakType {
 
 /// Break activity suggestions
 #[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
 pub struct BreakActivity {
     pub title: String,
     pub description: String,
@@ -81,6 +89,7 @@ pub struct BreakActivity {
 
 /// Session statistics for the frontend
 #[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
 pub struct SessionStats {
     pub date: String,
     pub focus_minutes: u32,
@@ -94,7 +103,7 @@ pub struct SessionStats {
 impl From<DbUserSettings> for UserSettings {
     fn from(db_settings: DbUserSettings) -> Self {
         Self {
-            focus_duration: (db_settings.focus_duration / 60) as u32,  // Convert seconds to minutes
+            focus_duration: (db_settings.focus_duration / 60) as u32, // Convert seconds to minutes
             short_break_duration: (db_settings.short_break_duration / 60) as u32,
             long_break_duration: (db_settings.long_break_duration / 60) as u32,
             cycles_per_long_break: db_settings.cycles_per_long_break as u32,
@@ -110,7 +119,7 @@ impl From<UserSettings> for DbUserSettings {
         let now = Utc::now();
         Self {
             id: 1, // Default ID for single-user application
-            focus_duration: (api_settings.focus_duration * 60) as i32,  // Convert minutes to seconds
+            focus_duration: (api_settings.focus_duration * 60) as i32, // Convert minutes to seconds
             short_break_duration: (api_settings.short_break_duration * 60) as i32,
             long_break_duration: (api_settings.long_break_duration * 60) as i32,
             cycles_per_long_break: api_settings.cycles_per_long_break as i32,
@@ -144,11 +153,12 @@ impl FocusSession {
         };
 
         let is_running = db_session.end_time.is_none() && !db_session.completed;
-        
+
         // Determine session state based on remaining time and completion
         let state = if !is_running {
             SessionState::Idle
-        } else if remaining <= 120 && remaining > 0 { // Pre-alert in last 2 minutes
+        } else if remaining <= 120 && remaining > 0 {
+            // Pre-alert in last 2 minutes
             SessionState::PreAlert
         } else if remaining == 0 {
             SessionState::Ending
@@ -170,7 +180,10 @@ impl FocusSession {
     /// Convert to database session model
     pub fn to_db_session(&self) -> DbSession {
         let end_time = if !self.is_running {
-            Some(self.start_time + chrono::Duration::seconds(self.duration as i64 - self.remaining as i64))
+            Some(
+                self.start_time
+                    + chrono::Duration::seconds(self.duration as i64 - self.remaining as i64),
+            )
         } else {
             None
         };
@@ -291,7 +304,10 @@ mod tests {
 
         let converted_back: UserSettings = db_settings.into();
         assert_eq!(converted_back.focus_duration, api_settings.focus_duration);
-        assert_eq!(converted_back.short_break_duration, api_settings.short_break_duration);
+        assert_eq!(
+            converted_back.short_break_duration,
+            api_settings.short_break_duration
+        );
         assert_eq!(converted_back.strict_mode, api_settings.strict_mode);
     }
 

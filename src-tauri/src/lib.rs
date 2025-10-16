@@ -20,7 +20,7 @@ fn greet(name: &str) -> String {
 // Database test command
 #[tauri::command]
 async fn get_database_stats(
-    database: tauri::State<'_, Mutex<DatabaseManager>>
+    database: tauri::State<'_, Arc<Mutex<DatabaseManager>>>
 ) -> Result<String, String> {
     let db = database.lock().map_err(|e| format!("Failed to lock database: {}", e))?;
     
@@ -170,6 +170,23 @@ async fn get_settings(
     Ok(manager.get_settings())
 }
 
+// Session statistics command
+#[tauri::command]
+async fn get_session_stats(
+    days: u32,
+    database: tauri::State<'_, Arc<Mutex<DatabaseManager>>>
+) -> Result<Vec<SessionStats>, String> {
+    let db = database.lock().map_err(|e| format!("Failed to lock database: {}", e))?;
+    
+    let db_stats = db.get_session_stats(days)
+        .map_err(|e| format!("Failed to get session stats: {}", e))?;
+    
+    // Convert database stats to API stats
+    let api_stats: Vec<SessionStats> = db_stats.into_iter().map(|s| s.into()).collect();
+    
+    Ok(api_stats)
+}
+
 // Test command to verify state manager functionality
 #[tauri::command]
 async fn test_state_manager(
@@ -250,11 +267,8 @@ pub fn run() {
             // TODO: Handle timer events and emit to frontend
             
             // Store managers in app state
+            app.manage(db_arc);
             app.manage(state_manager_arc);
-            
-            // Hide the main window on startup - we'll manage windows manually
-            let main_window = app.get_webview_window("main").unwrap();
-            main_window.hide().unwrap();
             
             println!("Pausa application initialized successfully");
             Ok(())
@@ -272,8 +286,130 @@ pub fn run() {
             get_app_state,
             update_settings,
             get_settings,
+            get_session_stats,
             test_state_manager
         ])
         .run(tauri::generate_context!())
         .expect("error while running tauri application");
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use std::sync::{Arc, Mutex};
+    use tempfile::tempdir;
+
+    fn create_test_managers() -> (Arc<Mutex<DatabaseManager>>, Arc<Mutex<StateManager>>) {
+        let temp_dir = tempdir().unwrap();
+        let db_path = temp_dir.path().join("test.db");
+        let database_manager = DatabaseManager::new(db_path).unwrap();
+        let db_arc = Arc::new(Mutex::new(database_manager));
+        let state_manager = StateManager::new(Arc::clone(&db_arc)).unwrap();
+        let state_manager_arc = Arc::new(Mutex::new(state_manager));
+        (db_arc, state_manager_arc)
+    }
+
+    #[tokio::test]
+    async fn test_start_focus_session_command() {
+        let (_db_arc, state_manager_arc) = create_test_managers();
+        
+        // Test starting a focus session
+        let result = start_focus_session(false, tauri::State::from(&state_manager_arc)).await;
+        assert!(result.is_ok());
+        
+        let session = result.unwrap();
+        assert_eq!(session.duration, 25 * 60); // 25 minutes default
+        assert!(!session.is_strict);
+        assert!(session.is_running);
+    }
+
+    #[tokio::test]
+    async fn test_pause_resume_session_commands() {
+        let (_db_arc, state_manager_arc) = create_test_managers();
+        
+        // Start a session first
+        start_focus_session(false, tauri::State::from(&state_manager_arc)).await.unwrap();
+        
+        // Test pausing
+        let pause_result = pause_session(tauri::State::from(&state_manager_arc)).await;
+        assert!(pause_result.is_ok());
+        
+        // Test resuming
+        let resume_result = resume_session(tauri::State::from(&state_manager_arc)).await;
+        assert!(resume_result.is_ok());
+    }
+
+    #[tokio::test]
+    async fn test_get_current_session_command() {
+        let (_db_arc, state_manager_arc) = create_test_managers();
+        
+        // Initially no session
+        let result = get_current_session(tauri::State::from(&state_manager_arc)).await;
+        assert!(result.is_ok());
+        assert!(result.unwrap().is_none());
+        
+        // Start a session
+        start_focus_session(true, tauri::State::from(&state_manager_arc)).await.unwrap();
+        
+        // Now should have a session
+        let result = get_current_session(tauri::State::from(&state_manager_arc)).await;
+        assert!(result.is_ok());
+        let session = result.unwrap();
+        assert!(session.is_some());
+        assert!(session.unwrap().is_strict);
+    }
+
+    #[tokio::test]
+    async fn test_settings_commands() {
+        let (_db_arc, state_manager_arc) = create_test_managers();
+        
+        // Test getting default settings
+        let result = get_settings(tauri::State::from(&state_manager_arc)).await;
+        assert!(result.is_ok());
+        let settings = result.unwrap();
+        assert_eq!(settings.focus_duration, 25);
+        assert_eq!(settings.short_break_duration, 5);
+        
+        // Test updating settings
+        let mut new_settings = settings;
+        new_settings.focus_duration = 30;
+        new_settings.strict_mode = true;
+        
+        let update_result = update_settings(new_settings.clone(), tauri::State::from(&state_manager_arc)).await;
+        assert!(update_result.is_ok());
+        
+        // Verify settings were updated
+        let result = get_settings(tauri::State::from(&state_manager_arc)).await;
+        assert!(result.is_ok());
+        let updated_settings = result.unwrap();
+        assert_eq!(updated_settings.focus_duration, 30);
+        assert!(updated_settings.strict_mode);
+    }
+
+    #[tokio::test]
+    async fn test_session_stats_command() {
+        let (db_arc, _state_manager_arc) = create_test_managers();
+        
+        // Test getting stats (should be empty initially)
+        let result = get_session_stats(7, tauri::State::from(&db_arc)).await;
+        assert!(result.is_ok());
+        let stats = result.unwrap();
+        assert!(stats.is_empty() || stats.iter().all(|s| s.focus_minutes == 0));
+    }
+
+    #[tokio::test]
+    async fn test_end_session_command() {
+        let (_db_arc, state_manager_arc) = create_test_managers();
+        
+        // Start a session first
+        start_focus_session(false, tauri::State::from(&state_manager_arc)).await.unwrap();
+        
+        // Test ending the session
+        let result = end_session(tauri::State::from(&state_manager_arc)).await;
+        assert!(result.is_ok());
+        
+        // Verify no current session
+        let current = get_current_session(tauri::State::from(&state_manager_arc)).await.unwrap();
+        assert!(current.is_none());
+    }
 }

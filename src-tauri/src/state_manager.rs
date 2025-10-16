@@ -485,6 +485,11 @@ impl StateManager {
         self.cycle_count
     }
 
+    /// Get database reference for external access
+    pub fn get_database(&self) -> Arc<Mutex<DatabaseManager>> {
+        Arc::clone(&self.database)
+    }
+
     /// Start the timer service for this state manager
     pub fn start_timer_service(state_manager: Arc<Mutex<StateManager>>) -> mpsc::UnboundedReceiver<Vec<StateEvent>> {
         let (tx, rx) = mpsc::unbounded_channel();
