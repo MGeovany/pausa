@@ -473,7 +473,7 @@ impl StateManager {
                 .lock()
                 .map_err(|e| format!("Failed to lock database: {}", e))?;
             let db_session = break_session.to_db_session(Utc::now());
-            db.insert_session(&db_session)?;
+            db.create_session(&db_session)?;
         }
 
         // Update state

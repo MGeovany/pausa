@@ -1,0 +1,41 @@
+use tauri::AppHandle;
+use url::Url;
+
+use crate::{errors::AppError, state::AppState, domain::oauth::OAuthCallback};
+
+pub fn handle_deep_link(app: &AppHandle, raw: String) -> Result<(), String> {
+    let url = Url::parse(&raw).map_err(|e| e.to_string())?;
+    if url.path() != "/auth/callback" { return Ok(()); }
+
+    let mut code = None;
+    let mut state = None;
+    for (k, v) in url.query_pairs() {
+        if k == "code" { code = Some(v.to_string()); }
+        if k == "state" { state = Some(v.to_string()); }
+    }
+
+    let (code, state) = match (code, state) {
+        (Some(c), Some(s)) => (c, s),
+        _ => return Err("callback sin code/state".into()),
+    };
+
+    let app_handle = app.clone();
+    tauri::async_runtime::spawn(async move {
+        let shared: tauri::State<AppState> = app_handle.state::<AppState>();
+        let svc = shared.oauth_google.lock().map_err(|e| AppError::Lock(e.to_string()));
+        let mut svc = match svc { Ok(s) => s, Err(e) => { let _=app_handle.emit("auth:error", e.to_string()); return; } };
+
+        match svc.handle_callback(OAuthCallback { code, state }).await {
+            Ok(tokens) => {
+                if let Err(e) = shared.tokens_storage.save(&tokens) {
+                    let _ = app_handle.emit("auth:error", format!("save tokens: {}", e));
+                    return;
+                }
+                let _ = app_handle.emit("auth:success", ());
+            }
+            Err(e) => { let _ = app_handle.emit("auth:error", e.to_string()); }
+        }
+    });
+
+    Ok(())
+}

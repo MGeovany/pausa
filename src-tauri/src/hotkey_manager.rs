@@ -1,9 +1,10 @@
 use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
 use std::sync::{Arc, Mutex};
-use tauri::{AppHandle, Manager};
+use tauri::AppHandle;
 use tauri_plugin_global_shortcut::{Code, GlobalShortcutExt, Modifiers, Shortcut, ShortcutState};
 
+use crate::api_models::BreakType;
 use crate::state_manager::{AppState, StateEvent, StateManager};
 use crate::window_manager::WindowManager;
 
@@ -131,7 +132,7 @@ impl HotkeyManager {
                 if let Err(e) = self
                     .app_handle
                     .global_shortcut()
-                    .unregister(&existing_config.shortcut)
+                    .unregister(existing_config.shortcut.clone())
                 {
                     eprintln!("Warning: Failed to unregister existing hotkey: {}", e);
                 }
@@ -145,7 +146,7 @@ impl HotkeyManager {
 
         // Register the new hotkey
         self.app_handle.global_shortcut().on_shortcut(
-            &config.shortcut,
+            config.shortcut.clone(),
             move |_app, _shortcut, event| {
                 if event.state == ShortcutState::Pressed {
                     if let Err(e) = Self::handle_hotkey_event(
@@ -161,10 +162,10 @@ impl HotkeyManager {
 
         // Store the configuration
         if let Ok(mut hotkeys) = self.registered_hotkeys.lock() {
-            hotkeys.insert(config.action.clone(), config);
+            hotkeys.insert(config.action.clone(), config.clone());
         }
 
-        println!("Registered hotkey for action: {:?}", action);
+        println!("Registered hotkey for action: {:?}", config.action);
         Ok(())
     }
 
@@ -177,7 +178,7 @@ impl HotkeyManager {
             if let Some(config) = hotkeys.remove(action) {
                 self.app_handle
                     .global_shortcut()
-                    .unregister(&config.shortcut)?;
+                    .unregister(config.shortcut.clone())?;
                 println!("Unregistered hotkey for action: {:?}", action);
             }
         }
@@ -218,7 +219,7 @@ impl HotkeyManager {
                     // Unregister the hotkey
                     let shortcut = config.shortcut.clone();
                     drop(hotkeys); // Release the lock before calling unregister
-                    self.app_handle.global_shortcut().unregister(&shortcut)?;
+                    self.app_handle.global_shortcut().unregister(shortcut)?;
                 }
             }
         }
@@ -582,7 +583,7 @@ impl HotkeyManager {
                 if let Err(e) = self
                     .app_handle
                     .global_shortcut()
-                    .unregister(&config.shortcut)
+                    .unregister(config.shortcut.clone())
                 {
                     eprintln!("Warning: Failed to unregister hotkey: {}", e);
                 }
@@ -724,13 +725,13 @@ mod tests {
         let immediate_lock = HotkeyAction::ImmediateLock.default_shortcut();
 
         // Test that shortcuts are created (exact values depend on platform)
-        assert!(command_palette.mods.is_some());
+        assert!(command_palette.mods != Modifiers::empty());
         assert_eq!(command_palette.key, Code::Space);
 
-        assert!(focus_session.mods.is_some());
+        assert!(focus_session.mods != Modifiers::empty());
         assert_eq!(focus_session.key, Code::KeyF);
 
-        assert!(immediate_lock.mods.is_some());
+        assert!(immediate_lock.mods != Modifiers::empty());
         assert_eq!(immediate_lock.key, Code::KeyL);
     }
 

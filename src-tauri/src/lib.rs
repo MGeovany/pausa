@@ -1,11 +1,15 @@
-use std::sync::{Arc, Mutex};
-use tauri::Manager;
+/* use std::sync::{Arc, Mutex};
+use tauri::{Emitter, Manager};
 
 mod api_models;
 mod database;
 mod hotkey_manager;
 mod state_manager;
 mod window_manager;
+mod config;
+mod errors;
+mod state;
+mod pkce;
 
 pub use api_models::*;
 use database::DatabaseManager;
@@ -508,3 +512,4 @@ pub fn run() {
         .run(tauri::generate_context!())
         .expect("error while running tauri application");
 }
+ */

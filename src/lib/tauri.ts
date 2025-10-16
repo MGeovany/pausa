@@ -1,7 +1,14 @@
 // Tauri API wrapper with error handling
-import { invoke } from '@tauri-apps/api/core';
-import { listen, emit } from '@tauri-apps/api/event';
-import type { AppEvent, FocusSession, BreakSession, UserSettings, SessionStats, BreakActivity } from '../types';
+import { invoke } from "@tauri-apps/api/core";
+import { listen, emit } from "@tauri-apps/api/event";
+import type {
+  AppEvent,
+  FocusSession,
+  BreakSession,
+  UserSettings,
+  SessionStats,
+  BreakActivity,
+} from "../types";
 
 // Generic invoke wrapper with error handling
 export async function invokeCommand<T>(
@@ -26,9 +33,9 @@ export function setupEventListeners(
 
   // Listen for session updates
   listeners.push(
-    listen<FocusSession>('session-update', (event) => {
+    listen<FocusSession>("session-update", (event) => {
       onEvent({
-        type: 'session-update',
+        type: "session-update",
         session: event.payload,
       });
     })
@@ -36,9 +43,9 @@ export function setupEventListeners(
 
   // Listen for break updates
   listeners.push(
-    listen<BreakSession>('break-update', (event) => {
+    listen<BreakSession>("break-update", (event) => {
       onEvent({
-        type: 'break-update',
+        type: "break-update",
         breakSession: event.payload,
       });
     })
@@ -46,9 +53,9 @@ export function setupEventListeners(
 
   // Listen for state changes
   listeners.push(
-    listen<{ from: string; to: string }>('state-change', (event) => {
+    listen<{ from: string; to: string }>("state-change", (event) => {
       onEvent({
-        type: 'state-change',
+        type: "state-change",
         from: event.payload.from as any,
         to: event.payload.to as any,
       });
@@ -64,7 +71,10 @@ export function setupEventListeners(
 }
 
 // Emit events to backend (if needed)
-export async function emitEvent(eventName: string, payload?: any): Promise<void> {
+export async function emitEvent(
+  eventName: string,
+  payload?: any
+): Promise<void> {
   try {
     await emit(eventName, payload);
   } catch (error) {
@@ -77,65 +87,61 @@ export async function emitEvent(eventName: string, payload?: any): Promise<void>
 export const tauriCommands = {
   // Session management
   startFocusSession: (strict: boolean) =>
-    invokeCommand<FocusSession>('start_focus_session', { strict }),
+    invokeCommand<FocusSession>("start_focus_session", { strict }),
 
-  pauseSession: () =>
-    invokeCommand<void>('pause_session'),
+  pauseSession: () => invokeCommand<void>("pause_session"),
 
-  resumeSession: () =>
-    invokeCommand<void>('resume_session'),
+  resumeSession: () => invokeCommand<void>("resume_session"),
 
-  endSession: () =>
-    invokeCommand<void>('end_session'),
+  endSession: () => invokeCommand<void>("end_session"),
 
   getCurrentSession: () =>
-    invokeCommand<FocusSession | null>('get_current_session'),
+    invokeCommand<FocusSession | null>("get_current_session"),
 
   getCurrentBreak: () =>
-    invokeCommand<BreakSession | null>('get_current_break'),
+    invokeCommand<BreakSession | null>("get_current_break"),
 
-  completeBreak: () =>
-    invokeCommand<void>('complete_break'),
+  completeBreak: () => invokeCommand<void>("complete_break"),
 
   // Emergency override
   verifyEmergencyPin: (pin: string) =>
-    invokeCommand<boolean>('verify_emergency_pin', { pin }),
+    invokeCommand<boolean>("verify_emergency_pin", { pin }),
 
   // Break activities
-  getBreakActivity: (breakType: 'short' | 'long', duration: number) =>
-    invokeCommand<BreakActivity>('get_break_activity', { breakType, duration }),
+  getBreakActivity: (breakType: "short" | "long", duration: number) =>
+    invokeCommand<BreakActivity>("get_break_activity", { breakType, duration }),
 
   getCustomActivities: () =>
-    invokeCommand<BreakActivity[]>('get_custom_activities'),
+    invokeCommand<BreakActivity[]>("get_custom_activities"),
 
   addCustomActivity: (activity: BreakActivity) =>
-    invokeCommand<void>('add_custom_activity', { activity }),
+    invokeCommand<void>("add_custom_activity", { activity }),
 
   updateActivity: (oldTitle: string, newActivity: BreakActivity) =>
-    invokeCommand<void>('update_activity', { oldTitle, newActivity }),
+    invokeCommand<void>("update_activity", { oldTitle, newActivity }),
 
   removeActivity: (title: string) =>
-    invokeCommand<boolean>('remove_activity', { title }),
+    invokeCommand<boolean>("remove_activity", { title }),
 
   // Settings management
-  getSettings: () =>
-    invokeCommand<UserSettings>('get_settings'),
+  getSettings: () => invokeCommand<UserSettings>("get_settings"),
 
   updateSettings: (settings: UserSettings) =>
-    invokeCommand<void>('update_settings', { settings }),
+    invokeCommand<void>("update_settings", { settings }),
 
   // Statistics
   getSessionStats: (days: number) =>
-    invokeCommand<SessionStats[]>('get_session_stats', { days }),
+    invokeCommand<SessionStats[]>("get_session_stats", { days }),
 
   // State information
-  getAppState: () =>
-    invokeCommand<string>('get_app_state'),
+  getAppState: () => invokeCommand<string>("get_app_state"),
 
   // Testing
-  testStateManager: () =>
-    invokeCommand<string>('test_state_manager'),
+  testStateManager: () => invokeCommand<string>("test_state_manager"),
 
-  getDatabaseStats: () =>
-    invokeCommand<string>('get_database_stats'),
+  getDatabaseStats: () => invokeCommand<string>("get_database_stats"),
+
+  // Window management
+  isWindowVisible: (windowType: string) =>
+    invokeCommand<boolean>("is_window_visible", { windowType }),
 } as const;

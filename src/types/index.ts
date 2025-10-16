@@ -22,11 +22,11 @@ export interface FocusSession {
   state: SessionState;
 }
 
-export type SessionState = 'idle' | 'running' | 'pre-alert' | 'ending';
+export type SessionState = "idle" | "running" | "pre-alert" | "ending";
 
 export interface BreakSession {
   id: string;
-  type: 'short' | 'long';
+  type: "short" | "long";
   duration: number; // seconds
   remaining: number; // seconds
   activity: BreakActivity;
@@ -50,13 +50,18 @@ export interface SessionStats {
 export interface Command {
   id: string;
   label: string;
-  category: 'focus' | 'break' | 'lock' | 'stats' | 'settings';
+  category: "focus" | "break" | "lock" | "stats" | "settings";
   shortcut?: string;
   action: () => Promise<void>;
 }
 
 // Window management types
-export type WindowType = 'command-palette' | 'focus-widget' | 'break-overlay' | 'settings';
+export type WindowType =
+  | "command-palette"
+  | "focus-widget"
+  | "break-overlay"
+  | "settings"
+  | "onboarding";
 
 // State management types for Zustand
 export interface AppState {
@@ -92,7 +97,7 @@ export interface AppState {
 // Toast notification types
 export interface Toast {
   id: string;
-  type: 'success' | 'error' | 'warning' | 'info';
+  type: "success" | "error" | "warning" | "info";
   title: string;
   message?: string;
   duration?: number;
@@ -104,12 +109,12 @@ export interface Toast {
 
 // Error types
 export type PausaError =
-  | 'database-error'
-  | 'window-management-error'
-  | 'blocking-service-error'
-  | 'invalid-state-transition'
-  | 'authentication-failed'
-  | 'system-integration-error';
+  | "database-error"
+  | "window-management-error"
+  | "blocking-service-error"
+  | "invalid-state-transition"
+  | "authentication-failed"
+  | "system-integration-error";
 
 // Tauri command result types
 export interface TauriResult<T> {
@@ -123,17 +128,17 @@ export interface TauriResult<T> {
 
 // Event types for real-time updates
 export interface SessionUpdateEvent {
-  type: 'session-update';
+  type: "session-update";
   session: FocusSession;
 }
 
 export interface BreakUpdateEvent {
-  type: 'break-update';
+  type: "break-update";
   breakSession: BreakSession;
 }
 
 export interface StateChangeEvent {
-  type: 'state-change';
+  type: "state-change";
   from: SessionState;
   to: SessionState;
 }

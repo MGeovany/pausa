@@ -12,57 +12,20 @@
   "app": {
     "windows": [
       {
-        "label": "command-palette",
-        "title": "Pausa Command Palette",
-        "width": 600,
-        "height": 400,
-        "visible": false,
-        "resizable": false,
-        "decorations": false,
-        "transparent": true,
-        "alwaysOnTop": true,
-        "skipTaskbar": true,
-        "center": true,
-        "shadow": false,
-        "focus": true
-      },
-      {
-        "label": "focus-widget",
-        "title": "Pausa Focus Widget",
-        "width": 280,
-        "height": 80,
-        "visible": false,
-        "resizable": false,
-        "decorations": false,
-        "transparent": true,
-        "alwaysOnTop": true,
-        "skipTaskbar": true,
-        "shadow": false,
-        "dragDropEnabled": true
-      },
-      {
-        "label": "break-overlay",
-        "title": "Pausa Break",
-        "visible": false,
-        "resizable": false,
-        "decorations": false,
-        "alwaysOnTop": true,
-        "skipTaskbar": true,
-        "fullscreen": true,
-        "shadow": false,
-        "focus": true
-      },
-      {
-        "label": "settings",
-        "title": "Pausa Settings",
+        "label": "onboarding",
+        "title": "Pausa Onboarding",
         "width": 800,
         "height": 600,
-        "visible": false,
-        "resizable": true,
-        "decorations": true,
-        "center": true,
+        "visible": true,
+        "resizable": false,
+        "decorations": false,
+        "transparent": true,
+        "alwaysOnTop": false,
         "skipTaskbar": false,
-        "shadow": true
+        "center": true,
+        "shadow": true,
+        "focus": true,
+        "dragDropEnabled": true
       }
     ],
     "security": {
@@ -70,6 +33,9 @@
     }
   },
   "plugins": {
+    "deepLink": {
+      "schemes": ["pausa"]
+    },
     "globalShortcut": {
       "shortcuts": {
         "cmd+space": "toggle_command_palette",
