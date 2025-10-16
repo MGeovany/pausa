@@ -1,7 +1,7 @@
 // Tauri API wrapper with error handling
 import { invoke } from '@tauri-apps/api/core';
 import { listen, emit } from '@tauri-apps/api/event';
-import type { AppEvent, FocusSession, BreakSession, UserSettings, SessionStats } from '../types';
+import type { AppEvent, FocusSession, BreakSession, UserSettings, SessionStats, BreakActivity } from '../types';
 
 // Generic invoke wrapper with error handling
 export async function invokeCommand<T>(
@@ -96,6 +96,26 @@ export const tauriCommands = {
 
   completeBreak: () =>
     invokeCommand<void>('complete_break'),
+
+  // Emergency override
+  verifyEmergencyPin: (pin: string) =>
+    invokeCommand<boolean>('verify_emergency_pin', { pin }),
+
+  // Break activities
+  getBreakActivity: (breakType: 'short' | 'long', duration: number) =>
+    invokeCommand<BreakActivity>('get_break_activity', { breakType, duration }),
+
+  getCustomActivities: () =>
+    invokeCommand<BreakActivity[]>('get_custom_activities'),
+
+  addCustomActivity: (activity: BreakActivity) =>
+    invokeCommand<void>('add_custom_activity', { activity }),
+
+  updateActivity: (oldTitle: string, newActivity: BreakActivity) =>
+    invokeCommand<void>('update_activity', { oldTitle, newActivity }),
+
+  removeActivity: (title: string) =>
+    invokeCommand<boolean>('remove_activity', { title }),
 
   // Settings management
   getSettings: () =>

@@ -77,6 +77,17 @@ export const createSettingsCommand = (): Command =>
     }
   );
 
+export const createBreakActivitiesCommand = (): Command =>
+  createCommand(
+    'break-activities',
+    'Manage Break Activities',
+    'settings',
+    async () => {
+      // This will be handled by the parent component
+      console.log('Opening break activities settings...');
+    }
+  );
+
 // Session management functions for use in components
 export const SessionManager = {
   async getCurrentSession() {
@@ -136,6 +147,7 @@ export class CommandRegistry {
       createHydrateBreakCommand(),
       createStatsCommand(),
       createSettingsCommand(),
+      createBreakActivitiesCommand(),
     ];
   }
 

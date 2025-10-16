@@ -84,14 +84,15 @@ impl DatabaseManager {
     /// Configure SQLite connection settings
     fn configure_connection(conn: &Connection) -> DatabaseResult<()> {
         println!("Configuring database connection...");
-        
+
         // Enable foreign key constraints
         conn.execute("PRAGMA foreign_keys = ON", [])
             .map_err(DatabaseError::Sqlite)?;
         println!("✓ Foreign keys enabled");
 
         // Set WAL mode for better concurrency
-        let journal_mode: String = conn.query_row("PRAGMA journal_mode = WAL", [], |row| row.get(0))
+        let journal_mode: String = conn
+            .query_row("PRAGMA journal_mode = WAL", [], |row| row.get(0))
             .map_err(DatabaseError::Sqlite)?;
         println!("✓ Journal mode set to: {}", journal_mode);
 

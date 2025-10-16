@@ -1,5 +1,5 @@
+use chrono::{DateTime, NaiveDateTime, Utc};
 use serde::{Deserialize, Serialize};
-use chrono::{DateTime, Utc, NaiveDateTime};
 
 /// User settings model matching the database schema
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -25,7 +25,7 @@ impl Default for UserSettings {
             short_break_duration: 300, // 5 minutes
             long_break_duration: 900,  // 15 minutes
             cycles_per_long_break: 4,
-            pre_alert_seconds: 120,    // 2 minutes
+            pre_alert_seconds: 120, // 2 minutes
             strict_mode: false,
             pin_hash: None,
             created_at: now,
@@ -63,7 +63,7 @@ impl std::fmt::Display for BlockType {
 
 impl std::str::FromStr for BlockType {
     type Err = String;
-    
+
     fn from_str(s: &str) -> Result<Self, Self::Err> {
         match s.to_lowercase().as_str() {
             "app" => Ok(BlockType::App),
@@ -108,7 +108,7 @@ impl std::fmt::Display for SessionType {
 
 impl std::str::FromStr for SessionType {
     type Err = String;
-    
+
     fn from_str(s: &str) -> Result<Self, Self::Err> {
         match s {
             "focus" => Ok(SessionType::Focus),
@@ -173,10 +173,12 @@ impl BlockListItem {
         let type_str: String = row.get("type")?;
         let item_type = type_str.parse().map_err(|e| {
             rusqlite::Error::FromSqlConversionFailure(
-                0, rusqlite::types::Type::Text, Box::new(std::io::Error::new(std::io::ErrorKind::InvalidData, e))
+                0,
+                rusqlite::types::Type::Text,
+                Box::new(std::io::Error::new(std::io::ErrorKind::InvalidData, e)),
             )
         })?;
-        
+
         Ok(Self {
             id: Some(row.get("id")?),
             item_type,
@@ -193,10 +195,12 @@ impl Session {
         let type_str: String = row.get("session_type")?;
         let session_type = type_str.parse().map_err(|e| {
             rusqlite::Error::FromSqlConversionFailure(
-                0, rusqlite::types::Type::Text, Box::new(std::io::Error::new(std::io::ErrorKind::InvalidData, e))
+                0,
+                rusqlite::types::Type::Text,
+                Box::new(std::io::Error::new(std::io::ErrorKind::InvalidData, e)),
             )
         })?;
-        
+
         Ok(Self {
             id: row.get("id")?,
             session_type,
@@ -217,10 +221,12 @@ impl EvasionAttempt {
         let type_str: String = row.get("attempt_type")?;
         let attempt_type = type_str.parse().map_err(|e| {
             rusqlite::Error::FromSqlConversionFailure(
-                0, rusqlite::types::Type::Text, Box::new(std::io::Error::new(std::io::ErrorKind::InvalidData, e))
+                0,
+                rusqlite::types::Type::Text,
+                Box::new(std::io::Error::new(std::io::ErrorKind::InvalidData, e)),
             )
         })?;
-        
+
         Ok(Self {
             id: Some(row.get("id")?),
             session_id: row.get("session_id")?,
