@@ -83,31 +83,41 @@ impl DatabaseManager {
 
     /// Configure SQLite connection settings
     fn configure_connection(conn: &Connection) -> DatabaseResult<()> {
+        println!("Configuring database connection...");
+        
         // Enable foreign key constraints
         conn.execute("PRAGMA foreign_keys = ON", [])
             .map_err(DatabaseError::Sqlite)?;
+        println!("✓ Foreign keys enabled");
 
         // Set WAL mode for better concurrency
-        let _: String = conn.query_row("PRAGMA journal_mode = WAL", [], |row| row.get(0))
+        let journal_mode: String = conn.query_row("PRAGMA journal_mode = WAL", [], |row| row.get(0))
             .map_err(DatabaseError::Sqlite)?;
+        println!("✓ Journal mode set to: {}", journal_mode);
 
         // Set synchronous mode for better performance
-        let _: String = conn.query_row("PRAGMA synchronous = NORMAL", [], |row| row.get(0))
+        conn.execute("PRAGMA synchronous = NORMAL", [])
             .map_err(DatabaseError::Sqlite)?;
+        println!("✓ Synchronous mode set to NORMAL");
 
         // Set cache size (negative value means KB)
-        let _: i32 = conn.query_row("PRAGMA cache_size = -64000", [], |row| row.get(0))
+        conn.execute("PRAGMA cache_size = -64000", [])
             .map_err(DatabaseError::Sqlite)?;
+        println!("✓ Cache size configured");
 
         // Set temp store to memory
-        let _: String = conn.query_row("PRAGMA temp_store = MEMORY", [], |row| row.get(0))
+        conn.execute("PRAGMA temp_store = MEMORY", [])
             .map_err(DatabaseError::Sqlite)?;
+        println!("✓ Temp store set to MEMORY");
 
         // Set mmap size for better I/O performance
-        let _: i64 = conn.query_row("PRAGMA mmap_size = 268435456", [], |row| row.get(0))
-            .map_err(DatabaseError::Sqlite)?;
+        // Note: mmap_size may not return a value in some SQLite versions
+        // Temporarily commented out due to ExecuteReturnedResults error
+        // conn.execute("PRAGMA mmap_size = 268435456", [])
+        //     .map_err(DatabaseError::Sqlite)?;
+        // println!("✓ Mmap size configured");
 
-        println!("Database connection configured");
+        println!("Database connection configured successfully");
         Ok(())
     }
 

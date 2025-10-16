@@ -47,14 +47,14 @@
     - Test session persistence and recovery
     - _Requirements: 3.5, 5.5_
 
-- [ ] 4. Implement window management system
-  - [ ] 4.1 Create multi-window Tauri configuration
+- [x] 4. Implement window management system
+  - [x] 4.1 Create multi-window Tauri configuration
     - Configure window types: command palette, focus widget, break overlay, settings
     - Set up window properties: always-on-top, transparency, click-through, fullscreen
     - Implement window positioning and multi-monitor support
     - _Requirements: 1.1, 3.3, 4.2_
 
-  - [ ] 4.2 Build window manager service in Rust
+  - [x] 4.2 Build window manager service in Rust
     - Create WindowManager struct with window lifecycle management
     - Implement show/hide methods for each window type
     - Add window positioning and dragging support for focus widget

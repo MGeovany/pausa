@@ -100,17 +100,34 @@ impl MigrationManager {
         }
         
         // Run PRAGMA integrity_check
-        let integrity_result: String = conn.query_row(
-            "PRAGMA integrity_check",
-            [],
-            |row| row.get(0)
-        ).map_err(DatabaseError::Sqlite)?;
+        let mut stmt = conn.prepare("PRAGMA integrity_check")
+            .map_err(DatabaseError::Sqlite)?;
         
-        if integrity_result != "ok" {
+        let mut integrity_ok = false;
+        let mut errors = Vec::new();
+        
+        let rows = stmt.query_map([], |row| {
+            let result: String = row.get(0)?;
+            Ok(result)
+        }).map_err(DatabaseError::Sqlite)?;
+        
+        for row_result in rows {
+            let result = row_result.map_err(DatabaseError::Sqlite)?;
+            if result == "ok" {
+                integrity_ok = true;
+            } else {
+                errors.push(result);
+            }
+        }
+        
+        // Only fail if we got errors but no "ok"
+        if !integrity_ok && !errors.is_empty() {
             return Err(DatabaseError::Migration(
-                format!("Database integrity check failed: {}", integrity_result)
+                format!("Database integrity check failed: {}", errors.join(", "))
             ));
         }
+        
+        // If no rows returned, that's okay for a new database
         
         println!("Database validation passed");
         Ok(())

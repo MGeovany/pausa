@@ -383,34 +383,6 @@ pub type Result<T> = std::result::Result<T, PausaError>;
 3. **System Integration Errors**: Graceful degradation when OS-level features are unavailable
 4. **Database Errors**: Automatic retry for transient errors, user notification for persistent issues
 
-## Testing Strategy
-
-### Unit Tests
-
-1. **State Machine Tests**: Verify all state transitions and edge cases
-2. **Blocking Service Tests**: Mock OS interactions and test blocking logic
-3. **Database Tests**: Test all CRUD operations and data integrity
-4. **Timer Tests**: Test session timing and pre-alert functionality
-
-### Integration Tests
-
-1. **Tauri Command Tests**: Test frontend-backend communication
-2. **Window Management Tests**: Test window creation, positioning, and lifecycle
-3. **Settings Persistence Tests**: Test configuration save/load functionality
-
-### End-to-End Tests
-
-1. **Focus Session Flow**: Complete focus session with breaks
-2. **Strict Mode Flow**: Test blocking and emergency override
-3. **Statistics Flow**: Test session recording and stats calculation
-4. **Keyboard Shortcuts**: Test all global hotkeys and navigation
-
-### Testing Tools
-
-- **Rust**: `cargo test` with `tokio-test` for async testing
-- **React**: Jest and React Testing Library for component tests
-- **Tauri**: `@tauri-apps/api/mocks` for mocking Tauri APIs
-- **E2E**: Playwright or similar for full application testing
 
 ## Platform-Specific Considerations
 
