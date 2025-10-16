@@ -33,3 +33,6 @@ rusqlite = { version = "0.32", features = ["bundled", "chrono"] }
 bcrypt = "0.15"
 thiserror = "1.0"
 
+[dev-dependencies]
+tempfile = "3.8"
+
