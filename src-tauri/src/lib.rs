@@ -3,7 +3,10 @@ use std::sync::Mutex;
 use std::path::PathBuf;
 
 mod database;
+mod api_models;
+
 use database::DatabaseManager;
+pub use api_models::*;
 
 // Placeholder command - will be replaced in later tasks
 #[tauri::command]
