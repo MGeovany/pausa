@@ -1,8 +1,10 @@
 use std::sync::{Arc, Mutex};
 use std::path::PathBuf;
-use rusqlite::{Connection, OpenFlags};
+use rusqlite::{Connection, OpenFlags, params};
+use chrono::{DateTime, Utc};
 use crate::database::{DatabaseError, DatabaseResult};
 use crate::database::migrations::MigrationManager;
+use crate::database::models::{UserSettings, Session, SessionType};
 
 /// Database connection manager with connection pooling
 pub struct DatabaseManager {
@@ -144,6 +146,175 @@ impl DatabaseManager {
                 free_size: freelist_count * page_size,
                 user_version,
             })
+        })
+    }
+
+    /// User Settings Methods
+    
+    /// Get user settings
+    pub fn get_user_settings(&self) -> DatabaseResult<Option<UserSettings>> {
+        self.with_connection(|conn| {
+            let mut stmt = conn.prepare(
+                "SELECT id, focus_duration, short_break_duration, long_break_duration, 
+                        cycles_per_long_break, pre_alert_seconds, strict_mode, pin_hash, 
+                        created_at, updated_at 
+                 FROM user_settings 
+                 WHERE id = 1"
+            ).map_err(DatabaseError::Sqlite)?;
+            
+            let result = stmt.query_row([], |row| UserSettings::from_row(row));
+            
+            match result {
+                Ok(settings) => Ok(Some(settings)),
+                Err(rusqlite::Error::QueryReturnedNoRows) => Ok(None),
+                Err(e) => Err(DatabaseError::Sqlite(e)),
+            }
+        })
+    }
+    
+    /// Save user settings
+    pub fn save_user_settings(&self, settings: &UserSettings) -> DatabaseResult<()> {
+        self.with_connection(|conn| {
+            conn.execute(
+                "INSERT OR REPLACE INTO user_settings 
+                 (id, focus_duration, short_break_duration, long_break_duration, 
+                  cycles_per_long_break, pre_alert_seconds, strict_mode, pin_hash, 
+                  created_at, updated_at)
+                 VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8, ?9, ?10)",
+                params![
+                    settings.id,
+                    settings.focus_duration,
+                    settings.short_break_duration,
+                    settings.long_break_duration,
+                    settings.cycles_per_long_break,
+                    settings.pre_alert_seconds,
+                    settings.strict_mode,
+                    settings.pin_hash,
+                    settings.created_at,
+                    settings.updated_at,
+                ]
+            ).map_err(DatabaseError::Sqlite)?;
+            
+            Ok(())
+        })
+    }
+
+    /// Session Management Methods
+    
+    /// Create a new session
+    pub fn create_session(&self, session: &Session) -> DatabaseResult<()> {
+        self.with_connection(|conn| {
+            conn.execute(
+                "INSERT INTO sessions 
+                 (id, session_type, start_time, end_time, planned_duration, 
+                  actual_duration, strict_mode, completed, notes, created_at)
+                 VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8, ?9, ?10)",
+                params![
+                    session.id,
+                    session.session_type.to_string(),
+                    session.start_time,
+                    session.end_time,
+                    session.planned_duration,
+                    session.actual_duration,
+                    session.strict_mode,
+                    session.completed,
+                    session.notes,
+                    session.created_at,
+                ]
+            ).map_err(DatabaseError::Sqlite)?;
+            
+            Ok(())
+        })
+    }
+    
+    /// Update an existing session
+    pub fn update_session(&self, session: &Session) -> DatabaseResult<()> {
+        self.with_connection(|conn| {
+            conn.execute(
+                "UPDATE sessions 
+                 SET session_type = ?2, start_time = ?3, end_time = ?4, 
+                     planned_duration = ?5, actual_duration = ?6, strict_mode = ?7, 
+                     completed = ?8, notes = ?9
+                 WHERE id = ?1",
+                params![
+                    session.id,
+                    session.session_type.to_string(),
+                    session.start_time,
+                    session.end_time,
+                    session.planned_duration,
+                    session.actual_duration,
+                    session.strict_mode,
+                    session.completed,
+                    session.notes,
+                ]
+            ).map_err(DatabaseError::Sqlite)?;
+            
+            Ok(())
+        })
+    }
+    
+    /// Get the most recent active (incomplete) session
+    pub fn get_active_session(&self) -> DatabaseResult<Option<Session>> {
+        self.with_connection(|conn| {
+            let mut stmt = conn.prepare(
+                "SELECT id, session_type, start_time, end_time, planned_duration, 
+                        actual_duration, strict_mode, completed, notes, created_at
+                 FROM sessions 
+                 WHERE completed = FALSE AND end_time IS NULL
+                 ORDER BY start_time DESC 
+                 LIMIT 1"
+            ).map_err(DatabaseError::Sqlite)?;
+            
+            let result = stmt.query_row([], |row| Session::from_row(row));
+            
+            match result {
+                Ok(session) => Ok(Some(session)),
+                Err(rusqlite::Error::QueryReturnedNoRows) => Ok(None),
+                Err(e) => Err(DatabaseError::Sqlite(e)),
+            }
+        })
+    }
+    
+    /// Get session by ID
+    pub fn get_session(&self, session_id: &str) -> DatabaseResult<Option<Session>> {
+        self.with_connection(|conn| {
+            let mut stmt = conn.prepare(
+                "SELECT id, session_type, start_time, end_time, planned_duration, 
+                        actual_duration, strict_mode, completed, notes, created_at
+                 FROM sessions 
+                 WHERE id = ?1"
+            ).map_err(DatabaseError::Sqlite)?;
+            
+            let result = stmt.query_row([session_id], |row| Session::from_row(row));
+            
+            match result {
+                Ok(session) => Ok(Some(session)),
+                Err(rusqlite::Error::QueryReturnedNoRows) => Ok(None),
+                Err(e) => Err(DatabaseError::Sqlite(e)),
+            }
+        })
+    }
+    
+    /// Get sessions within a date range
+    pub fn get_sessions_in_range(&self, start_date: DateTime<Utc>, end_date: DateTime<Utc>) -> DatabaseResult<Vec<Session>> {
+        self.with_connection(|conn| {
+            let mut stmt = conn.prepare(
+                "SELECT id, session_type, start_time, end_time, planned_duration, 
+                        actual_duration, strict_mode, completed, notes, created_at
+                 FROM sessions 
+                 WHERE start_time >= ?1 AND start_time <= ?2
+                 ORDER BY start_time ASC"
+            ).map_err(DatabaseError::Sqlite)?;
+            
+            let session_iter = stmt.query_map([start_date, end_date], |row| Session::from_row(row))
+                .map_err(DatabaseError::Sqlite)?;
+            
+            let mut sessions = Vec::new();
+            for session in session_iter {
+                sessions.push(session.map_err(DatabaseError::Sqlite)?);
+            }
+            
+            Ok(sessions)
         })
     }
 }

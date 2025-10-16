@@ -27,7 +27,7 @@
     - _Requirements: 5.6, 7.4_
 
 - [ ] 3. Create state management system
-  - [ ] 3.1 Implement core state machine in Rust
+  - [x] 3.1 Implement core state machine in Rust
     - Create AppState enum and StateManager struct
     - Implement state transitions: Idle → FocusRunning → FocusPreAlert → FocusEnding → BreakRunning
     - Add timer functionality with precise timing and pre-alert triggers
