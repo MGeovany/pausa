@@ -10,8 +10,70 @@ mod window_manager;
 pub use api_models::*;
 use database::DatabaseManager;
 use hotkey_manager::HotkeyManager;
-use state_manager::StateManager;
+use state_manager::{StateEvent, StateManager};
 use window_manager::WindowManager;
+
+// Helper function to emit state events to frontend
+fn emit_state_event(app_handle: &tauri::AppHandle, event: &StateEvent) {
+    match event {
+        StateEvent::StateChanged { from, to } => {
+            let payload = serde_json::json!({
+                "from": format!("{:?}", from),
+                "to": format!("{:?}", to)
+            });
+            if let Err(e) = app_handle.emit("state-change", payload) {
+                eprintln!("Failed to emit state-change event: {}", e);
+            }
+        }
+        StateEvent::SessionStarted { session_id } => {
+            if let Err(e) = app_handle.emit("session-started", session_id) {
+                eprintln!("Failed to emit session-started event: {}", e);
+            }
+        }
+        StateEvent::SessionPaused { session_id } => {
+            if let Err(e) = app_handle.emit("session-paused", session_id) {
+                eprintln!("Failed to emit session-paused event: {}", e);
+            }
+        }
+        StateEvent::SessionResumed { session_id } => {
+            if let Err(e) = app_handle.emit("session-resumed", session_id) {
+                eprintln!("Failed to emit session-resumed event: {}", e);
+            }
+        }
+        StateEvent::SessionCompleted { session_id } => {
+            if let Err(e) = app_handle.emit("session-completed", session_id) {
+                eprintln!("Failed to emit session-completed event: {}", e);
+            }
+        }
+        StateEvent::PreAlertTriggered {
+            session_id,
+            remaining_seconds,
+        } => {
+            let payload = serde_json::json!({
+                "sessionId": session_id,
+                "remainingSeconds": remaining_seconds
+            });
+            if let Err(e) = app_handle.emit("pre-alert-triggered", payload) {
+                eprintln!("Failed to emit pre-alert-triggered event: {}", e);
+            }
+        }
+        StateEvent::BreakStarted { break_session } => {
+            if let Err(e) = app_handle.emit("break-update", break_session) {
+                eprintln!("Failed to emit break-update event: {}", e);
+            }
+        }
+        StateEvent::BreakCompleted { session_id } => {
+            if let Err(e) = app_handle.emit("break-completed", session_id) {
+                eprintln!("Failed to emit break-completed event: {}", e);
+            }
+        }
+        StateEvent::TimerTick {
+            remaining_seconds: _,
+        } => {
+            // Timer ticks are handled by emitting session updates, not separate events
+        }
+    }
+}
 
 // Placeholder command - will be replaced in later tasks
 #[tauri::command]
@@ -46,6 +108,7 @@ async fn get_database_stats(
 async fn start_focus_session(
     strict: bool,
     state_manager: tauri::State<'_, Arc<Mutex<StateManager>>>,
+    app_handle: tauri::AppHandle,
 ) -> Result<FocusSession, String> {
     let mut manager = state_manager
         .lock()
@@ -55,19 +118,27 @@ async fn start_focus_session(
         .start_focus_session(strict)
         .map_err(|e| format!("Failed to start focus session: {}", e))?;
 
-    // TODO: Emit events to frontend
+    let session = manager
+        .get_current_session()
+        .ok_or_else(|| "Failed to get current session after starting".to_string())?;
+
+    // Emit events to frontend
     for event in events {
-        println!("State Event: {:?}", event);
+        emit_state_event(&app_handle, &event);
     }
 
-    manager
-        .get_current_session()
-        .ok_or_else(|| "Failed to get current session after starting".to_string())
+    // Emit session update
+    if let Err(e) = app_handle.emit("session-update", &session) {
+        eprintln!("Failed to emit session-update event: {}", e);
+    }
+
+    Ok(session)
 }
 
 #[tauri::command]
 async fn pause_session(
     state_manager: tauri::State<'_, Arc<Mutex<StateManager>>>,
+    app_handle: tauri::AppHandle,
 ) -> Result<(), String> {
     let mut manager = state_manager
         .lock()
@@ -77,9 +148,16 @@ async fn pause_session(
         .pause_session()
         .map_err(|e| format!("Failed to pause session: {}", e))?;
 
-    // TODO: Emit events to frontend
+    // Emit events to frontend
     for event in events {
-        println!("State Event: {:?}", event);
+        emit_state_event(&app_handle, &event);
+    }
+
+    // Emit updated session
+    if let Some(session) = manager.get_current_session() {
+        if let Err(e) = app_handle.emit("session-update", &session) {
+            eprintln!("Failed to emit session-update event: {}", e);
+        }
     }
 
     Ok(())
@@ -88,6 +166,7 @@ async fn pause_session(
 #[tauri::command]
 async fn resume_session(
     state_manager: tauri::State<'_, Arc<Mutex<StateManager>>>,
+    app_handle: tauri::AppHandle,
 ) -> Result<(), String> {
     let mut manager = state_manager
         .lock()
@@ -97,9 +176,16 @@ async fn resume_session(
         .resume_session()
         .map_err(|e| format!("Failed to resume session: {}", e))?;
 
-    // TODO: Emit events to frontend
+    // Emit events to frontend
     for event in events {
-        println!("State Event: {:?}", event);
+        emit_state_event(&app_handle, &event);
+    }
+
+    // Emit updated session
+    if let Some(session) = manager.get_current_session() {
+        if let Err(e) = app_handle.emit("session-update", &session) {
+            eprintln!("Failed to emit session-update event: {}", e);
+        }
     }
 
     Ok(())
@@ -108,6 +194,7 @@ async fn resume_session(
 #[tauri::command]
 async fn end_session(
     state_manager: tauri::State<'_, Arc<Mutex<StateManager>>>,
+    app_handle: tauri::AppHandle,
 ) -> Result<(), String> {
     let mut manager = state_manager
         .lock()
@@ -117,9 +204,14 @@ async fn end_session(
         .end_session()
         .map_err(|e| format!("Failed to end session: {}", e))?;
 
-    // TODO: Emit events to frontend
+    // Emit events to frontend
     for event in events {
-        println!("State Event: {:?}", event);
+        emit_state_event(&app_handle, &event);
+    }
+
+    // Emit session cleared (null)
+    if let Err(e) = app_handle.emit("session-update", Option::<FocusSession>::None) {
+        eprintln!("Failed to emit session-update event: {}", e);
     }
 
     Ok(())
@@ -148,6 +240,7 @@ async fn get_current_break(
 #[tauri::command]
 async fn complete_break(
     state_manager: tauri::State<'_, Arc<Mutex<StateManager>>>,
+    app_handle: tauri::AppHandle,
 ) -> Result<(), String> {
     let mut manager = state_manager
         .lock()
@@ -157,9 +250,14 @@ async fn complete_break(
         .complete_break()
         .map_err(|e| format!("Failed to complete break: {}", e))?;
 
-    // TODO: Emit events to frontend
+    // Emit events to frontend
     for event in events {
-        println!("State Event: {:?}", event);
+        emit_state_event(&app_handle, &event);
+    }
+
+    // Emit break cleared (null)
+    if let Err(e) = app_handle.emit("break-update", Option::<BreakSession>::None) {
+        eprintln!("Failed to emit break-update event: {}", e);
     }
 
     Ok(())
@@ -308,15 +406,39 @@ pub fn run() {
 
             // Start timer service in a separate thread with its own Tokio runtime
             let state_manager_for_timer = Arc::clone(&state_manager_arc);
+            let app_handle_for_timer = app.handle().clone();
             std::thread::spawn(move || {
                 let rt = tokio::runtime::Runtime::new().expect("Failed to create Tokio runtime");
                 rt.block_on(async {
-                    let _timer_rx = StateManager::start_timer_service(state_manager_for_timer);
-                    // Keep the runtime alive
-                    std::future::pending::<()>().await;
+                    let mut timer_rx =
+                        StateManager::start_timer_service(state_manager_for_timer.clone());
+
+                    // Handle timer events and emit to frontend
+                    while let Some(events) = timer_rx.recv().await {
+                        for event in events {
+                            emit_state_event(&app_handle_for_timer, &event);
+                        }
+
+                        // Emit current session state after timer tick
+                        if let Ok(manager) = state_manager_for_timer.try_lock() {
+                            if let Some(session) = manager.get_current_session() {
+                                if let Err(e) =
+                                    app_handle_for_timer.emit("session-update", &session)
+                                {
+                                    eprintln!("Failed to emit session-update from timer: {}", e);
+                                }
+                            }
+                            if let Some(break_session) = manager.get_current_break() {
+                                if let Err(e) =
+                                    app_handle_for_timer.emit("break-update", &break_session)
+                                {
+                                    eprintln!("Failed to emit break-update from timer: {}", e);
+                                }
+                            }
+                        }
+                    }
                 });
             });
-            // TODO: Handle timer events and emit to frontend
 
             // Initialize window manager
             let window_manager = WindowManager::new(app.handle().clone());

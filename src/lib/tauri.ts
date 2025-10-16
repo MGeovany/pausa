@@ -1,6 +1,6 @@
 // Tauri API wrapper with error handling
 import { invoke } from '@tauri-apps/api/core';
-import { listen } from '@tauri-apps/api/event';
+import { listen, emit } from '@tauri-apps/api/event';
 import type { AppEvent, FocusSession, BreakSession, UserSettings, SessionStats } from '../types';
 
 // Generic invoke wrapper with error handling
@@ -18,13 +18,59 @@ export async function invokeCommand<T>(
   }
 }
 
-// Event listener setup
+// Event listener setup with multiple event types
 export function setupEventListeners(
   onEvent: (event: AppEvent) => void
 ): Promise<() => void> {
-  return listen<AppEvent>('app-event', (event) => {
-    onEvent(event.payload);
+  const listeners: Promise<() => void>[] = [];
+
+  // Listen for session updates
+  listeners.push(
+    listen<FocusSession>('session-update', (event) => {
+      onEvent({
+        type: 'session-update',
+        session: event.payload,
+      });
+    })
+  );
+
+  // Listen for break updates
+  listeners.push(
+    listen<BreakSession>('break-update', (event) => {
+      onEvent({
+        type: 'break-update',
+        breakSession: event.payload,
+      });
+    })
+  );
+
+  // Listen for state changes
+  listeners.push(
+    listen<{ from: string; to: string }>('state-change', (event) => {
+      onEvent({
+        type: 'state-change',
+        from: event.payload.from as any,
+        to: event.payload.to as any,
+      });
+    })
+  );
+
+  // Return a function that unsubscribes from all listeners
+  return Promise.all(listeners).then((unsubscribeFunctions) => {
+    return () => {
+      unsubscribeFunctions.forEach((unsubscribe) => unsubscribe());
+    };
   });
+}
+
+// Emit events to backend (if needed)
+export async function emitEvent(eventName: string, payload?: any): Promise<void> {
+  try {
+    await emit(eventName, payload);
+  } catch (error) {
+    console.error(`Failed to emit event ${eventName}:`, error);
+    throw error;
+  }
 }
 
 // Tauri command definitions

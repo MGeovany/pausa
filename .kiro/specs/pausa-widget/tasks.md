@@ -87,54 +87,43 @@
     - Mock platform-specific hotkey APIs
     - _Requirements: 1.1, 9.1, 9.2_
 
-- [ ] 6. Build command palette interface
-  - [ ] 6.1 Create command palette React component
+- [-] 6. Build command palette interface
+  - [x] 6.1 Create command palette React component
     - Implement search input with real-time filtering
     - Build command list with keyboard navigation (arrow keys, enter, escape)
     - Add command categories and visual grouping
     - Implement smooth animations and Raycast-inspired styling
     - _Requirements: 2.1, 2.2, 2.5, 2.6, 8.1, 8.3, 8.5_
 
-  - [ ] 6.2 Implement command registry system
+  - [x] 6.2 Implement command registry system
     - Create Command interface and command factory functions
     - Implement commands: Start Focus, Lock Now, Hydrate Break, Stats, Settings
     - Add command search indexing and fuzzy matching
     - Handle command execution and error feedback
     - _Requirements: 2.1, 2.3_
 
-  - [ ]* 6.3 Write component tests for command palette
-    - Test search filtering and keyboard navigation
-    - Test command execution and error handling
-    - Test accessibility and keyboard shortcuts
-    - _Requirements: 2.2, 2.3, 2.4, 2.6_
 
-- [ ] 7. Create focus widget component
-  - [ ] 7.1 Build floating focus widget UI
+- [-] 7. Create focus widget component
+  - [x] 7.1 Build floating focus widget UI
     - Create pill-shaped widget with circular progress indicator
     - Implement time display with MM:SS format
     - Add control buttons: Play/Pause, Reset, Menu (•••)
     - Show strict mode indicator and pre-alert visual feedback
     - _Requirements: 3.1, 3.2, 3.5, 3.6, 8.1, 8.4_
 
-  - [ ] 7.2 Implement widget positioning and dragging
+  - [x] 7.2 Implement widget positioning and dragging
     - Add drag-and-drop functionality for widget repositioning
     - Implement position persistence across app restarts
     - Handle multi-monitor positioning and screen edge snapping
     - Add always-on-top behavior with proper z-index management
     - _Requirements: 3.3, 3.4_
 
-  - [ ] 7.3 Connect widget to state management
+  - [x] 7.3 Connect widget to state management
     - Subscribe to session state updates from Rust backend
     - Handle real-time progress updates and timer synchronization
     - Implement pre-alert animations and visual feedback
     - Add click handlers for session control actions
     - _Requirements: 3.1, 3.2, 3.5, 3.6_
-
-  - [ ]* 7.4 Write component tests for focus widget
-    - Test progress indicator accuracy and animations
-    - Test drag-and-drop positioning functionality
-    - Test state synchronization and real-time updates
-    - _Requirements: 3.1, 3.2, 3.5_
 
 - [ ] 8. Implement break overlay system
   - [ ] 8.1 Create fullscreen break overlay component
@@ -158,12 +147,6 @@
     - Show activity-specific tips and instructions
     - _Requirements: 4.3_
 
-  - [ ]* 8.4 Write component tests for break overlay
-    - Test fullscreen behavior and multi-monitor coverage
-    - Test PIN entry and emergency override functionality
-    - Test activity display and checklist interactions
-    - _Requirements: 4.2, 4.3, 4.5_
-
 - [ ] 9. Create application and website blocking system
   - [ ] 9.1 Implement process monitoring service
     - Create cross-platform process enumeration and monitoring
@@ -186,11 +169,6 @@
     - Create blocking schedule and time-based rules
     - _Requirements: 6.1, 6.2_
 
-  - [ ]* 9.4 Write integration tests for blocking system
-    - Test process monitoring and application blocking
-    - Test website blocking via hosts file modification
-    - Test blocking configuration persistence and loading
-    - _Requirements: 6.3, 6.4, 6.5_
 
 - [ ] 10. Build settings and configuration system
   - [ ] 10.1 Create settings UI components
@@ -207,11 +185,6 @@
     - Add settings export/import for user backup and sharing
     - _Requirements: 5.6_
 
-  - [ ]* 10.3 Write component tests for settings
-    - Test settings form validation and error handling
-    - Test settings persistence and loading
-    - Test PIN setup and verification flows
-    - _Requirements: 5.1, 5.2, 5.3, 5.4, 5.5_
 
 - [ ] 11. Create statistics and analytics system
   - [ ] 11.1 Implement session tracking and data collection
@@ -235,11 +208,6 @@
     - Build data export functionality for external analysis
     - _Requirements: 7.1, 7.2, 7.3_
 
-  - [ ]* 11.4 Write unit tests for statistics system
-    - Test session data collection and aggregation
-    - Test statistics calculation accuracy
-    - Test insight generation algorithms
-    - _Requirements: 7.4, 7.5_
 
 - [ ] 12. Implement notification and feedback system
   - [ ] 12.1 Create toast notification system
@@ -255,12 +223,6 @@
     - Create sound notifications with volume control
     - Add notification scheduling and do-not-disturb modes
     - _Requirements: 3.5, 5.5_
-
-  - [ ]* 12.3 Write component tests for notification system
-    - Test toast display, auto-dismiss, and undo functionality
-    - Test system notification integration
-    - Test notification timing and scheduling
-    - _Requirements: 9.4, 9.5_
 
 - [ ] 13. Integrate all components and finalize application
   - [ ] 13.1 Connect all UI components to backend services
@@ -283,10 +245,3 @@
     - Add loading states and smooth transitions
     - Implement keyboard accessibility throughout the app
     - _Requirements: 1.1, 8.3, 8.4, 8.5_
-
-  - [ ]* 13.4 Write end-to-end tests
-    - Test complete focus session workflow
-    - Test strict mode with blocking and emergency override
-    - Test statistics collection and display accuracy
-    - Test all keyboard shortcuts and hotkey combinations
-    - _Requirements: All requirements validation_
