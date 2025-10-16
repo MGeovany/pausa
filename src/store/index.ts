@@ -16,7 +16,7 @@ const DEFAULT_SETTINGS: UserSettings = {
 
 export const useAppStore = create<AppState>()(
   devtools(
-    (set, get) => ({
+    (set) => ({
       // Initial state
       currentSession: null,
       currentBreak: null,

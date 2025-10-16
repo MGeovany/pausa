@@ -1,6 +1,6 @@
 # Implementation Plan
 
-- [ ] 1. Set up project structure and core dependencies
+- [x] 1. Set up project structure and core dependencies
   - Install required Tauri plugins for global shortcuts, system tray, and window management
   - Add React dependencies for state management (Zustand) and UI components
   - Configure Tailwind CSS for the Raycast-inspired design system
@@ -8,7 +8,7 @@
   - _Requirements: 8.1, 8.2_
 
 - [ ] 2. Implement core data models and database setup
-  - [ ] 2.1 Create SQLite database schema and migration system
+  - [-] 2.1 Create SQLite database schema and migration system
     - Write SQL schema for user_settings, block_list, sessions, evasion_attempts, and insights tables
     - Implement database initialization and migration logic in Rust
     - Create database connection pool and error handling
