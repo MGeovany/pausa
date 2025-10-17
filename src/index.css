@@ -166,4 +166,38 @@
     -ms-user-select: none;
     user-select: none;
   }
+
+  /* macOS Traffic Lights Customization */
+  .macos-traffic-lights {
+    position: fixed;
+    top: 0;
+    left: 0;
+    z-index: 9999;
+    display: flex;
+    gap: 8px;
+    padding: 12px 16px;
+  }
+
+  .macos-traffic-light {
+    width: 12px;
+    height: 12px;
+    border-radius: 50%;
+    transition: opacity 0.2s ease;
+  }
+
+  .macos-traffic-light:hover {
+    opacity: 0.8;
+  }
+
+  .macos-traffic-light-close {
+    background-color: #ff5f57;
+  }
+
+  .macos-traffic-light-minimize {
+    background-color: #ffbd2e;
+  }
+
+  .macos-traffic-light-maximize {
+    background-color: #28ca42;
+  }
 }

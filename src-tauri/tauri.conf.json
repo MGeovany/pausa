@@ -20,6 +20,7 @@
         "resizable": true,
         "decorations": true,
         "transparent": true,
+        "titleBarStyle": "overlay",
         "alwaysOnTop": false,
         "skipTaskbar": false,
         "center": true,
