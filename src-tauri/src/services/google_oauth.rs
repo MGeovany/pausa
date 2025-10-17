@@ -2,7 +2,7 @@ use url::Url;
 use chrono::Utc;
 use async_trait::async_trait;
 
-use crate::{config::AppConfig, errors::AppError, infrastructure::http::http_client};
+use crate::{config::AppConfig, errors::AppError, infra::http::http_client};
 use crate::domain::{oauth::{OAuthProvider, OAuthCallback}, tokens::Tokens};
 use super::pkce::{generate, PkcePair};
 
@@ -21,11 +21,19 @@ impl GoogleOAuthService {
 #[async_trait]
 impl OAuthProvider for GoogleOAuthService {
     async fn start_login(&mut self) -> Result<String, AppError> {
+        println!("🔑 [OAuth] Generating PKCE pair...");
         let pkce = generate();
+        
+        println!("🎲 [OAuth] Generating random state...");
         let state = rand::random::<u64>().to_string();
+        
         self.pkce = Some(pkce.clone());
         self.expected_state = Some(state.clone());
 
+        println!("🔗 [OAuth] Building Google OAuth URL...");
+        println!("   Client ID: {}", self.cfg.client_id);
+        println!("   Redirect URI: {}", self.cfg.redirect_uri);
+        
         let mut url = Url::parse("https://accounts.google.com/o/oauth2/v2/auth").unwrap();
         url.query_pairs_mut()
             .append_pair("response_type", "code")
@@ -37,7 +45,10 @@ impl OAuthProvider for GoogleOAuthService {
             .append_pair("code_challenge_method", "S256")
             .append_pair("access_type", "offline")
             .append_pair("prompt", "consent");
-        Ok(url.into_string())
+        
+        let url_string = url.into_string();
+        println!("✅ [OAuth] URL generated successfully");
+        Ok(url_string)
     }
 
     async fn handle_callback(&mut self, cb: OAuthCallback) -> Result<Tokens, AppError> {
@@ -79,12 +90,15 @@ impl OAuthProvider for GoogleOAuthService {
         let res = http_client()
             .post("https://oauth2.googleapis.com/token")
             .form(&body)
-            .send().await?;
+            .send().await
+            .map_err(|e| AppError::Auth(format!("request failed: {}", e)))?;
         if !res.status().is_success() {
+            let status = res.status();
             let text = res.text().await.unwrap_or_default();
-            return Err(AppError::Auth(format!("token error ({}): {}", res.status(), text)));
+            return Err(AppError::Auth(format!("token error ({}): {}", status, text)));
         }
-        let tr: TokenRes = res.json().await?;
+        let tr: TokenRes = res.json().await
+            .map_err(|e| AppError::Auth(format!("parse error: {}", e)))?;
 
         Ok(Tokens {
             access_token: tr.access_token,

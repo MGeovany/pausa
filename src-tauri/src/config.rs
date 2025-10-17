@@ -14,7 +14,7 @@ impl AppConfig {
             .map_err(|_| "GOOGLE_CLIENT_ID no definido".to_string())?;
         let client_secret = std::env::var("GOOGLE_CLIENT_SECRET").ok();
         let redirect_uri = std::env::var("OAUTH_REDIRECT_URI")
-            .unwrap_or_else(|_| "pausa://auth/callback".into());
+            .unwrap_or_else(|_| "http://localhost:8080".into());
         Ok(Self { client_id, client_secret, redirect_uri })
     }
 }

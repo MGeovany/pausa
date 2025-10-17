@@ -1,4 +1,4 @@
-use std::sync::Mutex;
+use tokio::sync::Mutex;
 use tauri::{AppHandle};
 
 use crate::{config::{AppConfig, tokens_path}};

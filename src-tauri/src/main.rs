@@ -4,6 +4,11 @@ mod app;
 mod config;
 mod errors;
 mod state;
+mod domain;
+mod services;
+mod infra;
+mod handlers;
+mod pkce;
 
 
 fn main() {

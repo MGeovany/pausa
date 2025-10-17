@@ -1,7 +1,7 @@
-use tauri::AppHandle;
+use tauri::{AppHandle, Emitter, Manager};
 use url::Url;
 
-use crate::{errors::AppError, state::AppState, domain::oauth::OAuthCallback};
+use crate::{errors::AppError, state::AppState, domain::oauth::{OAuthCallback, OAuthProvider}};
 
 pub fn handle_deep_link(app: &AppHandle, raw: String) -> Result<(), String> {
     let url = Url::parse(&raw).map_err(|e| e.to_string())?;
@@ -22,10 +22,17 @@ pub fn handle_deep_link(app: &AppHandle, raw: String) -> Result<(), String> {
     let app_handle = app.clone();
     tauri::async_runtime::spawn(async move {
         let shared: tauri::State<AppState> = app_handle.state::<AppState>();
-        let svc = shared.oauth_google.lock().map_err(|e| AppError::Lock(e.to_string()));
-        let mut svc = match svc { Ok(s) => s, Err(e) => { let _=app_handle.emit("auth:error", e.to_string()); return; } };
+        
+        // Clone the callback data before locking
+        let callback = OAuthCallback { code, state };
+        
+        // Get the result without holding the lock across await
+        let result = {
+            let mut svc = shared.oauth_google.lock().await;
+            svc.handle_callback(callback).await
+        };
 
-        match svc.handle_callback(OAuthCallback { code, state }).await {
+        match result {
             Ok(tokens) => {
                 if let Err(e) = shared.tokens_storage.save(&tokens) {
                     let _ = app_handle.emit("auth:error", format!("save tokens: {}", e));

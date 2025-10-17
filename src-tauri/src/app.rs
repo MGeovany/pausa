@@ -1,25 +1,23 @@
-use tauri::{Manager};
-use tauri_plugin_deep_link::DeepLinkExt;
+use tauri::Manager;
 
 use crate::{config::AppConfig, state::AppState};
 use crate::handlers::auth_handler;
-use crate::infra::deeplink::handle_deep_link;
 
 pub fn run() -> Result<(), String> {
+    // Load environment variables from .env file
+    dotenv::dotenv().ok();
+    
     let cfg = AppConfig::from_env()?;
     tauri::Builder::default()
+        .plugin(tauri_plugin_shell::init())
         .plugin(tauri_plugin_opener::init())
         .plugin(tauri_plugin_deep_link::init())
         .setup(move |app| {
-            let state = AppState::init(app, cfg.clone())?;
+            let state = AppState::init(app.handle(), cfg.clone())?;
             app.manage(state);
             
-            // Handle deep links
-            app.deep_link().on_deep_link(move |app, url| {
-                if let Err(e) = handle_deep_link(app, url) {
-                    let _ = app.emit("auth:error", e);
-                }
-            });
+            // TODO: Handle deep links - need to implement custom handler
+            // The deep link plugin doesn't expose on_deep_link method directly
             
             Ok(())
         })

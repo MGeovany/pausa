@@ -17,19 +17,21 @@
         "width": 800,
         "height": 600,
         "visible": true,
-        "resizable": false,
-        "decorations": false,
+        "resizable": true,
+        "decorations": true,
         "transparent": true,
         "alwaysOnTop": false,
         "skipTaskbar": false,
         "center": true,
         "shadow": true,
         "focus": true,
-        "dragDropEnabled": true
+        "url": "http://localhost:1420",
+        "userAgent": "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36"
       }
     ],
+    "macOSPrivateApi": true,
     "security": {
-      "csp": null
+      "csp": "default-src 'self'; style-src 'self' 'unsafe-inline'; script-src 'self' 'unsafe-inline' 'unsafe-eval'"
     }
   },
   "plugins": {
