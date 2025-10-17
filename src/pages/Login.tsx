@@ -78,7 +78,7 @@ export default function Login() {
           <h1 className="text-5xl font-bold text-center">Welcome to Pausa</h1>
           <a
             onClick={handleLogin}
-            className="w-full text-sm text-center mt-12 flex items-center justify-center gap-2 cursor-pointer"
+            className="w-fit text-sm text-center mt-12 flex items-center justify-center gap-[2px] cursor-pointer opacity-50 hover:opacity-100 transition-opacity duration-700"
             style={{
               fontFamily: "Poppins",
               fontWeight: 500,
@@ -86,7 +86,7 @@ export default function Login() {
             }}
           >
             <span>Continue with Google</span>
-            <ArrowRightIcon className="w-4 h-4" strokeWidth={2} />
+            <ArrowRightIcon className="w-4 h-4 mt-[1px]" strokeWidth={3} />
           </a>
         </div>
       </div>
