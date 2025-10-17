@@ -133,7 +133,10 @@ pub async fn login_with_google(app: AppHandle, state: State<'_, AppState>) -> Re
                                     align-items: center;
                                     justify-content: center;
                                     margin: 0 auto 24px;
-                                    font-size: 32px;
+                                    font-size: 42px;
+                                    font-weight: 600;
+                                    color: #ffffff;
+
                                 }
                                 h1 {
                                     color: #000000;
@@ -149,7 +152,7 @@ pub async fn login_with_google(app: AppHandle, state: State<'_, AppState>) -> Re
                         </head>
                         <body>
                             <div class="container">
-                                <div class="icon">✓</div>
+                                <div class="icon">P</div>
                                 <h1>Authentication Successful</h1>
                                 <p>You can close this window now.</p>
                             </div>
@@ -178,4 +181,10 @@ pub async fn read_tokens(state: State<'_, AppState>) -> Result<Option<crate::dom
 #[tauri::command]
 pub async fn get_tokens_path(state: State<'_, AppState>) -> Result<String, String> {
     Ok(state.tokens_storage.path_str())
+}
+
+#[tauri::command]
+pub async fn logout(state: State<'_, AppState>) -> Result<(), String> {
+    println!("🚪 [Rust] Logout called");
+    state.tokens_storage.clear()
 }

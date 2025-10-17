@@ -37,4 +37,11 @@ impl TokenStorage {
         let s = serde_json::to_string_pretty(t).map_err(|e| e.to_string())?;
         fs::write(&self.path, s).map_err(|e| e.to_string())
     }
+    
+    pub fn clear(&self) -> Result<(), String> {
+        if self.path.exists() {
+            fs::remove_file(&self.path).map_err(|e| e.to_string())?;
+        }
+        Ok(())
+    }
 }

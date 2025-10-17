@@ -4,7 +4,7 @@
 
 @layer base {
   body {
-    @apply text-black font-sans bg-white;
+    @apply text-white font-sans bg-black;
     font-feature-settings: "cv02", "cv03", "cv04", "cv11";
   }
 

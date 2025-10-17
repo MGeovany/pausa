@@ -1,11 +1,21 @@
 import { useNavigate } from "react-router-dom";
 import { LogOut, Clock, Target, TrendingUp } from "lucide-react";
+import { invoke } from "@tauri-apps/api/core";
 
 export default function Dashboard() {
   const navigate = useNavigate();
 
+  const handleLogout = async () => {
+    try {
+      await invoke("logout");
+      navigate("/");
+    } catch (error) {
+      console.error("Error logging out:", error);
+    }
+  };
+
   return (
-    <div className="min-h-screen bg-white">
+    <div className="min-h-screen bg-white" style={{ fontFamily: "Cal Sans" }}>
       <div className="max-w-7xl mx-auto px-8 py-12">
         {/* Header */}
         <div className="flex items-center justify-between mb-12">
@@ -16,7 +26,7 @@ export default function Dashboard() {
             <p className="text-sm text-gray-600">Your productivity summary</p>
           </div>
           <button
-            onClick={() => navigate("/")}
+            onClick={handleLogout}
             className="flex items-center gap-2 px-4 py-2 border border-gray-300 rounded-lg hover:bg-gray-50 transition-all text-sm font-medium text-black"
           >
             <LogOut size={16} />
