@@ -188,3 +188,39 @@ pub async fn logout(state: State<'_, AppState>) -> Result<(), String> {
     println!("🚪 [Rust] Logout called");
     state.tokens_storage.clear()
 }
+
+#[derive(serde::Serialize)]
+pub struct UserInfo {
+    pub name: String,
+    pub email: String,
+    pub picture: String,
+}
+
+#[tauri::command]
+pub async fn get_user_info(state: State<'_, AppState>) -> Result<Option<UserInfo>, String> {
+    let tokens = state.tokens_storage.load()?;
+    
+    if let Some(tokens) = tokens {
+        if let Some(id_token) = tokens.id_token {
+            // Decode JWT token (simple base64 decode of the payload)
+            let parts: Vec<&str> = id_token.split('.').collect();
+            if parts.len() >= 2 {
+                // Decode the payload (second part)
+                let payload = parts[1];
+                let decoded = base64::Engine::decode(&base64::engine::general_purpose::STANDARD_NO_PAD, payload)
+                    .map_err(|e| format!("Failed to decode token: {}", e))?;
+                
+                let json: serde_json::Value = serde_json::from_slice(&decoded)
+                    .map_err(|e| format!("Failed to parse token: {}", e))?;
+                
+                let name = json["name"].as_str().unwrap_or("User").to_string();
+                let email = json["email"].as_str().unwrap_or("").to_string();
+                let picture = json["picture"].as_str().unwrap_or("").to_string();
+                
+                return Ok(Some(UserInfo { name, email, picture }));
+            }
+        }
+    }
+    
+    Ok(None)
+}

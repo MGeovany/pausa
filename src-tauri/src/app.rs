@@ -25,7 +25,8 @@ pub fn run() -> Result<(), String> {
             auth_handler::login_with_google,
             auth_handler::read_tokens,
             auth_handler::get_tokens_path,
-            auth_handler::logout
+            auth_handler::logout,
+            auth_handler::get_user_info
         ])
         .run(tauri::generate_context!())
         .map_err(|e| e.to_string())
