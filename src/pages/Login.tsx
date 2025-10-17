@@ -71,14 +71,19 @@ export default function Login() {
       <div className="absolute bottom-0 left-0 w-[600px] h-[600px] bg-white/10 rounded-full blur-3xl -translate-x-1/2 translate-y-1/2" />
 
       <div className="w-full max-w-md relative z-10">
-        <div className="space-y-4 mb-6 max-w-md h-[400px] w-full flex flex-col items-center justify-center">
-          <p className="text-4xl bg-[#1f1f20] font-bold rounded-xl py-2 px-4">
+        <div className="mb-6 max-w-md h-[400px] w-full flex flex-col items-center justify-center">
+          <p className="text-4xl bg-[#1f1f20] font-bold rounded-xl py-2 px-4 mb-4">
             P
           </p>
-          <h1 className="text-5xl font-bold text-center">Welcome to Pausa</h1>
+          <h1 className="text-5xl font-bold text-center mb-4">
+            Welcome to Pausa
+          </h1>
+          <p className="text-sm text-center opacity-50 mb-8">
+            Focus. Breathe. Begin your next session.
+          </p>
           <a
             onClick={handleLogin}
-            className="w-fit text-sm text-center mt-12 flex items-center justify-center gap-[2px] cursor-pointer opacity-50 hover:opacity-100 transition-opacity duration-700"
+            className="w-fit text-sm text-center flex items-center justify-center gap-[2px] cursor-pointer opacity-50 hover:opacity-100 transition-opacity duration-700"
             style={{
               fontFamily: "Poppins",
               fontWeight: 500,
