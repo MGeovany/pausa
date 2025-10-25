@@ -2,10 +2,20 @@ import { useState, useEffect } from "react";
 import { invoke } from "@tauri-apps/api/core";
 import { listen, UnlistenFn } from "@tauri-apps/api/event";
 import { ArrowRightIcon } from "lucide-react";
+import OnboardingWizard from "../components/OnboardingWizard";
 
 export default function Login() {
   const [status, setStatus] = useState("");
   const [isLoading, setIsLoading] = useState(false);
+  const [showOnboarding, setShowOnboarding] = useState(true);
+  const [isOnboardingComplete, setIsOnboardingComplete] = useState(false);
+
+  console.log(
+    "show onboarding",
+    showOnboarding,
+    "onboarding complete",
+    isOnboardingComplete
+  );
 
   useEffect(() => {
     const unlistenSuccess = listen("auth:success", (event) => {
@@ -21,12 +31,28 @@ export default function Login() {
       setIsLoading(false);
     });
 
-    // Check if tokens exist and redirect automatically
+    // Check if tokens exist and onboarding status
     const checkTokens = async () => {
       try {
         const tokens = await invoke("read_tokens");
         if (tokens) {
-          window.location.hash = "#/dashboard";
+          // Check if onboarding is complete
+          try {
+            const onboardingComplete = await invoke<boolean>(
+              "is_onboarding_complete"
+            );
+            setIsOnboardingComplete(onboardingComplete);
+
+            if (onboardingComplete) {
+              window.location.hash = "#/dashboard";
+            } else {
+              setShowOnboarding(true);
+            }
+          } catch (error) {
+            console.error("Error checking onboarding status:", error);
+            // If we can't check onboarding status, assume it's not complete
+            setShowOnboarding(true);
+          }
         }
       } catch (error) {
         console.error("Error checking tokens:", error);
@@ -57,6 +83,27 @@ export default function Login() {
       setIsLoading(false);
     }
   };
+
+  const handleOnboardingComplete = () => {
+    setShowOnboarding(false);
+    setIsOnboardingComplete(true);
+    window.location.hash = "#/dashboard";
+  };
+
+  const handleSkipOnboarding = () => {
+    setShowOnboarding(false);
+    window.location.hash = "#/dashboard";
+  };
+
+  // Show onboarding if user is authenticated but hasn't completed onboarding
+  if (showOnboarding) {
+    return (
+      <OnboardingWizard
+        onComplete={handleOnboardingComplete}
+        onSkip={handleSkipOnboarding}
+      />
+    );
+  }
 
   return (
     <div

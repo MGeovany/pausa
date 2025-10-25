@@ -18,14 +18,8 @@ crate-type = ["staticlib", "cdylib", "rlib"]
 tauri-build = { version = "2.0", features = [] }
 
 [dependencies]
-tauri = { version = "2.0.5", features = ["macos-private-api"] }
-tauri-plugin-opener = "2.0.1"
-tauri-plugin-global-shortcut = "2.0"
-tauri-plugin-window-state = "2.0"
-tauri-plugin-notification = "2.0"
-tauri-plugin-positioner = "2.0"
+tauri = { version = "2.0.5", features = [] }
 tauri-plugin-shell = "2.0"
-tauri-plugin-deep-link = "2.0.0"
 
 
 serde = { version = "1.0", features = ["derive"] }
@@ -39,9 +33,6 @@ thiserror = "1.0"
 reqwest = { version = "0.12", features = ["json", "rustls-tls"] }
 url = "2.5"
 warp = "0.3"
-hyper = { version = "1.0", features = ["full"] }
-hyper-util = { version = "0.1", features = ["full"] }
-http-body-util = "0.1"
 rand = "0.8"
 sha2 = "0.10"
 base64 = "0.21"

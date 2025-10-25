@@ -2,17 +2,16 @@
 #![cfg_attr(not(debug_assertions), windows_subsystem = "windows")]
 mod app;
 mod config;
-mod errors;
-mod state;
 mod domain;
-mod services;
-mod infra;
+mod errors;
 mod handlers;
+mod infra;
+mod onboarding;
 mod pkce;
-
+mod services;
+mod state;
 
 fn main() {
-
     app::run().expect("error while running Pausa");
     // pausa_lib::run()
 }

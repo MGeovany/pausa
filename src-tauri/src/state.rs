@@ -1,7 +1,7 @@
+use tauri::AppHandle;
 use tokio::sync::Mutex;
-use tauri::{AppHandle};
 
-use crate::{config::{AppConfig, tokens_path}};
+use crate::config::{tokens_path, AppConfig};
 use crate::domain::tokens::TokenStorage;
 use crate::services::google_oauth::GoogleOAuthService;
 

@@ -4,7 +4,7 @@ use std::sync::{Arc, Mutex};
 use tauri::{
     AppHandle, LogicalPosition, Manager, Position, WebviewUrl, WebviewWindow, WebviewWindowBuilder,
 };
-use tauri_plugin_positioner::{Position as PositionerPosition, WindowExt};
+// use tauri_plugin_positioner::{Position as PositionerPosition, WindowExt};
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, Serialize, Deserialize)]
 pub enum WindowType {

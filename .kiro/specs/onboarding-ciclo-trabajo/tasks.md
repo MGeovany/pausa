@@ -1,226 +1,193 @@
 # Implementation Plan
 
-- [ ] 1. Extend database schema for onboarding and work cycles
-  - Add onboarding_completion table to track setup completion
-  - Add work_schedule table for work hours configuration
-  - Extend user_settings table with cycle and emergency key fields
-  - Add notification_history table for tracking sent notifications
-  - Create database migration scripts for existing installations
-  - _Requirements: 2.1, 3.1, 4.1, 5.1, 6.1_
+- [ ] 1. Implementar flujo básico de onboarding (setup inicial)
+  - [x] 1.1 Crear estructura mínima de onboarding en Rust
+    - Crear OnboardingStep enum básico (Welcome, WorkSchedule, Complete)
+    - Implementar OnboardingManager con navegación simple
+    - Agregar comando Tauri start_onboarding que retorne el primer paso
+    - _Requirements: 1.1, 1.3_
 
-- [ ] 2. Create onboarding state management system
-  - [ ] 2.1 Implement OnboardingManager in Rust
-    - Create OnboardingStep enum and state tracking
-    - Implement step navigation (next, previous, skip)
-    - Add step data collection and validation
-    - Handle onboarding completion and config generation
-    - _Requirements: 1.1, 2.1, 3.1, 4.1, 5.1, 6.1_
-
-  - [ ] 2.2 Create Tauri commands for onboarding flow
-    - Implement start_onboarding command
-    - Add next_onboarding_step with data validation
-    - Create complete_onboarding command
-    - Add get_onboarding_state command for UI synchronization
-    - _Requirements: 1.3, 2.4, 3.5, 4.5, 5.6, 6.5_
-
-- [ ] 3. Build onboarding wizard UI components
-  - [ ] 3.1 Create base OnboardingWizard component
-    - Implement step navigation and progress tracking
-    - Add smooth transitions between steps
-    - Create consistent layout and styling
-    - Handle step validation and error display
+  - [ ] 1.2 Crear componente OnboardingWizard básico en React
+    - Implementar componente base con navegación entre pasos
+    - Crear WelcomeStep con mensaje de bienvenida
+    - Conectar con comando start_onboarding del backend
+    - Agregar botones Next/Previous funcionales
     - _Requirements: 1.1, 1.4_
 
-  - [ ] 3.2 Implement individual onboarding steps
-    - Create WelcomeStep with logo and description
-    - Build WorkScheduleStep with choice selection
-    - Implement WorkHoursStep with time pickers
-    - Create CycleConfigStep with duration selectors
-    - Build StrictModeStep with emergency key capture
-    - Implement SummaryStep with configuration review
-    - _Requirements: 1.1, 2.1, 3.1, 4.1, 5.1, 6.1_
+  - [ ] 1.3 Conectar navegación frontend-backend
+    - Implementar comando next_onboarding_step en Rust
+    - Conectar botones de navegación con comandos Tauri
+    - Agregar manejo básico de errores
+    - Probar flujo completo de navegación
+    - _Requirements: 1.3, 2.4_
 
-  - [ ] 3.3 Add onboarding window management
-    - Create new window type for onboarding flow
-    - Implement window sizing and positioning
-    - Add window close prevention during setup
-    - Handle window focus and always-on-top behavior
-    - _Requirements: 1.3, 6.5_
+- [ ] 2. Implementar configuración de horario de trabajo
+  - [ ] 2.1 Agregar WorkScheduleStep al onboarding
+    - Crear paso para elegir si usar horario de trabajo
+    - Implementar WorkHoursStep con selectores de tiempo
+    - Agregar validación básica de horarios
+    - Conectar con backend para guardar configuración
+    - _Requirements: 2.1, 3.1_
 
-- [ ] 4. Implement work cycle orchestration system
-  - [ ] 4.1 Create CycleOrchestrator in Rust
-    - Implement CyclePhase enum and state management
-    - Add timer integration for focus and break periods
-    - Create cycle counting and long break logic
-    - Handle work hours validation and scheduling
-    - _Requirements: 7.1, 8.1, 10.1, 11.1_
+  - [ ] 2.2 Crear tabla work_schedule en base de datos
+    - Agregar migración para tabla work_schedule
+    - Implementar modelo WorkSchedule en Rust
+    - Crear comandos para guardar/obtener horario de trabajo
+    - Conectar frontend con nuevos comandos
+    - _Requirements: 3.1, 3.4_
 
-  - [ ] 4.2 Build enhanced timer service
-    - Extend existing timer with cycle-specific events
-    - Add pre-warning notifications (2 minutes before end)
-    - Implement pause/resume functionality for cycles
-    - Create timer persistence across app restarts
-    - _Requirements: 7.4, 8.1, 8.2_
-
-  - [ ] 4.3 Create Tauri commands for cycle management
-    - Implement start_work_cycle command
-    - Add pause_work_cycle and resume_work_cycle commands
-    - Create end_work_session command
-    - Add get_cycle_state for real-time UI updates
-    - _Requirements: 7.1, 7.2, 10.4, 10.5_
-
-- [ ] 5. Build enhanced notification system
-  - [ ] 5.1 Implement NotificationService in Rust
-    - Create notification templates for all cycle events
-    - Add user name personalization in messages
-    - Implement calm, human-centered message generation
-    - Add sound and visual notification options
-    - _Requirements: 7.3, 8.1, 12.1, 12.3_
-
-  - [ ] 5.2 Create system notification integration
-    - Implement platform-specific notification APIs
-    - Add notification scheduling and timing
-    - Create notification history tracking
-    - Handle notification permissions and fallbacks
-    - _Requirements: 7.3, 8.1, 8.2, 12.2_
-
-  - [ ] 5.3 Build notification UI components
-    - Create CycleNotifications React component
-    - Implement toast notifications for cycle events
-    - Add notification queue management
-    - Create notification settings and preferences
-    - _Requirements: 8.1, 8.2, 12.1, 12.5_
-
-- [ ] 6. Extend focus widget for cycle integration
-  - [ ] 6.1 Enhance existing focus widget
-    - Add cycle counter display to widget
-    - Show long break countdown when applicable
-    - Implement cycle-specific progress indicators
-    - Add work hours status indicator
-    - _Requirements: 7.2, 11.5_
-
-  - [ ] 6.2 Create cycle control interface
-    - Add "Start new block" and "End day session" buttons
-    - Implement cycle phase indicators (focus/break/long break)
-    - Create emergency exit button for strict mode
-    - Add cycle statistics display (completed cycles)
-    - _Requirements: 10.2, 10.3, 10.4, 10.5_
-
-- [ ] 7. Implement enhanced break overlay system
-  - [ ] 7.1 Extend break overlay for cycle integration
-    - Add cycle-specific break messages
-    - Implement long break interface with warmer colors
-    - Create break activity suggestions based on break type
-    - Add cycle completion celebration messages
-    - _Requirements: 8.4, 11.2, 11.3_
-
-  - [ ] 7.2 Enhance strict mode functionality
-    - Implement fullscreen overlay for all monitors
-    - Add emergency key combination handling
-    - Create break completion options interface
-    - Handle strict mode bypass logging
-    - _Requirements: 9.1, 9.2, 9.5, 10.1_
-
-- [ ] 8. Create work schedule management
-  - [ ] 8.1 Implement work hours validation
-    - Create time range validation logic
-    - Add timezone handling and conversion
-    - Implement work day detection algorithm
-    - Create schedule conflict resolution
+  - [ ] 2.3 Implementar validación de horarios de trabajo
+    - Crear lógica de validación de rangos de tiempo
+    - Agregar detección de zona horaria
+    - Implementar verificación si está en horario laboral
+    - Probar flujo completo de configuración de horarios
     - _Requirements: 3.4, 7.1_
 
-  - [ ] 8.2 Build schedule-aware cycle starting
-    - Prevent cycle starts outside work hours
-    - Add work day countdown and notifications
-    - Implement smart cycle scheduling
-    - Create work day summary and statistics
-    - _Requirements: 7.1, 3.1_
+- [ ] 3. Implementar configuración de ciclos de trabajo
+  - [ ] 3.1 Agregar CycleConfigStep al onboarding
+    - Crear paso para configurar duraciones de focus/break
+    - Implementar selectores para ciclos hasta break largo
+    - Agregar vista previa de configuración
+    - Conectar con backend para guardar configuración
+    - _Requirements: 4.1, 4.2_
 
-- [ ] 9. Integrate onboarding with main application
-  - [ ] 9.1 Create first-launch detection
-    - Implement onboarding completion checking
-    - Add automatic onboarding trigger on first launch
-    - Create onboarding skip and restart options
-    - Handle existing user migration to new system
+  - [ ] 3.2 Extender user_settings para ciclos
+    - Agregar campos cycles_per_long_break_v2 y user_name
+    - Crear migración de base de datos
+    - Implementar comandos para guardar configuración de ciclos
+    - Conectar frontend con configuración extendida
+    - _Requirements: 4.1, 6.1_
+
+  - [ ] 3.3 Implementar modo estricto y clave de emergencia
+    - Crear StrictModeStep con captura de teclas
+    - Implementar sistema de captura de combinación de teclas
+    - Agregar campo emergency_key_combination a user_settings
+    - Conectar configuración de modo estricto con backend
+    - _Requirements: 5.1, 5.6_
+
+- [ ] 4. Completar onboarding y generar configuración
+  - [ ] 4.1 Implementar SummaryStep y finalización
+    - Crear paso de resumen con toda la configuración
+    - Implementar comando complete_onboarding
+    - Crear tabla onboarding_completion para tracking
+    - Generar configuración final y guardar en base de datos
+    - _Requirements: 6.1, 6.3, 6.5_
+
+  - [ ] 4.2 Integrar onboarding con aplicación principal
+    - Implementar detección de primera ejecución
+    - Crear ventana de onboarding separada
+    - Agregar redirección automática al onboarding si no está completo
+    - Conectar configuración de onboarding con settings existentes
     - _Requirements: 1.1, 6.5_
 
-  - [ ] 9.2 Connect onboarding to existing settings
-    - Integrate onboarding config with UserSettings
-    - Add post-onboarding settings modification
-    - Create settings migration for existing users
-    - Implement configuration validation and defaults
+  - [ ] 4.3 Agregar persistencia y validación de configuración
+    - Implementar validación completa de configuración
+    - Agregar manejo de errores y recuperación
+    - Crear sistema de backup de configuración
+    - Probar flujo completo de onboarding end-to-end
     - _Requirements: 6.3, 6.5_
 
-- [ ] 10. Implement cycle session management
-  - [ ] 10.1 Create cycle session tracking
-    - Extend existing session recording with cycle data
-    - Add cycle number and long break tracking
-    - Implement work hours compliance logging
-    - Create cycle completion statistics
-    - _Requirements: 11.4, 11.5_
+- [ ] 5. Implementar sistema básico de ciclos de trabajo
+  - [ ] 5.1 Crear CycleOrchestrator básico
+    - Implementar CyclePhase enum (Focus, ShortBreak, LongBreak)
+    - Crear lógica básica de conteo de ciclos
+    - Implementar transición automática entre fases
+    - Conectar con configuración de usuario
+    - _Requirements: 7.1, 8.1_
 
-  - [ ] 10.2 Build cycle analytics and insights
-    - Create daily cycle completion tracking
-    - Add work hours effectiveness analysis
-    - Implement cycle pattern recognition
-    - Generate cycle-based productivity insights
-    - _Requirements: 11.1, 11.4_
+  - [ ] 5.2 Integrar ciclos con timer existente
+    - Extender timer service para manejar ciclos
+    - Implementar eventos específicos de ciclos
+    - Agregar comandos Tauri para control de ciclos
+    - Conectar con focus widget existente
+    - _Requirements: 7.1, 7.2, 7.4_
 
-- [ ] 11. Create emergency and safety features
-  - [ ] 11.1 Implement emergency key system
-    - Create key combination capture and validation
-    - Add emergency exit functionality
-    - Implement emergency usage logging
-    - Create emergency key reset options
-    - _Requirements: 5.6, 9.5_
+  - [ ] 5.3 Crear interfaz básica de ciclos
+    - Agregar contador de ciclos al focus widget
+    - Implementar indicador de fase actual (focus/break)
+    - Crear botones para iniciar/terminar sesión de trabajo
+    - Mostrar progreso hacia break largo
+    - _Requirements: 7.2, 10.2, 10.3_
 
-  - [ ] 11.2 Add safety and accessibility features
-    - Implement fail-safe exit mechanisms
-    - Add accessibility keyboard navigation
-    - Create high contrast mode for break overlays
-    - Implement screen reader compatibility
-    - _Requirements: 9.5, 12.4_
+- [ ] 6. Implementar notificaciones de ciclos
+  - [ ] 6.1 Crear sistema básico de notificaciones
+    - Implementar NotificationService en Rust
+    - Crear templates de mensajes para cada fase
+    - Agregar personalización con nombre de usuario
+    - Integrar con sistema de notificaciones existente
+    - _Requirements: 7.3, 8.1, 12.1_
 
-- [ ] 12. Enhance user experience and polish
-  - [ ] 12.1 Implement smooth animations and transitions
-    - Add step transitions in onboarding wizard
-    - Create cycle phase transition animations
-    - Implement notification fade-in/fade-out effects
-    - Add progress indicators and loading states
+  - [ ] 6.2 Agregar notificaciones pre-alerta
+    - Implementar notificación 2 minutos antes del final
+    - Crear mensajes específicos para cada tipo de sesión
+    - Agregar configuración de pre-alerta en settings
+    - Conectar con timer service para timing preciso
+    - _Requirements: 7.4, 8.1, 8.2_
+
+  - [ ] 6.3 Crear historial de notificaciones
+    - Implementar tabla notification_history
+    - Agregar tracking de notificaciones enviadas
+    - Crear comandos para consultar historial
+    - Implementar limpieza automática de historial antiguo
+    - _Requirements: 8.1, 8.2_
+
+- [ ] 7. Mejorar break overlay para ciclos
+  - [ ] 7.1 Extender break overlay existente
+    - Agregar mensajes específicos para breaks cortos vs largos
+    - Implementar colores y estilos diferentes por tipo de break
+    - Crear sugerencias de actividades para cada tipo
+    - Agregar contador de ciclos completados
+    - _Requirements: 8.4, 11.2, 11.3_
+
+  - [ ] 7.2 Implementar modo estricto mejorado
+    - Crear overlay fullscreen para todos los monitores
+    - Implementar manejo de clave de emergencia
+    - Agregar logging de intentos de bypass
+    - Crear interfaz de finalización de break
+    - _Requirements: 9.1, 9.2, 9.5_
+
+  - [ ] 7.3 Agregar celebración de completación de ciclos
+    - Crear mensajes de felicitación por ciclos completados
+    - Implementar animaciones para hitos importantes
+    - Agregar estadísticas de progreso diario
+    - Crear motivación personalizada con nombre de usuario
+    - _Requirements: 11.3, 12.1, 12.3_
+
+- [ ] 8. Integrar validación de horarios de trabajo
+  - [ ] 8.1 Conectar horarios con inicio de ciclos
+    - Implementar validación antes de iniciar ciclos
+    - Crear mensajes informativos sobre horarios
+    - Agregar opción de override para casos especiales
+    - Integrar con configuración de work_schedule
+    - _Requirements: 3.4, 7.1_
+
+  - [ ] 8.2 Crear estadísticas de cumplimiento de horarios
+    - Implementar tracking de sesiones dentro/fuera de horario
+    - Agregar campo within_work_hours a sessions
+    - Crear reportes de efectividad por horarios
+    - Mostrar estadísticas en interfaz de usuario
+    - _Requirements: 11.1, 11.4, 11.5_
+
+- [ ] 9. Pulir experiencia de usuario y testing
+  - [ ] 9.1 Agregar animaciones y transiciones
+    - Implementar transiciones suaves en onboarding
+    - Crear animaciones para cambios de fase de ciclos
+    - Agregar feedback visual para acciones de usuario
+    - Optimizar rendimiento de animaciones
     - _Requirements: 1.4, 8.3, 12.4_
 
-  - [ ] 12.2 Create personalization features
-    - Add user name collection and usage
-    - Implement personalized notification messages
-    - Create custom break activity suggestions
-    - Add motivational messages and encouragement
-    - _Requirements: 8.1, 12.1, 12.3_
-
-  - [ ] 12.3 Add configuration persistence and backup
-    - Implement configuration export/import
-    - Add automatic configuration backup
-    - Create configuration reset options
-    - Handle configuration corruption recovery
-    - _Requirements: 6.5_
-
-- [ ] 13. Testing and integration
-  - [ ] 13.1 Connect all components to backend services
-    - Wire onboarding wizard to Tauri commands
-    - Connect cycle orchestrator to UI components
-    - Integrate notification system with cycle events
-    - Link work schedule validation to cycle starting
-    - _Requirements: All requirements integration_
-
-  - [ ] 13.2 Implement error handling and recovery
-    - Add comprehensive error handling for all components
-    - Implement graceful degradation for missing features
-    - Create user-friendly error messages
-    - Add automatic recovery from common failures
+  - [ ] 9.2 Implementar manejo completo de errores
+    - Agregar error handling en todos los comandos Tauri
+    - Crear mensajes de error user-friendly
+    - Implementar recuperación automática de fallos
+    - Agregar logging detallado para debugging
     - _Requirements: All requirements_
 
-  - [ ] 13.3 Optimize performance and user experience
-    - Implement efficient state synchronization
-    - Add lazy loading for onboarding components
-    - Optimize notification timing and batching
-    - Create smooth cycle transitions and feedback
+  - [ ] 9.3 Testing y optimización final
+    - Probar todos los flujos end-to-end
+    - Optimizar performance de sincronización de estado
+    - Verificar accesibilidad y usabilidad
+    - Crear documentación de usuario básica
     - _Requirements: 7.1, 8.3, 12.4_
+
+
