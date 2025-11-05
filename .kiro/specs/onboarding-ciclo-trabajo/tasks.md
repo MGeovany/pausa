@@ -1,20 +1,20 @@
 # Implementation Plan
 
-- [ ] 1. Implementar flujo básico de onboarding (setup inicial)
+- [-] 1. Implementar flujo básico de onboarding (setup inicial)
   - [x] 1.1 Crear estructura mínima de onboarding en Rust
     - Crear OnboardingStep enum básico (Welcome, WorkSchedule, Complete)
     - Implementar OnboardingManager con navegación simple
     - Agregar comando Tauri start_onboarding que retorne el primer paso
     - _Requirements: 1.1, 1.3_
 
-  - [ ] 1.2 Crear componente OnboardingWizard básico en React
+  - [x] 1.2 Crear componente OnboardingWizard básico en React
     - Implementar componente base con navegación entre pasos
     - Crear WelcomeStep con mensaje de bienvenida
     - Conectar con comando start_onboarding del backend
     - Agregar botones Next/Previous funcionales
     - _Requirements: 1.1, 1.4_
 
-  - [ ] 1.3 Conectar navegación frontend-backend
+  - [x] 1.3 Conectar navegación frontend-backend
     - Implementar comando next_onboarding_step en Rust
     - Conectar botones de navegación con comandos Tauri
     - Agregar manejo básico de errores

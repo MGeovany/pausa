@@ -101,8 +101,8 @@ function CompleteStep({ onPrevious, canGoPrevious }: StepProps) {
 }
 
 export default function OnboardingWizard({
-  onComplete,
-  onSkip,
+  onComplete: _onComplete,
+  onSkip: _onSkip,
 }: OnboardingWizardProps) {
   const [currentStep, setCurrentStep] = useState<OnboardingStep>("Welcome");
   const [isLoading, setIsLoading] = useState(false);
@@ -133,22 +133,38 @@ export default function OnboardingWizard({
     setError(null);
 
     try {
-      // For now, we'll handle navigation locally since next_onboarding_step
-      // will be implemented in task 1.3
-      switch (currentStep) {
-        case "Welcome":
-          setCurrentStep("WorkSchedule");
-          break;
-        case "WorkSchedule":
-          setCurrentStep("Complete");
-          break;
-        case "Complete":
-          onComplete?.();
-          break;
+      console.log(`🔄 [Frontend] Attempting to navigate from ${currentStep}`);
+      
+      // Collect step data based on current step
+      let stepData = null;
+      // In future tasks, we'll collect actual form data here
+      
+      const nextStep = await invoke<OnboardingStep>("next_onboarding_step", {
+        stepData: stepData,
+      });
+      
+      console.log(`✅ [Frontend] Successfully navigated to ${nextStep}`);
+      setCurrentStep(nextStep);
+      
+      // Handle completion
+      if (nextStep === "Complete") {
+        console.log("🎉 [Frontend] Onboarding completed");
+        // In future tasks, we'll call onComplete with actual config
       }
     } catch (err) {
-      console.error("Failed to navigate to next step:", err);
-      setError("Failed to proceed. Please try again.");
+      console.error("❌ [Frontend] Navigation failed:", err);
+      
+      // Provide user-friendly error messages
+      let errorMessage = "Failed to proceed. Please try again.";
+      if (typeof err === 'string') {
+        if (err.includes("Cannot proceed beyond completion")) {
+          errorMessage = "You've already completed the onboarding.";
+        } else if (err.includes("Navigation failed")) {
+          errorMessage = "Unable to move to the next step. Please check your input.";
+        }
+      }
+      
+      setError(errorMessage);
     } finally {
       setIsLoading(false);
     }
@@ -159,22 +175,26 @@ export default function OnboardingWizard({
     setError(null);
 
     try {
-      // For now, we'll handle navigation locally since previous_onboarding_step
-      // will be implemented in task 1.3
-      switch (currentStep) {
-        case "WorkSchedule":
-          setCurrentStep("Welcome");
-          break;
-        case "Complete":
-          setCurrentStep("WorkSchedule");
-          break;
-        case "Welcome":
-          // Cannot go back from welcome
-          break;
-      }
+      console.log(`🔙 [Frontend] Attempting to navigate back from ${currentStep}`);
+      
+      const previousStep = await invoke<OnboardingStep>("previous_onboarding_step");
+      
+      console.log(`✅ [Frontend] Successfully navigated back to ${previousStep}`);
+      setCurrentStep(previousStep);
     } catch (err) {
-      console.error("Failed to navigate to previous step:", err);
-      setError("Failed to go back. Please try again.");
+      console.error("❌ [Frontend] Backward navigation failed:", err);
+      
+      // Provide user-friendly error messages
+      let errorMessage = "Failed to go back. Please try again.";
+      if (typeof err === 'string') {
+        if (err.includes("Cannot go back from welcome")) {
+          errorMessage = "You're already at the first step.";
+        } else if (err.includes("Backward navigation failed")) {
+          errorMessage = "Unable to go back to the previous step.";
+        }
+      }
+      
+      setError(errorMessage);
     } finally {
       setIsLoading(false);
     }

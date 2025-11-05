@@ -144,4 +144,19 @@ export const tauriCommands = {
   // Window management
   isWindowVisible: (windowType: string) =>
     invokeCommand<boolean>("is_window_visible", { windowType }),
+
+  // Onboarding commands
+  startOnboarding: () => invokeCommand<string>("start_onboarding"),
+
+  nextOnboardingStep: (stepData?: any) =>
+    invokeCommand<string>("next_onboarding_step", { stepData }),
+
+  previousOnboardingStep: () =>
+    invokeCommand<string>("previous_onboarding_step"),
+
+  completeOnboarding: (finalConfig: any) =>
+    invokeCommand<void>("complete_onboarding", { finalConfig }),
+
+  getOnboardingStatus: () =>
+    invokeCommand<boolean>("get_onboarding_status"),
 } as const;

@@ -39,7 +39,7 @@ export default function Login() {
           // Check if onboarding is complete
           try {
             const onboardingComplete = await invoke<boolean>(
-              "is_onboarding_complete"
+              "get_onboarding_status"
             );
             setIsOnboardingComplete(onboardingComplete);
 
