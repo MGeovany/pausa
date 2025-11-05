@@ -74,11 +74,50 @@ impl MigrationManager {
                 // Version 1 is the initial schema, already handled in initialize_database
                 Ok(())
             }
+            2 => {
+                // Version 2: Add work_schedule table
+                Self::migrate_to_v2(conn)
+            }
             _ => Err(DatabaseError::Migration(format!(
                 "Unknown migration version: {}",
                 version
             ))),
         }
+    }
+
+    /// Migration to version 2: Add work_schedule table
+    fn migrate_to_v2(conn: &Connection) -> DatabaseResult<()> {
+        println!("Applying migration to version 2: Adding work_schedule table");
+
+        // Create work_schedule table
+        conn.execute(
+            r#"
+            CREATE TABLE work_schedule (
+                id INTEGER PRIMARY KEY,
+                user_id INTEGER NOT NULL DEFAULT 1,
+                use_work_schedule BOOLEAN NOT NULL DEFAULT FALSE,
+                work_start_time TEXT,
+                work_end_time TEXT,
+                timezone TEXT NOT NULL DEFAULT 'local',
+                created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+                updated_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+                FOREIGN KEY (user_id) REFERENCES user_settings (id)
+            )
+            "#,
+            [],
+        )
+        .map_err(DatabaseError::Sqlite)?;
+
+        // Insert default work schedule for existing user
+        conn.execute("INSERT INTO work_schedule (id, user_id) VALUES (1, 1)", [])
+            .map_err(DatabaseError::Sqlite)?;
+
+        // Update schema version
+        conn.execute("INSERT INTO schema_version (version) VALUES (2)", [])
+            .map_err(DatabaseError::Sqlite)?;
+
+        println!("Migration to version 2 completed successfully");
+        Ok(())
     }
 
     /// Validate database integrity
@@ -90,6 +129,7 @@ impl MigrationManager {
             "sessions",
             "evasion_attempts",
             "insights",
+            "work_schedule",
             "schema_version",
         ];
 

@@ -2619,6 +2619,7 @@ dependencies = [
  "bcrypt",
  "chrono",
  "dotenv",
+ "iana-time-zone",
  "rand 0.8.5",
  "reqwest",
  "rusqlite",

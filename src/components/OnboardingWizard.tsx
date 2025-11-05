@@ -1,103 +1,21 @@
 import { useState, useEffect } from "react";
 import { invoke } from "@tauri-apps/api/core";
-import { ArrowLeftIcon, ArrowRightIcon } from "lucide-react";
+import WelcomeStep from "./onboarding-steps/WelcomeStep";
+import WorkScheduleStep from "./onboarding-steps/WorkScheduleStep";
+import WorkHoursStep from "./onboarding-steps/WorkHoursStep";
+import CompleteStep from "./onboarding-steps/CompleteStep";
+import type { StepProps } from "./onboarding-steps/types";
 
 // Types for onboarding
-export type OnboardingStep = "Welcome" | "WorkSchedule" | "Complete";
+export type OnboardingStep =
+  | "Welcome"
+  | "WorkSchedule"
+  | "WorkHours"
+  | "Complete";
 
 interface OnboardingWizardProps {
   onComplete?: () => void;
   onSkip?: () => void;
-}
-
-interface StepProps {
-  onNext: () => void;
-  onPrevious: () => void;
-  canGoNext: boolean;
-  canGoPrevious: boolean;
-}
-
-// Welcome Step Component
-function WelcomeStep({ onNext, canGoNext }: StepProps) {
-  return (
-    <div className="flex flex-col items-center justify-center min-h-[400px] text-center">
-      <div className="mb-6 flex flex-col items-center justify-center">
-        <p className="text-4xl font-bold rounded-xl py-2 px-4 mb-4">P</p>
-        <h1 className="text-5xl font-bold mb-4">Welcome to Pausa</h1>
-      </div>
-
-      <div className="text-center flex flex-col items-center justify-center">
-        <p className="text-sm text-gray-400 mb-6">
-          Let's set up your personalized work routine in just a few steps
-        </p>
-
-        <button
-          onClick={onNext}
-          disabled={!canGoNext}
-          className="bg-white text-black px-6 py-3 rounded-lg font-medium hover:bg-gray-100 transition-colors disabled:opacity-50 disabled:cursor-not-allowed flex items-center gap-2"
-        >
-          Start Setup
-          <ArrowRightIcon className="w-4 h-4" />
-        </button>
-      </div>
-    </div>
-  );
-}
-
-// Placeholder for WorkSchedule step (will be implemented in later tasks)
-function WorkScheduleStep({
-  onNext,
-  onPrevious,
-  canGoNext,
-  canGoPrevious,
-}: StepProps) {
-  return (
-    <div className="flex flex-col items-center justify-center min-h-[400px] text-center">
-      <h2 className="text-3xl font-bold mb-4">Work Schedule</h2>
-      <p className="text-gray-300 mb-8">
-        This step will be implemented in task 2.1
-      </p>
-
-      <div className="flex gap-4">
-        <button
-          onClick={onPrevious}
-          disabled={!canGoPrevious}
-          className="bg-gray-600 text-white px-6 py-3 rounded-lg font-medium hover:bg-gray-700 transition-colors disabled:opacity-50 disabled:cursor-not-allowed flex items-center gap-2"
-        >
-          <ArrowLeftIcon className="w-4 h-4" />
-          Previous
-        </button>
-
-        <button
-          onClick={onNext}
-          disabled={!canGoNext}
-          className="bg-white text-black px-6 py-3 rounded-lg font-medium hover:bg-gray-100 transition-colors disabled:opacity-50 disabled:cursor-not-allowed flex items-center gap-2"
-        >
-          Next
-          <ArrowRightIcon className="w-4 h-4" />
-        </button>
-      </div>
-    </div>
-  );
-}
-
-// Complete step placeholder
-function CompleteStep({ onPrevious, canGoPrevious }: StepProps) {
-  return (
-    <div className="flex flex-col items-center justify-center min-h-[400px] text-center">
-      <h2 className="text-3xl font-bold mb-4">Setup Complete</h2>
-      <p className="text-gray-300 mb-8">Your onboarding is complete!</p>
-
-      <button
-        onClick={onPrevious}
-        disabled={!canGoPrevious}
-        className="bg-gray-600 text-white px-6 py-3 rounded-lg font-medium hover:bg-gray-700 transition-colors disabled:opacity-50 disabled:cursor-not-allowed flex items-center gap-2"
-      >
-        <ArrowLeftIcon className="w-4 h-4" />
-        Previous
-      </button>
-    </div>
-  );
 }
 
 export default function OnboardingWizard({
@@ -128,24 +46,68 @@ export default function OnboardingWizard({
     }
   };
 
+  const [stepData, setStepData] = useState<Record<string, any>>({});
+
   const handleNext = async () => {
     setIsLoading(true);
     setError(null);
 
     try {
       console.log(`🔄 [Frontend] Attempting to navigate from ${currentStep}`);
-      
-      // Collect step data based on current step
-      let stepData = null;
-      // In future tasks, we'll collect actual form data here
-      
+
+      // Get step data for current step
+      const currentStepData = stepData[currentStep] || null;
+
+      // Save work schedule data if we're leaving the WorkHours step
+      if (currentStep === "WorkHours" && currentStepData) {
+        try {
+          await invoke("save_work_schedule", {
+            config: {
+              use_work_schedule: true,
+              work_start_time: currentStepData.startTime,
+              work_end_time: currentStepData.endTime,
+              timezone: currentStepData.timezone,
+            },
+          });
+          console.log("✅ [Frontend] Work schedule saved successfully");
+        } catch (saveErr) {
+          console.error("❌ [Frontend] Failed to save work schedule:", saveErr);
+          setError("Failed to save work schedule. Please try again.");
+          return;
+        }
+      }
+
+      // Save work schedule choice if we're leaving WorkSchedule step
+      if (currentStep === "WorkSchedule" && currentStepData) {
+        if (!currentStepData.useWorkSchedule) {
+          try {
+            await invoke("save_work_schedule", {
+              config: {
+                use_work_schedule: false,
+                work_start_time: null,
+                work_end_time: null,
+                timezone: "local",
+              },
+            });
+            console.log("✅ [Frontend] Work schedule disabled successfully");
+          } catch (saveErr) {
+            console.error(
+              "❌ [Frontend] Failed to save work schedule choice:",
+              saveErr
+            );
+            setError("Failed to save work schedule choice. Please try again.");
+            return;
+          }
+        }
+      }
+
       const nextStep = await invoke<OnboardingStep>("next_onboarding_step", {
-        stepData: stepData,
+        stepData: currentStepData,
       });
-      
+
       console.log(`✅ [Frontend] Successfully navigated to ${nextStep}`);
       setCurrentStep(nextStep);
-      
+
       // Handle completion
       if (nextStep === "Complete") {
         console.log("🎉 [Frontend] Onboarding completed");
@@ -153,17 +115,18 @@ export default function OnboardingWizard({
       }
     } catch (err) {
       console.error("❌ [Frontend] Navigation failed:", err);
-      
+
       // Provide user-friendly error messages
       let errorMessage = "Failed to proceed. Please try again.";
-      if (typeof err === 'string') {
+      if (typeof err === "string") {
         if (err.includes("Cannot proceed beyond completion")) {
           errorMessage = "You've already completed the onboarding.";
         } else if (err.includes("Navigation failed")) {
-          errorMessage = "Unable to move to the next step. Please check your input.";
+          errorMessage =
+            "Unable to move to the next step. Please check your input.";
         }
       }
-      
+
       setError(errorMessage);
     } finally {
       setIsLoading(false);
@@ -175,25 +138,31 @@ export default function OnboardingWizard({
     setError(null);
 
     try {
-      console.log(`🔙 [Frontend] Attempting to navigate back from ${currentStep}`);
-      
-      const previousStep = await invoke<OnboardingStep>("previous_onboarding_step");
-      
-      console.log(`✅ [Frontend] Successfully navigated back to ${previousStep}`);
+      console.log(
+        `🔙 [Frontend] Attempting to navigate back from ${currentStep}`
+      );
+
+      const previousStep = await invoke<OnboardingStep>(
+        "previous_onboarding_step"
+      );
+
+      console.log(
+        `✅ [Frontend] Successfully navigated back to ${previousStep}`
+      );
       setCurrentStep(previousStep);
     } catch (err) {
       console.error("❌ [Frontend] Backward navigation failed:", err);
-      
+
       // Provide user-friendly error messages
       let errorMessage = "Failed to go back. Please try again.";
-      if (typeof err === 'string') {
+      if (typeof err === "string") {
         if (err.includes("Cannot go back from welcome")) {
           errorMessage = "You're already at the first step.";
         } else if (err.includes("Backward navigation failed")) {
           errorMessage = "Unable to go back to the previous step.";
         }
       }
-      
+
       setError(errorMessage);
     } finally {
       setIsLoading(false);
@@ -209,11 +178,22 @@ export default function OnboardingWizard({
   };
 
   const renderCurrentStep = () => {
+    const currentStepData = stepData[currentStep] || {};
+
+    const updateStepData = (data: any) => {
+      setStepData((prev) => ({
+        ...prev,
+        [currentStep]: data,
+      }));
+    };
+
     const stepProps: StepProps = {
       onNext: handleNext,
       onPrevious: handlePrevious,
       canGoNext: canGoNext(),
       canGoPrevious: canGoPrevious(),
+      stepData: currentStepData,
+      setStepData: updateStepData,
     };
 
     switch (currentStep) {
@@ -221,6 +201,8 @@ export default function OnboardingWizard({
         return <WelcomeStep {...stepProps} />;
       case "WorkSchedule":
         return <WorkScheduleStep {...stepProps} />;
+      case "WorkHours":
+        return <WorkHoursStep {...stepProps} />;
       case "Complete":
         return <CompleteStep {...stepProps} />;
       default:
@@ -268,6 +250,11 @@ export default function OnboardingWizard({
             />
             <div
               className={`w-2 h-2 rounded-full ${
+                currentStep === "WorkHours" ? "bg-white" : "bg-gray-600"
+              }`}
+            />
+            <div
+              className={`w-2 h-2 rounded-full ${
                 currentStep === "Complete" ? "bg-white" : "bg-gray-600"
               }`}
             />
@@ -278,8 +265,10 @@ export default function OnboardingWizard({
               ? "1"
               : currentStep === "WorkSchedule"
               ? "2"
-              : "3"}{" "}
-            of 3
+              : currentStep === "WorkHours"
+              ? "3"
+              : "4"}{" "}
+            of 4
           </p>
         </div>
 

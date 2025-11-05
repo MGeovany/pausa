@@ -8,6 +8,7 @@ use std::collections::HashMap;
 pub enum OnboardingStep {
     Welcome,
     WorkSchedule,
+    WorkHours,
     Complete,
 }
 
@@ -52,6 +53,21 @@ impl OnboardingManager {
                 Ok(self.current_step.clone())
             }
             OnboardingStep::WorkSchedule => {
+                // Check if user wants to use work schedule
+                if let Some(data) = self.get_step_data(&OnboardingStep::WorkSchedule) {
+                    if let Some(use_schedule) = data.get("useWorkSchedule") {
+                        if use_schedule.as_bool().unwrap_or(false) {
+                            self.current_step = OnboardingStep::WorkHours;
+                            return Ok(self.current_step.clone());
+                        }
+                    }
+                }
+                // Skip to Complete if not using work schedule
+                self.current_step = OnboardingStep::Complete;
+                self.is_complete = true;
+                Ok(self.current_step.clone())
+            }
+            OnboardingStep::WorkHours => {
                 self.current_step = OnboardingStep::Complete;
                 self.is_complete = true;
                 Ok(self.current_step.clone())
@@ -67,7 +83,21 @@ impl OnboardingManager {
                 self.current_step = OnboardingStep::Welcome;
                 Ok(self.current_step.clone())
             }
+            OnboardingStep::WorkHours => {
+                self.current_step = OnboardingStep::WorkSchedule;
+                Ok(self.current_step.clone())
+            }
             OnboardingStep::Complete => {
+                // Check if we came from WorkHours or WorkSchedule
+                if let Some(data) = self.get_step_data(&OnboardingStep::WorkSchedule) {
+                    if let Some(use_schedule) = data.get("useWorkSchedule") {
+                        if use_schedule.as_bool().unwrap_or(false) {
+                            self.current_step = OnboardingStep::WorkHours;
+                            self.is_complete = false;
+                            return Ok(self.current_step.clone());
+                        }
+                    }
+                }
                 self.current_step = OnboardingStep::WorkSchedule;
                 self.is_complete = false;
                 Ok(self.current_step.clone())

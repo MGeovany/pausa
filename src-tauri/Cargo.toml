@@ -38,6 +38,7 @@ sha2 = "0.10"
 base64 = "0.21"
 async-trait = "0.1"
 dotenv = "0.15"
+iana-time-zone = "0.1"
 
 [dev-dependencies]
 tempfile = "3.8"

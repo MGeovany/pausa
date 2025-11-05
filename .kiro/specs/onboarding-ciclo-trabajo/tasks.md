@@ -21,22 +21,22 @@
     - Probar flujo completo de navegación
     - _Requirements: 1.3, 2.4_
 
-- [ ] 2. Implementar configuración de horario de trabajo
-  - [ ] 2.1 Agregar WorkScheduleStep al onboarding
+- [x] 2. Implementar configuración de horario de trabajo
+  - [x] 2.1 Agregar WorkScheduleStep al onboarding
     - Crear paso para elegir si usar horario de trabajo
     - Implementar WorkHoursStep con selectores de tiempo
     - Agregar validación básica de horarios
     - Conectar con backend para guardar configuración
     - _Requirements: 2.1, 3.1_
 
-  - [ ] 2.2 Crear tabla work_schedule en base de datos
+  - [x] 2.2 Crear tabla work_schedule en base de datos
     - Agregar migración para tabla work_schedule
     - Implementar modelo WorkSchedule en Rust
     - Crear comandos para guardar/obtener horario de trabajo
     - Conectar frontend con nuevos comandos
     - _Requirements: 3.1, 3.4_
 
-  - [ ] 2.3 Implementar validación de horarios de trabajo
+  - [x] 2.3 Implementar validación de horarios de trabajo
     - Crear lógica de validación de rangos de tiempo
     - Agregar detección de zona horaria
     - Implementar verificación si está en horario laboral

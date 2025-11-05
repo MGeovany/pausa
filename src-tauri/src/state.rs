@@ -1,13 +1,15 @@
-use tauri::AppHandle;
+use tauri::{AppHandle, Manager};
 use tokio::sync::Mutex;
 
 use crate::config::{tokens_path, AppConfig};
+use crate::database::DatabaseManager;
 use crate::domain::tokens::TokenStorage;
 use crate::services::google_oauth::GoogleOAuthService;
 
 pub struct AppState {
     pub oauth_google: Mutex<GoogleOAuthService>,
     pub tokens_storage: TokenStorage,
+    pub database: DatabaseManager,
 }
 
 impl AppState {
@@ -15,9 +17,20 @@ impl AppState {
         let tokens_path = tokens_path(app)?;
         let storage = TokenStorage::new(tokens_path);
         let svc = GoogleOAuthService::new(cfg);
+
+        // Initialize database
+        let app_data_dir = app
+            .path()
+            .app_data_dir()
+            .map_err(|e| format!("Failed to get app data directory: {}", e))?;
+        let db_path = app_data_dir.join("pausa.db");
+        let database = DatabaseManager::new(db_path)
+            .map_err(|e| format!("Failed to initialize database: {}", e))?;
+
         Ok(Self {
             oauth_google: Mutex::new(svc),
             tokens_storage: storage,
+            database,
         })
     }
 }

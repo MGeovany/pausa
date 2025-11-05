@@ -1,7 +1,7 @@
 /// Database schema definitions for Pausa application
 /// Based on the design document specifications
 
-pub const SCHEMA_VERSION: i32 = 1;
+pub const SCHEMA_VERSION: i32 = 2;
 
 /// Initial database schema - creates all tables
 pub const INITIAL_SCHEMA: &str = r#"
@@ -63,6 +63,19 @@ CREATE TABLE insights (
     computed_at DATETIME DEFAULT CURRENT_TIMESTAMP
 );
 
+-- Work schedule configuration
+CREATE TABLE work_schedule (
+    id INTEGER PRIMARY KEY,
+    user_id INTEGER NOT NULL DEFAULT 1,
+    use_work_schedule BOOLEAN NOT NULL DEFAULT FALSE,
+    work_start_time TEXT, -- "09:00"
+    work_end_time TEXT,   -- "18:00"
+    timezone TEXT NOT NULL DEFAULT 'local',
+    created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+    updated_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+    FOREIGN KEY (user_id) REFERENCES user_settings (id)
+);
+
 -- Schema version tracking
 CREATE TABLE schema_version (
     version INTEGER PRIMARY KEY,
@@ -80,10 +93,13 @@ CREATE INDEX idx_evasion_attempts_timestamp ON evasion_attempts (timestamp);
 CREATE INDEX idx_insights_key_period ON insights (metric_key, period_start, period_end);
 
 -- Insert initial schema version
-INSERT INTO schema_version (version) VALUES (1);
+INSERT INTO schema_version (version) VALUES (2);
 
 -- Insert default user settings
 INSERT INTO user_settings (id) VALUES (1);
+
+-- Insert default work schedule
+INSERT INTO work_schedule (id, user_id) VALUES (1, 1);
 "#;
 
 /// SQL statements for creating individual tables (used in migrations)
@@ -154,5 +170,19 @@ pub const CREATE_SCHEMA_VERSION: &str = r#"
 CREATE TABLE schema_version (
     version INTEGER PRIMARY KEY,
     applied_at DATETIME DEFAULT CURRENT_TIMESTAMP
+)
+"#;
+
+pub const CREATE_WORK_SCHEDULE: &str = r#"
+CREATE TABLE work_schedule (
+    id INTEGER PRIMARY KEY,
+    user_id INTEGER NOT NULL DEFAULT 1,
+    use_work_schedule BOOLEAN NOT NULL DEFAULT FALSE,
+    work_start_time TEXT,
+    work_end_time TEXT,
+    timezone TEXT NOT NULL DEFAULT 'local',
+    created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+    updated_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+    FOREIGN KEY (user_id) REFERENCES user_settings (id)
 )
 "#;

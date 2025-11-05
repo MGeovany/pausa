@@ -3,6 +3,7 @@
 
 mod app;
 mod config;
+mod database;
 mod domain;
 mod errors;
 mod handlers;

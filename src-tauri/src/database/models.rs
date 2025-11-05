@@ -150,6 +150,35 @@ pub struct SessionStats {
     pub evasion_attempts: u32,
 }
 
+/// Work schedule model for managing work hours
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct WorkSchedule {
+    pub id: i32,
+    pub user_id: i32,
+    pub use_work_schedule: bool,
+    pub work_start_time: Option<String>, // "09:00"
+    pub work_end_time: Option<String>,   // "18:00"
+    pub timezone: String,
+    pub created_at: DateTime<Utc>,
+    pub updated_at: DateTime<Utc>,
+}
+
+impl Default for WorkSchedule {
+    fn default() -> Self {
+        let now = Utc::now();
+        Self {
+            id: 1,
+            user_id: 1,
+            use_work_schedule: false,
+            work_start_time: None,
+            work_end_time: None,
+            timezone: "local".to_string(),
+            created_at: now,
+            updated_at: now,
+        }
+    }
+}
+
 /// Database row conversion helpers
 impl UserSettings {
     pub fn from_row(row: &rusqlite::Row) -> rusqlite::Result<Self> {
@@ -246,6 +275,21 @@ impl Insight {
             period_start: row.get("period_start")?,
             period_end: row.get("period_end")?,
             computed_at: row.get("computed_at")?,
+        })
+    }
+}
+
+impl WorkSchedule {
+    pub fn from_row(row: &rusqlite::Row) -> rusqlite::Result<Self> {
+        Ok(Self {
+            id: row.get("id")?,
+            user_id: row.get("user_id")?,
+            use_work_schedule: row.get("use_work_schedule")?,
+            work_start_time: row.get("work_start_time")?,
+            work_end_time: row.get("work_end_time")?,
+            timezone: row.get("timezone")?,
+            created_at: row.get("created_at")?,
+            updated_at: row.get("updated_at")?,
         })
     }
 }
