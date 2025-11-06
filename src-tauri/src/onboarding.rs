@@ -9,6 +9,8 @@ pub enum OnboardingStep {
     Welcome,
     WorkSchedule,
     WorkHours,
+    CycleConfig,
+    StrictMode,
     Complete,
 }
 
@@ -62,12 +64,19 @@ impl OnboardingManager {
                         }
                     }
                 }
-                // Skip to Complete if not using work schedule
-                self.current_step = OnboardingStep::Complete;
-                self.is_complete = true;
+                // Go to CycleConfig if not using work schedule
+                self.current_step = OnboardingStep::CycleConfig;
                 Ok(self.current_step.clone())
             }
             OnboardingStep::WorkHours => {
+                self.current_step = OnboardingStep::CycleConfig;
+                Ok(self.current_step.clone())
+            }
+            OnboardingStep::CycleConfig => {
+                self.current_step = OnboardingStep::StrictMode;
+                Ok(self.current_step.clone())
+            }
+            OnboardingStep::StrictMode => {
                 self.current_step = OnboardingStep::Complete;
                 self.is_complete = true;
                 Ok(self.current_step.clone())
@@ -87,18 +96,25 @@ impl OnboardingManager {
                 self.current_step = OnboardingStep::WorkSchedule;
                 Ok(self.current_step.clone())
             }
-            OnboardingStep::Complete => {
+            OnboardingStep::CycleConfig => {
                 // Check if we came from WorkHours or WorkSchedule
                 if let Some(data) = self.get_step_data(&OnboardingStep::WorkSchedule) {
                     if let Some(use_schedule) = data.get("useWorkSchedule") {
                         if use_schedule.as_bool().unwrap_or(false) {
                             self.current_step = OnboardingStep::WorkHours;
-                            self.is_complete = false;
                             return Ok(self.current_step.clone());
                         }
                     }
                 }
                 self.current_step = OnboardingStep::WorkSchedule;
+                Ok(self.current_step.clone())
+            }
+            OnboardingStep::StrictMode => {
+                self.current_step = OnboardingStep::CycleConfig;
+                Ok(self.current_step.clone())
+            }
+            OnboardingStep::Complete => {
+                self.current_step = OnboardingStep::StrictMode;
                 self.is_complete = false;
                 Ok(self.current_step.clone())
             }

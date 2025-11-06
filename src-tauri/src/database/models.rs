@@ -9,9 +9,12 @@ pub struct UserSettings {
     pub short_break_duration: i32,
     pub long_break_duration: i32,
     pub cycles_per_long_break: i32,
+    pub cycles_per_long_break_v2: i32,
     pub pre_alert_seconds: i32,
     pub strict_mode: bool,
     pub pin_hash: Option<String>,
+    pub user_name: Option<String>,
+    pub emergency_key_combination: Option<String>,
     pub created_at: DateTime<Utc>,
     pub updated_at: DateTime<Utc>,
 }
@@ -25,9 +28,12 @@ impl Default for UserSettings {
             short_break_duration: 300, // 5 minutes
             long_break_duration: 900,  // 15 minutes
             cycles_per_long_break: 4,
+            cycles_per_long_break_v2: 4,
             pre_alert_seconds: 120, // 2 minutes
             strict_mode: false,
             pin_hash: None,
+            user_name: None,
+            emergency_key_combination: None,
             created_at: now,
             updated_at: now,
         }
@@ -188,9 +194,12 @@ impl UserSettings {
             short_break_duration: row.get("short_break_duration")?,
             long_break_duration: row.get("long_break_duration")?,
             cycles_per_long_break: row.get("cycles_per_long_break")?,
+            cycles_per_long_break_v2: row.get("cycles_per_long_break_v2").unwrap_or(4),
             pre_alert_seconds: row.get("pre_alert_seconds")?,
             strict_mode: row.get("strict_mode")?,
             pin_hash: row.get("pin_hash")?,
+            user_name: row.get("user_name")?,
+            emergency_key_combination: row.get("emergency_key_combination")?,
             created_at: row.get("created_at")?,
             updated_at: row.get("updated_at")?,
         })

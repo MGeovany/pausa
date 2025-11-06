@@ -1,6 +1,6 @@
 import { useState, useEffect } from "react";
 import { useNavigate } from "react-router-dom";
-import { LogOut, Clock, Target, TrendingUp } from "lucide-react";
+import { LogOut } from "lucide-react";
 import { invoke } from "@tauri-apps/api/core";
 
 interface UserInfo {

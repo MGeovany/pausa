@@ -1,7 +1,9 @@
 use std::sync::Mutex;
 use tauri::Manager;
 
-use crate::handlers::{auth_handler, onboarding_handler, work_schedule_handler};
+use crate::handlers::{
+    auth_handler, cycle_config_handler, onboarding_handler, work_schedule_handler,
+};
 use crate::{config::AppConfig, onboarding::OnboardingManager, state::AppState};
 
 pub fn run() -> Result<(), String> {
@@ -35,7 +37,13 @@ pub fn run() -> Result<(), String> {
             work_schedule_handler::get_work_schedule,
             work_schedule_handler::is_within_work_hours,
             work_schedule_handler::get_system_timezone_info,
-            work_schedule_handler::validate_work_hours
+            work_schedule_handler::validate_work_hours,
+            cycle_config_handler::save_cycle_config,
+            cycle_config_handler::get_cycle_config,
+            cycle_config_handler::get_user_settings,
+            cycle_config_handler::update_user_name,
+            cycle_config_handler::save_strict_mode_config,
+            cycle_config_handler::get_strict_mode_config
         ])
         .run(tauri::generate_context!())
         .map_err(|e| e.to_string())

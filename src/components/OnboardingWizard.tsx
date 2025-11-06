@@ -3,6 +3,8 @@ import { invoke } from "@tauri-apps/api/core";
 import WelcomeStep from "./onboarding-steps/WelcomeStep";
 import WorkScheduleStep from "./onboarding-steps/WorkScheduleStep";
 import WorkHoursStep from "./onboarding-steps/WorkHoursStep";
+import CycleConfigStep from "./onboarding-steps/CycleConfigStep";
+import StrictModeStep from "./onboarding-steps/StrictModeStep";
 import CompleteStep from "./onboarding-steps/CompleteStep";
 import type { StepProps } from "./onboarding-steps/types";
 
@@ -11,6 +13,8 @@ export type OnboardingStep =
   | "Welcome"
   | "WorkSchedule"
   | "WorkHours"
+  | "CycleConfig"
+  | "StrictMode"
   | "Complete";
 
 interface OnboardingWizardProps {
@@ -98,6 +102,57 @@ export default function OnboardingWizard({
             setError("Failed to save work schedule choice. Please try again.");
             return;
           }
+        }
+      }
+
+      // Save cycle configuration if we're leaving the CycleConfig step
+      if (currentStep === "CycleConfig" && currentStepData) {
+        try {
+          await invoke("save_cycle_config", {
+            config: {
+              focus_duration: currentStepData.focusDuration,
+              break_duration: currentStepData.breakDuration,
+              long_break_duration: currentStepData.longBreakDuration,
+              cycles_per_long_break: currentStepData.cyclesPerLongBreak,
+            },
+          });
+          console.log("✅ [Frontend] Cycle configuration saved successfully");
+        } catch (saveErr) {
+          console.error("❌ [Frontend] Failed to save cycle config:", saveErr);
+          setError("Failed to save cycle configuration. Please try again.");
+          return;
+        }
+      }
+
+      // Save strict mode configuration if we're leaving the StrictMode step
+      if (currentStep === "StrictMode" && currentStepData) {
+        try {
+          // Save user name if provided
+          if (currentStepData.userName) {
+            await invoke("update_user_name", {
+              userName: currentStepData.userName,
+            });
+          }
+
+          // Save strict mode and emergency key
+          await invoke("save_strict_mode_config", {
+            config: {
+              strict_mode: currentStepData.strictMode,
+              emergency_key_combination: currentStepData.emergencyKey || null,
+            },
+          });
+          console.log(
+            "✅ [Frontend] Strict mode configuration saved successfully"
+          );
+        } catch (saveErr) {
+          console.error(
+            "❌ [Frontend] Failed to save strict mode config:",
+            saveErr
+          );
+          setError(
+            "Failed to save strict mode configuration. Please try again."
+          );
+          return;
         }
       }
 
@@ -203,6 +258,10 @@ export default function OnboardingWizard({
         return <WorkScheduleStep {...stepProps} />;
       case "WorkHours":
         return <WorkHoursStep {...stepProps} />;
+      case "CycleConfig":
+        return <CycleConfigStep {...stepProps} />;
+      case "StrictMode":
+        return <StrictModeStep {...stepProps} />;
       case "Complete":
         return <CompleteStep {...stepProps} />;
       default:
@@ -234,7 +293,7 @@ export default function OnboardingWizard({
       <div className="absolute top-0 right-0 w-[600px] h-[600px] bg-white/10 rounded-full blur-3xl translate-x-1/2 -translate-y-1/2" />
       <div className="absolute bottom-0 left-0 w-[600px] h-[600px] bg-white/10 rounded-full blur-3xl -translate-x-1/2 translate-y-1/2" />
 
-      <div className="w-full max-w-2xl relative z-10">
+      <div className="w-full max-w-2xl relative z-10 p-4">
         {/* Progress indicator */}
         <div className="mb-8">
           <div className="flex justify-center items-center space-x-2 mb-4">
@@ -255,6 +314,16 @@ export default function OnboardingWizard({
             />
             <div
               className={`w-2 h-2 rounded-full ${
+                currentStep === "CycleConfig" ? "bg-white" : "bg-gray-600"
+              }`}
+            />
+            <div
+              className={`w-2 h-2 rounded-full ${
+                currentStep === "StrictMode" ? "bg-white" : "bg-gray-600"
+              }`}
+            />
+            <div
+              className={`w-2 h-2 rounded-full ${
                 currentStep === "Complete" ? "bg-white" : "bg-gray-600"
               }`}
             />
@@ -267,8 +336,12 @@ export default function OnboardingWizard({
               ? "2"
               : currentStep === "WorkHours"
               ? "3"
-              : "4"}{" "}
-            of 4
+              : currentStep === "CycleConfig"
+              ? "4"
+              : currentStep === "StrictMode"
+              ? "5"
+              : "6"}{" "}
+            of 6
           </p>
         </div>
 

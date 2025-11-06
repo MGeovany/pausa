@@ -1,6 +1,6 @@
 # Implementation Plan
 
-- [-] 1. Implementar flujo básico de onboarding (setup inicial)
+- [x] 1. Implementar flujo básico de onboarding (setup inicial)
   - [x] 1.1 Crear estructura mínima de onboarding en Rust
     - Crear OnboardingStep enum básico (Welcome, WorkSchedule, Complete)
     - Implementar OnboardingManager con navegación simple
@@ -43,22 +43,22 @@
     - Probar flujo completo de configuración de horarios
     - _Requirements: 3.4, 7.1_
 
-- [ ] 3. Implementar configuración de ciclos de trabajo
-  - [ ] 3.1 Agregar CycleConfigStep al onboarding
+- [x] 3. Implementar configuración de ciclos de trabajo
+  - [x] 3.1 Agregar CycleConfigStep al onboarding
     - Crear paso para configurar duraciones de focus/break
     - Implementar selectores para ciclos hasta break largo
     - Agregar vista previa de configuración
     - Conectar con backend para guardar configuración
     - _Requirements: 4.1, 4.2_
 
-  - [ ] 3.2 Extender user_settings para ciclos
+  - [x] 3.2 Extender user_settings para ciclos
     - Agregar campos cycles_per_long_break_v2 y user_name
     - Crear migración de base de datos
     - Implementar comandos para guardar configuración de ciclos
     - Conectar frontend con configuración extendida
     - _Requirements: 4.1, 6.1_
 
-  - [ ] 3.3 Implementar modo estricto y clave de emergencia
+  - [x] 3.3 Implementar modo estricto y clave de emergencia
     - Crear StrictModeStep con captura de teclas
     - Implementar sistema de captura de combinación de teclas
     - Agregar campo emergency_key_combination a user_settings

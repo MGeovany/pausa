@@ -1,7 +1,7 @@
 /// Database schema definitions for Pausa application
 /// Based on the design document specifications
 
-pub const SCHEMA_VERSION: i32 = 2;
+pub const SCHEMA_VERSION: i32 = 3;
 
 /// Initial database schema - creates all tables
 pub const INITIAL_SCHEMA: &str = r#"
@@ -12,9 +12,12 @@ CREATE TABLE user_settings (
     short_break_duration INTEGER NOT NULL DEFAULT 300, -- 5 minutes
     long_break_duration INTEGER NOT NULL DEFAULT 900, -- 15 minutes
     cycles_per_long_break INTEGER NOT NULL DEFAULT 4,
+    cycles_per_long_break_v2 INTEGER NOT NULL DEFAULT 4, -- New field for onboarding
     pre_alert_seconds INTEGER NOT NULL DEFAULT 120,
     strict_mode BOOLEAN NOT NULL DEFAULT FALSE,
     pin_hash TEXT,
+    user_name TEXT, -- User's name for personalized notifications
+    emergency_key_combination TEXT, -- Emergency key combination for strict mode
     created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
     updated_at DATETIME DEFAULT CURRENT_TIMESTAMP
 );
@@ -93,7 +96,7 @@ CREATE INDEX idx_evasion_attempts_timestamp ON evasion_attempts (timestamp);
 CREATE INDEX idx_insights_key_period ON insights (metric_key, period_start, period_end);
 
 -- Insert initial schema version
-INSERT INTO schema_version (version) VALUES (2);
+INSERT INTO schema_version (version) VALUES (3);
 
 -- Insert default user settings
 INSERT INTO user_settings (id) VALUES (1);
@@ -110,9 +113,12 @@ CREATE TABLE user_settings (
     short_break_duration INTEGER NOT NULL DEFAULT 300,
     long_break_duration INTEGER NOT NULL DEFAULT 900,
     cycles_per_long_break INTEGER NOT NULL DEFAULT 4,
+    cycles_per_long_break_v2 INTEGER NOT NULL DEFAULT 4,
     pre_alert_seconds INTEGER NOT NULL DEFAULT 120,
     strict_mode BOOLEAN NOT NULL DEFAULT FALSE,
     pin_hash TEXT,
+    user_name TEXT,
+    emergency_key_combination TEXT,
     created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
     updated_at DATETIME DEFAULT CURRENT_TIMESTAMP
 )

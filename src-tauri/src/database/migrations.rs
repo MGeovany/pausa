@@ -78,6 +78,10 @@ impl MigrationManager {
                 // Version 2: Add work_schedule table
                 Self::migrate_to_v2(conn)
             }
+            3 => {
+                // Version 3: Add cycle configuration fields to user_settings
+                Self::migrate_to_v3(conn)
+            }
             _ => Err(DatabaseError::Migration(format!(
                 "Unknown migration version: {}",
                 version
@@ -117,6 +121,34 @@ impl MigrationManager {
             .map_err(DatabaseError::Sqlite)?;
 
         println!("Migration to version 2 completed successfully");
+        Ok(())
+    }
+
+    /// Migration to version 3: Add cycle configuration fields to user_settings
+    fn migrate_to_v3(conn: &Connection) -> DatabaseResult<()> {
+        println!("Applying migration to version 3: Adding cycle configuration fields");
+
+        // Add new fields to user_settings table
+        conn.execute(
+            "ALTER TABLE user_settings ADD COLUMN cycles_per_long_break_v2 INTEGER NOT NULL DEFAULT 4",
+            [],
+        )
+        .map_err(DatabaseError::Sqlite)?;
+
+        conn.execute("ALTER TABLE user_settings ADD COLUMN user_name TEXT", [])
+            .map_err(DatabaseError::Sqlite)?;
+
+        conn.execute(
+            "ALTER TABLE user_settings ADD COLUMN emergency_key_combination TEXT",
+            [],
+        )
+        .map_err(DatabaseError::Sqlite)?;
+
+        // Update schema version
+        conn.execute("INSERT INTO schema_version (version) VALUES (3)", [])
+            .map_err(DatabaseError::Sqlite)?;
+
+        println!("Migration to version 3 completed successfully");
         Ok(())
     }
 
