@@ -1,7 +1,7 @@
 /// Database schema definitions for Pausa application
 /// Based on the design document specifications
 
-pub const SCHEMA_VERSION: i32 = 3;
+pub const SCHEMA_VERSION: i32 = 4;
 
 /// Initial database schema - creates all tables
 pub const INITIAL_SCHEMA: &str = r#"
@@ -79,6 +79,14 @@ CREATE TABLE work_schedule (
     FOREIGN KEY (user_id) REFERENCES user_settings (id)
 );
 
+-- Onboarding completion tracking
+CREATE TABLE onboarding_completion (
+    id INTEGER PRIMARY KEY,
+    completed_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+    version TEXT NOT NULL DEFAULT '1.0',
+    config_snapshot TEXT -- JSON of final configuration
+);
+
 -- Schema version tracking
 CREATE TABLE schema_version (
     version INTEGER PRIMARY KEY,
@@ -96,7 +104,7 @@ CREATE INDEX idx_evasion_attempts_timestamp ON evasion_attempts (timestamp);
 CREATE INDEX idx_insights_key_period ON insights (metric_key, period_start, period_end);
 
 -- Insert initial schema version
-INSERT INTO schema_version (version) VALUES (3);
+INSERT INTO schema_version (version) VALUES (4);
 
 -- Insert default user settings
 INSERT INTO user_settings (id) VALUES (1);
@@ -190,5 +198,14 @@ CREATE TABLE work_schedule (
     created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
     updated_at DATETIME DEFAULT CURRENT_TIMESTAMP,
     FOREIGN KEY (user_id) REFERENCES user_settings (id)
+)
+"#;
+
+pub const CREATE_ONBOARDING_COMPLETION: &str = r#"
+CREATE TABLE onboarding_completion (
+    id INTEGER PRIMARY KEY,
+    completed_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+    version TEXT NOT NULL DEFAULT '1.0',
+    config_snapshot TEXT
 )
 "#;

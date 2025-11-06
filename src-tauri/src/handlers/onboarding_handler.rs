@@ -107,27 +107,44 @@ pub async fn previous_onboarding_step(
 #[tauri::command]
 pub async fn complete_onboarding(
     final_config: serde_json::Value,
-    state: State<'_, Mutex<OnboardingManager>>,
+    onboarding_state: State<'_, Mutex<OnboardingManager>>,
+    app_state: State<'_, crate::state::AppState>,
 ) -> Result<(), String> {
     println!(
         "🎉 [Rust] complete_onboarding called with config: {:?}",
         final_config
     );
 
-    let mut manager = state.lock().map_err(|e| {
+    let mut manager = onboarding_state.lock().map_err(|e| {
         println!("❌ [Rust] Error acquiring onboarding manager lock: {}", e);
         format!("Failed to acquire onboarding manager lock: {}", e)
     })?;
 
     // Store the final configuration
-    manager.set_step_data(OnboardingStep::Complete, final_config)?;
+    manager.set_step_data(OnboardingStep::Complete, final_config.clone())?;
 
     // Mark as complete
     if !manager.is_complete() {
         manager.next_step()?; // This should set is_complete to true
     }
 
-    println!("✅ [Rust] Onboarding completed successfully");
+    // Save onboarding completion to database
+    let config_json = serde_json::to_string(&final_config).map_err(|e| {
+        let error_msg = format!("Failed to serialize config: {}", e);
+        println!("❌ [Rust] {}", error_msg);
+        error_msg
+    })?;
+
+    app_state
+        .database
+        .save_onboarding_completion("1.0", Some(&config_json))
+        .map_err(|e| {
+            let error_msg = format!("Failed to save onboarding completion: {}", e);
+            println!("❌ [Rust] {}", error_msg);
+            error_msg
+        })?;
+
+    println!("✅ [Rust] Onboarding completed and saved to database successfully");
 
     Ok(())
 }

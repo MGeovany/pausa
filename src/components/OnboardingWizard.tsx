@@ -5,6 +5,7 @@ import WorkScheduleStep from "./onboarding-steps/WorkScheduleStep";
 import WorkHoursStep from "./onboarding-steps/WorkHoursStep";
 import CycleConfigStep from "./onboarding-steps/CycleConfigStep";
 import StrictModeStep from "./onboarding-steps/StrictModeStep";
+import SummaryStep from "./onboarding-steps/SummaryStep";
 import CompleteStep from "./onboarding-steps/CompleteStep";
 import type { StepProps } from "./onboarding-steps/types";
 
@@ -15,6 +16,7 @@ export type OnboardingStep =
   | "WorkHours"
   | "CycleConfig"
   | "StrictMode"
+  | "Summary"
   | "Complete";
 
 interface OnboardingWizardProps {
@@ -166,7 +168,10 @@ export default function OnboardingWizard({
       // Handle completion
       if (nextStep === "Complete") {
         console.log("🎉 [Frontend] Onboarding completed");
-        // In future tasks, we'll call onComplete with actual config
+        // Onboarding is now complete, the app should transition to main view
+        if (_onComplete) {
+          _onComplete();
+        }
       }
     } catch (err) {
       console.error("❌ [Frontend] Navigation failed:", err);
@@ -225,7 +230,7 @@ export default function OnboardingWizard({
   };
 
   const canGoNext = () => {
-    return currentStep !== "Complete" && !isLoading;
+    return currentStep !== "Complete" && currentStep !== "Summary" && !isLoading;
   };
 
   const canGoPrevious = () => {
@@ -262,6 +267,8 @@ export default function OnboardingWizard({
         return <CycleConfigStep {...stepProps} />;
       case "StrictMode":
         return <StrictModeStep {...stepProps} />;
+      case "Summary":
+        return <SummaryStep {...stepProps} />;
       case "Complete":
         return <CompleteStep {...stepProps} />;
       default:
@@ -324,6 +331,11 @@ export default function OnboardingWizard({
             />
             <div
               className={`w-2 h-2 rounded-full ${
+                currentStep === "Summary" ? "bg-white" : "bg-gray-600"
+              }`}
+            />
+            <div
+              className={`w-2 h-2 rounded-full ${
                 currentStep === "Complete" ? "bg-white" : "bg-gray-600"
               }`}
             />
@@ -340,8 +352,10 @@ export default function OnboardingWizard({
               ? "4"
               : currentStep === "StrictMode"
               ? "5"
-              : "6"}{" "}
-            of 6
+              : currentStep === "Summary"
+              ? "6"
+              : "7"}{" "}
+            of 7
           </p>
         </div>
 

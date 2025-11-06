@@ -11,6 +11,7 @@ pub enum OnboardingStep {
     WorkHours,
     CycleConfig,
     StrictMode,
+    Summary,
     Complete,
 }
 
@@ -77,6 +78,10 @@ impl OnboardingManager {
                 Ok(self.current_step.clone())
             }
             OnboardingStep::StrictMode => {
+                self.current_step = OnboardingStep::Summary;
+                Ok(self.current_step.clone())
+            }
+            OnboardingStep::Summary => {
                 self.current_step = OnboardingStep::Complete;
                 self.is_complete = true;
                 Ok(self.current_step.clone())
@@ -113,8 +118,12 @@ impl OnboardingManager {
                 self.current_step = OnboardingStep::CycleConfig;
                 Ok(self.current_step.clone())
             }
-            OnboardingStep::Complete => {
+            OnboardingStep::Summary => {
                 self.current_step = OnboardingStep::StrictMode;
+                Ok(self.current_step.clone())
+            }
+            OnboardingStep::Complete => {
+                self.current_step = OnboardingStep::Summary;
                 self.is_complete = false;
                 Ok(self.current_step.clone())
             }

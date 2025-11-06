@@ -66,7 +66,7 @@
     - _Requirements: 5.1, 5.6_
 
 - [ ] 4. Completar onboarding y generar configuración
-  - [ ] 4.1 Implementar SummaryStep y finalización
+  - [x] 4.1 Implementar SummaryStep y finalización
     - Crear paso de resumen con toda la configuración
     - Implementar comando complete_onboarding
     - Crear tabla onboarding_completion para tracking

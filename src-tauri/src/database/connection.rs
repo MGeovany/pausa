@@ -353,7 +353,7 @@ impl DatabaseManager {
         &self,
         days: u32,
     ) -> DatabaseResult<Vec<crate::database::models::SessionStats>> {
-        use chrono::{Duration, NaiveDate};
+        use chrono::Duration;
 
         self.with_connection(|conn| {
             let end_date = Utc::now();
@@ -405,6 +405,64 @@ impl DatabaseManager {
             }
 
             Ok(stats)
+        })
+    }
+
+    /// Onboarding Methods
+
+    /// Save onboarding completion record
+    pub fn save_onboarding_completion(
+        &self,
+        version: &str,
+        config_snapshot: Option<&str>,
+    ) -> DatabaseResult<()> {
+        self.with_connection(|conn| {
+            conn.execute(
+                "INSERT INTO onboarding_completion (version, config_snapshot) VALUES (?1, ?2)",
+                params![version, config_snapshot],
+            )
+            .map_err(DatabaseError::Sqlite)?;
+
+            Ok(())
+        })
+    }
+
+    /// Check if onboarding has been completed
+    pub fn is_onboarding_completed(&self) -> DatabaseResult<bool> {
+        self.with_connection(|conn| {
+            let count: i64 = conn
+                .query_row("SELECT COUNT(*) FROM onboarding_completion", [], |row| {
+                    row.get(0)
+                })
+                .map_err(DatabaseError::Sqlite)?;
+
+            Ok(count > 0)
+        })
+    }
+
+    /// Get the latest onboarding completion record
+    pub fn get_latest_onboarding_completion(
+        &self,
+    ) -> DatabaseResult<Option<crate::database::models::OnboardingCompletion>> {
+        self.with_connection(|conn| {
+            let mut stmt = conn
+                .prepare(
+                    "SELECT id, completed_at, version, config_snapshot 
+                     FROM onboarding_completion 
+                     ORDER BY completed_at DESC 
+                     LIMIT 1",
+                )
+                .map_err(DatabaseError::Sqlite)?;
+
+            let result = stmt.query_row([], |row| {
+                crate::database::models::OnboardingCompletion::from_row(row)
+            });
+
+            match result {
+                Ok(completion) => Ok(Some(completion)),
+                Err(rusqlite::Error::QueryReturnedNoRows) => Ok(None),
+                Err(e) => Err(DatabaseError::Sqlite(e)),
+            }
         })
     }
 }

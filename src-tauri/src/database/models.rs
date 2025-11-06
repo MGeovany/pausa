@@ -169,6 +169,15 @@ pub struct WorkSchedule {
     pub updated_at: DateTime<Utc>,
 }
 
+/// Onboarding completion tracking model
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct OnboardingCompletion {
+    pub id: i32,
+    pub completed_at: DateTime<Utc>,
+    pub version: String,
+    pub config_snapshot: Option<String>, // JSON of final configuration
+}
+
 impl Default for WorkSchedule {
     fn default() -> Self {
         let now = Utc::now();
@@ -299,6 +308,17 @@ impl WorkSchedule {
             timezone: row.get("timezone")?,
             created_at: row.get("created_at")?,
             updated_at: row.get("updated_at")?,
+        })
+    }
+}
+
+impl OnboardingCompletion {
+    pub fn from_row(row: &rusqlite::Row) -> rusqlite::Result<Self> {
+        Ok(Self {
+            id: row.get("id")?,
+            completed_at: row.get("completed_at")?,
+            version: row.get("version")?,
+            config_snapshot: row.get("config_snapshot")?,
         })
     }
 }

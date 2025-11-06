@@ -82,6 +82,10 @@ impl MigrationManager {
                 // Version 3: Add cycle configuration fields to user_settings
                 Self::migrate_to_v3(conn)
             }
+            4 => {
+                // Version 4: Add onboarding_completion table
+                Self::migrate_to_v4(conn)
+            }
             _ => Err(DatabaseError::Migration(format!(
                 "Unknown migration version: {}",
                 version
@@ -152,6 +156,32 @@ impl MigrationManager {
         Ok(())
     }
 
+    /// Migration to version 4: Add onboarding_completion table
+    fn migrate_to_v4(conn: &Connection) -> DatabaseResult<()> {
+        println!("Applying migration to version 4: Adding onboarding_completion table");
+
+        // Create onboarding_completion table
+        conn.execute(
+            r#"
+            CREATE TABLE onboarding_completion (
+                id INTEGER PRIMARY KEY,
+                completed_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+                version TEXT NOT NULL DEFAULT '1.0',
+                config_snapshot TEXT
+            )
+            "#,
+            [],
+        )
+        .map_err(DatabaseError::Sqlite)?;
+
+        // Update schema version
+        conn.execute("INSERT INTO schema_version (version) VALUES (4)", [])
+            .map_err(DatabaseError::Sqlite)?;
+
+        println!("Migration to version 4 completed successfully");
+        Ok(())
+    }
+
     /// Validate database integrity
     pub fn validate_database(conn: &Connection) -> DatabaseResult<()> {
         // Check that all required tables exist
@@ -162,6 +192,7 @@ impl MigrationManager {
             "evasion_attempts",
             "insights",
             "work_schedule",
+            "onboarding_completion",
             "schema_version",
         ];
 
