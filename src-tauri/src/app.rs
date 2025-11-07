@@ -2,7 +2,7 @@ use std::sync::Mutex;
 use tauri::Manager;
 
 use crate::handlers::{
-    auth_handler, cycle_config_handler, onboarding_handler, work_schedule_handler,
+    auth_handler, cycle_config_handler, cycle_handler, onboarding_handler, work_schedule_handler,
 };
 use crate::{config::AppConfig, onboarding::OnboardingManager, state::AppState};
 
@@ -53,7 +53,16 @@ pub fn run() -> Result<(), String> {
             cycle_config_handler::get_user_settings,
             cycle_config_handler::update_user_name,
             cycle_config_handler::save_strict_mode_config,
-            cycle_config_handler::get_strict_mode_config
+            cycle_config_handler::get_strict_mode_config,
+            cycle_handler::initialize_cycle_orchestrator,
+            cycle_handler::start_focus_session,
+            cycle_handler::start_break_session,
+            cycle_handler::pause_cycle,
+            cycle_handler::resume_cycle,
+            cycle_handler::end_cycle_session,
+            cycle_handler::get_cycle_state,
+            cycle_handler::cycle_tick,
+            cycle_handler::reset_cycle_count
         ])
         .run(tauri::generate_context!())
         .map_err(|e| e.to_string())

@@ -1,6 +1,6 @@
 import { create } from 'zustand';
 import { devtools } from 'zustand/middleware';
-import type { AppState, UserSettings, FocusSession, BreakSession, SessionStats } from '../types';
+import type { AppState, UserSettings, FocusSession, BreakSession, SessionStats, CycleState } from '../types';
 
 // Default settings based on requirements
 const DEFAULT_SETTINGS: UserSettings = {
@@ -14,7 +14,13 @@ const DEFAULT_SETTINGS: UserSettings = {
   blockedWebsites: [],
 };
 
-export const useAppStore = create<AppState>()(
+// Extended AppState interface with cycle state
+interface ExtendedAppState extends AppState {
+  cycleState: CycleState | null;
+  setCycleState: (state: CycleState | null) => void;
+}
+
+export const useAppStore = create<ExtendedAppState>()(
   devtools(
     (set) => ({
       // Initial state
@@ -26,6 +32,7 @@ export const useAppStore = create<AppState>()(
       isSettingsOpen: false,
       settings: DEFAULT_SETTINGS,
       stats: [],
+      cycleState: null,
 
       // Session actions
       setCurrentSession: (session: FocusSession | null) =>
@@ -102,6 +109,14 @@ export const useAppStore = create<AppState>()(
           false,
           'setStats'
         ),
+
+      // Cycle actions
+      setCycleState: (cycleState: CycleState | null) =>
+        set(
+          { cycleState },
+          false,
+          'setCycleState'
+        ),
     }),
     {
       name: 'pausa-store',
@@ -120,3 +135,4 @@ export const useUIState = () => useAppStore((state) => ({
   isSettingsOpen: state.isSettingsOpen,
 }));
 export const useStats = () => useAppStore((state) => state.stats);
+export const useCycleState = () => useAppStore((state) => state.cycleState);

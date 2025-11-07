@@ -143,7 +143,33 @@ export interface StateChangeEvent {
   to: SessionState;
 }
 
-export type AppEvent = SessionUpdateEvent | BreakUpdateEvent | StateChangeEvent;
+export type AppEvent = SessionUpdateEvent | BreakUpdateEvent | StateChangeEvent | CycleEvent;
+
+// Cycle orchestrator types
+export type CyclePhase = "idle" | "focus" | "short_break" | "long_break";
+
+export interface CycleState {
+  phase: CyclePhase;
+  remaining_seconds: number;
+  cycle_count: number;
+  is_running: boolean;
+  can_start: boolean;
+  session_id?: string;
+  started_at?: string;
+}
+
+export interface CycleEvent {
+  type: "cycle-event";
+  event: CycleEventData;
+}
+
+export type CycleEventData =
+  | { type: "phase_started"; phase: CyclePhase; duration: number; cycle_count: number }
+  | { type: "phase_ended"; phase: CyclePhase; completed: boolean }
+  | { type: "tick"; remaining: number }
+  | { type: "pre_alert"; remaining: number }
+  | { type: "cycle_completed"; cycle_count: number }
+  | { type: "long_break_reached"; cycles_completed: number };
 
 // Utility types
 export interface Position {

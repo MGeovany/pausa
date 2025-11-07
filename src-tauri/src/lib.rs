@@ -3,6 +3,7 @@
 
 mod app;
 mod config;
+mod cycle_orchestrator;
 mod database;
 mod domain;
 mod errors;

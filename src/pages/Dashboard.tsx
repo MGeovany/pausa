@@ -2,6 +2,7 @@ import { useState, useEffect } from "react";
 import { useNavigate } from "react-router-dom";
 import { LogOut } from "lucide-react";
 import { invoke } from "@tauri-apps/api/core";
+import { CycleControl } from "../components/CycleControl";
 
 interface UserInfo {
   name: string;
@@ -74,6 +75,11 @@ export default function Dashboard() {
               Logout
             </button>
           </div>
+        </div>
+
+        {/* Cycle Control */}
+        <div className="mb-8">
+          <CycleControl />
         </div>
       </div>
     </div>

@@ -1,10 +1,11 @@
 import React, { useState, useRef, useEffect, useCallback } from 'react';
-import { Play, Pause, RotateCcw, MoreHorizontal, Shield } from 'lucide-react';
-import { useAppStore, useCurrentSession } from '../store';
+import { Play, Pause, RotateCcw, MoreHorizontal, Shield, Target } from 'lucide-react';
+import { useAppStore, useCurrentSession, useCycleState } from '../store';
 import { COLORS, FOCUS_WIDGET, SHADOWS, ANIMATIONS } from '../constants/design';
 import { setupEventListeners } from '../lib/tauri';
 import { SessionManager } from '../lib/commands';
-import type { FocusSession, Position } from '../types';
+import { CycleManager } from '../lib/cycleCommands';
+import type { FocusSession, Position, CycleState } from '../types';
 
 interface FocusWidgetProps {
   session: FocusSession | null;
@@ -308,6 +309,9 @@ export const FocusWidget: React.FC<FocusWidgetProps> = ({
     return () => document.removeEventListener('visibilitychange', handleVisibilityChange);
   }, [updatePosition]);
 
+  // Get cycle state from store
+  const cycleState = useCycleState();
+
   // Don't render if no session
   if (!session) {
     return null;
@@ -420,6 +424,16 @@ export const FocusWidget: React.FC<FocusWidgetProps> = ({
       {/* Strict mode indicator badge */}
       {isStrict && (
         <div className="absolute -top-1 -right-1 w-3 h-3 bg-red-500 rounded-full border-2 border-gray-900" />
+      )}
+
+      {/* Cycle counter badge */}
+      {cycleState && cycleState.cycle_count > 0 && (
+        <div className="absolute -bottom-2 left-1/2 transform -translate-x-1/2 flex items-center space-x-1 bg-gray-800 border border-gray-600 rounded-full px-2 py-0.5">
+          <Target className="w-3 h-3 text-blue-400" />
+          <span className="text-xs font-semibold text-blue-400">
+            {cycleState.cycle_count}
+          </span>
+        </div>
       )}
     </div>
   );

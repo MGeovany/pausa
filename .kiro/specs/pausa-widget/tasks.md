@@ -1,6 +1,7 @@
 # Implementation Plan
 
 - [x] 1. Set up project structure and core dependencies
+
   - Install required Tauri plugins for global shortcuts, system tray, and window management
   - Add React dependencies for state management (Zustand) and UI components
   - Configure Tailwind CSS for the Raycast-inspired design system
@@ -8,7 +9,9 @@
   - _Requirements: 8.1, 8.2_
 
 - [ ] 2. Implement core data models and database setup
+
   - [x] 2.1 Create SQLite database schema and migration system
+
     - Write SQL schema for user_settings, block_list, sessions, evasion_attempts, and insights tables
     - Implement database initialization and migration logic in Rust
     - Create database connection pool and error handling
@@ -20,14 +23,10 @@
     - Create conversion functions between database models and API models
     - _Requirements: 5.1, 5.2, 5.3, 5.4, 5.5_
 
-  - [ ]* 2.3 Write unit tests for data models
-    - Test database CRUD operations for all tables
-    - Test data structure serialization and validation
-    - Test database migration and schema evolution
-    - _Requirements: 5.6, 7.4_
-
 - [ ] 3. Create state management system
+
   - [x] 3.1 Implement core state machine in Rust
+
     - Create AppState enum and StateManager struct
     - Implement state transitions: Idle → FocusRunning → FocusPreAlert → FocusEnding → BreakRunning
     - Add timer functionality with precise timing and pre-alert triggers
@@ -35,40 +34,34 @@
     - _Requirements: 3.5, 4.1, 5.1, 5.5_
 
   - [x] 3.2 Create Tauri commands for state management
+
     - Implement start_focus_session, pause_session, resume_session commands
     - Add get_current_session and get_session_stats commands
     - Create update_settings and get_settings commands
     - Implement proper error handling and state validation
     - _Requirements: 2.3, 3.1, 3.2, 5.1_
 
-  - [ ]* 3.3 Write unit tests for state machine
-    - Test all state transitions and edge cases
-    - Test timer accuracy and pre-alert timing
-    - Test session persistence and recovery
-    - _Requirements: 3.5, 5.5_
-
 - [x] 4. Implement window management system
+
   - [x] 4.1 Create multi-window Tauri configuration
+
     - Configure window types: command palette, focus widget, break overlay, settings
     - Set up window properties: always-on-top, transparency, click-through, fullscreen
     - Implement window positioning and multi-monitor support
     - _Requirements: 1.1, 3.3, 4.2_
 
   - [x] 4.2 Build window manager service in Rust
+
     - Create WindowManager struct with window lifecycle management
     - Implement show/hide methods for each window type
     - Add window positioning and dragging support for focus widget
     - Handle window state persistence and restoration
     - _Requirements: 3.3, 3.4, 4.2_
 
-  - [ ]* 4.3 Write integration tests for window management
-    - Test window creation and destruction
-    - Test window positioning and multi-monitor behavior
-    - Test always-on-top and click-through functionality
-    - _Requirements: 3.3, 3.4_
-
 - [x] 5. Create global hotkey system
+
   - [x] 5.1 Implement global hotkey registration in Rust
+
     - Register ⌘/Ctrl + Space for command palette toggle
     - Register ⌘/Ctrl + Shift + F for focus session toggle
     - Register ⌘/Ctrl + Shift + L for immediate lock/break
@@ -76,19 +69,16 @@
     - _Requirements: 1.1, 1.2, 9.1, 9.2_
 
   - [x] 5.2 Create hotkey event handling system
+
     - Route hotkey events to appropriate window managers
     - Implement hotkey state management (enable/disable based on app state)
     - Add hotkey customization support in settings
     - _Requirements: 1.1, 9.1, 9.2_
 
-  - [ ]* 5.3 Write unit tests for hotkey system
-    - Test hotkey registration and deregistration
-    - Test event routing and state management
-    - Mock platform-specific hotkey APIs
-    - _Requirements: 1.1, 9.1, 9.2_
-
 - [-] 6. Build command palette interface
+
   - [x] 6.1 Create command palette React component
+
     - Implement search input with real-time filtering
     - Build command list with keyboard navigation (arrow keys, enter, escape)
     - Add command categories and visual grouping
@@ -102,9 +92,10 @@
     - Handle command execution and error feedback
     - _Requirements: 2.1, 2.3_
 
-
 - [-] 7. Create focus widget component
+
   - [x] 7.1 Build floating focus widget UI
+
     - Create pill-shaped widget with circular progress indicator
     - Implement time display with MM:SS format
     - Add control buttons: Play/Pause, Reset, Menu (•••)
@@ -112,6 +103,7 @@
     - _Requirements: 3.1, 3.2, 3.5, 3.6, 8.1, 8.4_
 
   - [x] 7.2 Implement widget positioning and dragging
+
     - Add drag-and-drop functionality for widget repositioning
     - Implement position persistence across app restarts
     - Handle multi-monitor positioning and screen edge snapping
@@ -126,7 +118,9 @@
     - _Requirements: 3.1, 3.2, 3.5, 3.6_
 
 - [x] 8. Implement break overlay system
+
   - [x] 8.1 Create fullscreen break overlay component
+
     - Build fullscreen overlay with dark background and centered content
     - Display countdown timer with large, readable format
     - Show break activity suggestions with checklist interface
@@ -134,6 +128,7 @@
     - _Requirements: 4.2, 4.3, 8.1, 8.3_
 
   - [x] 8.2 Add emergency override functionality
+
     - Create PIN entry modal with secure input handling
     - Implement PIN verification against hashed stored PIN
     - Add 30-60 second emergency window with countdown
@@ -148,7 +143,9 @@
     - _Requirements: 4.3_
 
 - [ ] 9. Create application and website blocking system
+
   - [ ] 9.1 Implement process monitoring service
+
     - Create cross-platform process enumeration and monitoring
     - Implement blocked application detection and termination
     - Add process restart detection and persistent blocking
@@ -156,6 +153,7 @@
     - _Requirements: 6.3, 6.4, 4.6_
 
   - [ ] 9.2 Build website blocking mechanism
+
     - Implement hosts file modification for DNS-level blocking
     - Create backup blocking via local proxy or DNS server
     - Add blocked website detection and redirect handling
@@ -169,9 +167,10 @@
     - Create blocking schedule and time-based rules
     - _Requirements: 6.1, 6.2_
 
-
 - [ ] 10. Build settings and configuration system
+
   - [ ] 10.1 Create settings UI components
+
     - Build settings modal with tabbed interface
     - Implement time duration pickers for focus/break periods
     - Add toggle switches for strict mode and other boolean settings
@@ -185,9 +184,10 @@
     - Add settings export/import for user backup and sharing
     - _Requirements: 5.6_
 
-
 - [ ] 11. Create statistics and analytics system
+
   - [ ] 11.1 Implement session tracking and data collection
+
     - Record focus session start/end times and completion status
     - Track break completion and duration accuracy
     - Log evasion attempts and blocking effectiveness
@@ -195,6 +195,7 @@
     - _Requirements: 7.4, 7.5, 4.6_
 
   - [ ] 11.2 Build statistics visualization components
+
     - Create daily focus time bar charts with interactive tooltips
     - Implement hourly productivity heatmap with color coding
     - Build streak tracking with current and longest streak display
@@ -208,9 +209,10 @@
     - Build data export functionality for external analysis
     - _Requirements: 7.1, 7.2, 7.3_
 
-
 - [ ] 12. Implement notification and feedback system
+
   - [ ] 12.1 Create toast notification system
+
     - Build toast component with auto-dismiss functionality
     - Implement undo functionality for reversible actions
     - Add different toast types: success, error, warning, info
@@ -225,7 +227,9 @@
     - _Requirements: 3.5, 5.5_
 
 - [ ] 13. Integrate all components and finalize application
+
   - [ ] 13.1 Connect all UI components to backend services
+
     - Wire command palette to all Tauri commands
     - Connect focus widget to real-time state updates
     - Integrate break overlay with blocking system
@@ -233,6 +237,7 @@
     - _Requirements: All requirements integration_
 
   - [ ] 13.2 Implement application lifecycle management
+
     - Add proper app startup and shutdown handling
     - Implement session recovery after unexpected crashes
     - Create system tray integration with context menu

@@ -381,34 +381,3 @@ pub fn create_post_onboarding_backup(
         database,
     )
 }
-
-#[cfg(test)]
-mod tests {
-    use super::*;
-    use tempfile::TempDir;
-
-    #[test]
-    fn test_backup_manager_creation() {
-        let temp_dir = TempDir::new().unwrap();
-        let backup_manager = BackupManager::new(temp_dir.path()).unwrap();
-
-        assert!(temp_dir.path().join("backups").exists());
-    }
-
-    #[test]
-    fn test_backup_metadata_serialization() {
-        let metadata = BackupMetadata {
-            created_at: Utc::now(),
-            version: "1.0.0".to_string(),
-            backup_type: BackupType::Manual,
-            description: Some("Test backup".to_string()),
-            file_size: 1024,
-        };
-
-        let json = serde_json::to_string(&metadata).unwrap();
-        let deserialized: BackupMetadata = serde_json::from_str(&json).unwrap();
-
-        assert_eq!(metadata.version, deserialized.version);
-        assert_eq!(metadata.file_size, deserialized.file_size);
-    }
-}

@@ -1,7 +1,9 @@
+use std::sync::Arc;
 use tauri::{AppHandle, Manager};
 use tokio::sync::Mutex;
 
 use crate::config::{tokens_path, AppConfig};
+use crate::cycle_orchestrator::CycleOrchestrator;
 use crate::database::DatabaseManager;
 use crate::domain::tokens::TokenStorage;
 use crate::services::google_oauth::GoogleOAuthService;
@@ -11,6 +13,7 @@ pub struct AppState {
     pub tokens_storage: TokenStorage,
     pub database: DatabaseManager,
     pub app_handle: AppHandle,
+    pub cycle_orchestrator: Mutex<Option<CycleOrchestrator>>,
 }
 
 impl AppState {
@@ -33,6 +36,7 @@ impl AppState {
             tokens_storage: storage,
             database,
             app_handle: app.clone(),
+            cycle_orchestrator: Mutex::new(None),
         })
     }
 }

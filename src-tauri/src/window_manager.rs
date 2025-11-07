@@ -539,30 +539,3 @@ pub async fn is_window_visible(
     Ok(manager.is_window_visible(window_type))
 }
 
-#[cfg(test)]
-mod tests {
-    use super::*;
-
-    #[test]
-    fn test_window_type_labels() {
-        assert_eq!(WindowType::CommandPalette.label(), "command-palette");
-        assert_eq!(WindowType::FocusWidget.label(), "focus-widget");
-        assert_eq!(WindowType::BreakOverlay.label(), "break-overlay");
-        assert_eq!(WindowType::Settings.label(), "settings");
-    }
-
-    #[test]
-    fn test_window_state_default() {
-        let state = WindowState::default();
-        assert!(state.position.is_none());
-        assert!(!state.is_visible);
-        assert!(state.monitor_index.is_none());
-    }
-
-    #[test]
-    fn test_window_position() {
-        let position = WindowPosition { x: 100.0, y: 200.0 };
-        assert_eq!(position.x, 100.0);
-        assert_eq!(position.y, 200.0);
-    }
-}

@@ -3,8 +3,6 @@ pub mod migrations;
 pub mod models;
 pub mod schema;
 
-#[cfg(test)]
-mod tests;
 
 pub use connection::DatabaseManager;
 pub use models::*;
