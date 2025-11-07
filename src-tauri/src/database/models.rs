@@ -173,6 +173,7 @@ pub struct WorkSchedule {
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct OnboardingCompletion {
     pub id: i32,
+    pub user_email: String,
     pub completed_at: DateTime<Utc>,
     pub version: String,
     pub config_snapshot: Option<String>, // JSON of final configuration
@@ -207,8 +208,8 @@ impl UserSettings {
             pre_alert_seconds: row.get("pre_alert_seconds")?,
             strict_mode: row.get("strict_mode")?,
             pin_hash: row.get("pin_hash")?,
-            user_name: row.get("user_name")?,
-            emergency_key_combination: row.get("emergency_key_combination")?,
+            user_name: row.get("user_name").ok(),
+            emergency_key_combination: row.get("emergency_key_combination").ok(),
             created_at: row.get("created_at")?,
             updated_at: row.get("updated_at")?,
         })
@@ -316,6 +317,7 @@ impl OnboardingCompletion {
     pub fn from_row(row: &rusqlite::Row) -> rusqlite::Result<Self> {
         Ok(Self {
             id: row.get("id")?,
+            user_email: row.get("user_email").unwrap_or_default(),
             completed_at: row.get("completed_at")?,
             version: row.get("version")?,
             config_snapshot: row.get("config_snapshot")?,

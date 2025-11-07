@@ -10,6 +10,7 @@ pub struct AppState {
     pub oauth_google: Mutex<GoogleOAuthService>,
     pub tokens_storage: TokenStorage,
     pub database: DatabaseManager,
+    pub app_handle: AppHandle,
 }
 
 impl AppState {
@@ -31,6 +32,7 @@ impl AppState {
             oauth_google: Mutex::new(svc),
             tokens_storage: storage,
             database,
+            app_handle: app.clone(),
         })
     }
 }

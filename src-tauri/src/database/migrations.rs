@@ -86,6 +86,10 @@ impl MigrationManager {
                 // Version 4: Add onboarding_completion table
                 Self::migrate_to_v4(conn)
             }
+            5 => {
+                // Version 5: Add user_email to onboarding_completion table
+                Self::migrate_to_v5(conn)
+            }
             _ => Err(DatabaseError::Migration(format!(
                 "Unknown migration version: {}",
                 version
@@ -179,6 +183,25 @@ impl MigrationManager {
             .map_err(DatabaseError::Sqlite)?;
 
         println!("Migration to version 4 completed successfully");
+        Ok(())
+    }
+
+    /// Migration to version 5: Add user_email to onboarding_completion for user-specific tracking
+    fn migrate_to_v5(conn: &Connection) -> DatabaseResult<()> {
+        println!("Applying migration to version 5: Adding user_email to onboarding_completion");
+
+        // Add user_email column to onboarding_completion table
+        conn.execute(
+            "ALTER TABLE onboarding_completion ADD COLUMN user_email TEXT",
+            [],
+        )
+        .map_err(DatabaseError::Sqlite)?;
+
+        // Update schema version
+        conn.execute("INSERT INTO schema_version (version) VALUES (5)", [])
+            .map_err(DatabaseError::Sqlite)?;
+
+        println!("Migration to version 5 completed successfully");
         Ok(())
     }
 

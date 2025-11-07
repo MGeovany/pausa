@@ -168,16 +168,36 @@ impl DatabaseManager {
     /// Get user settings
     pub fn get_user_settings(&self) -> DatabaseResult<Option<UserSettings>> {
         self.with_connection(|conn| {
-            let mut stmt = conn
-                .prepare(
-                    "SELECT id, focus_duration, short_break_duration, long_break_duration, 
-                        cycles_per_long_break, pre_alert_seconds, strict_mode, pin_hash, 
-                        created_at, updated_at 
-                 FROM user_settings 
-                 WHERE id = 1",
-                )
-                .map_err(DatabaseError::Sqlite)?;
+            // Check if new columns exist
+            let has_new_columns = self.check_columns_exist(
+                conn,
+                "user_settings",
+                &[
+                    "user_name",
+                    "emergency_key_combination",
+                    "cycles_per_long_break_v2",
+                ],
+            )?;
 
+            let query = if has_new_columns {
+                "SELECT id, focus_duration, short_break_duration, long_break_duration, 
+                    cycles_per_long_break, cycles_per_long_break_v2,
+                    pre_alert_seconds, strict_mode, pin_hash, 
+                    user_name, emergency_key_combination,
+                    created_at, updated_at 
+                 FROM user_settings 
+                 WHERE id = 1"
+            } else {
+                "SELECT id, focus_duration, short_break_duration, long_break_duration, 
+                    cycles_per_long_break, cycles_per_long_break as cycles_per_long_break_v2,
+                    pre_alert_seconds, strict_mode, pin_hash, 
+                    NULL as user_name, NULL as emergency_key_combination,
+                    created_at, updated_at 
+                 FROM user_settings 
+                 WHERE id = 1"
+            };
+
+            let mut stmt = conn.prepare(query).map_err(DatabaseError::Sqlite)?;
             let result = stmt.query_row([], |row| UserSettings::from_row(row));
 
             match result {
@@ -188,29 +208,91 @@ impl DatabaseManager {
         })
     }
 
+    /// Check if specific columns exist in a table
+    fn check_columns_exist(
+        &self,
+        conn: &Connection,
+        table_name: &str,
+        column_names: &[&str],
+    ) -> DatabaseResult<bool> {
+        for column_name in column_names {
+            let exists: bool = conn
+                .query_row(
+                    "SELECT COUNT(*) > 0 FROM pragma_table_info(?) WHERE name = ?",
+                    [table_name, column_name],
+                    |row| row.get(0),
+                )
+                .map_err(DatabaseError::Sqlite)?;
+
+            if !exists {
+                return Ok(false);
+            }
+        }
+        Ok(true)
+    }
+
     /// Save user settings
     pub fn save_user_settings(&self, settings: &UserSettings) -> DatabaseResult<()> {
         self.with_connection(|conn| {
-            conn.execute(
-                "INSERT OR REPLACE INTO user_settings 
-                 (id, focus_duration, short_break_duration, long_break_duration, 
-                  cycles_per_long_break, pre_alert_seconds, strict_mode, pin_hash, 
-                  created_at, updated_at)
-                 VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8, ?9, ?10)",
-                params![
-                    settings.id,
-                    settings.focus_duration,
-                    settings.short_break_duration,
-                    settings.long_break_duration,
-                    settings.cycles_per_long_break,
-                    settings.pre_alert_seconds,
-                    settings.strict_mode,
-                    settings.pin_hash,
-                    settings.created_at,
-                    settings.updated_at,
+            // Check if new columns exist
+            let has_new_columns = self.check_columns_exist(
+                conn,
+                "user_settings",
+                &[
+                    "user_name",
+                    "emergency_key_combination",
+                    "cycles_per_long_break_v2",
                 ],
-            )
-            .map_err(DatabaseError::Sqlite)?;
+            )?;
+
+            if has_new_columns {
+                conn.execute(
+                    "INSERT OR REPLACE INTO user_settings 
+                     (id, focus_duration, short_break_duration, long_break_duration, 
+                      cycles_per_long_break, cycles_per_long_break_v2, pre_alert_seconds, 
+                      strict_mode, pin_hash, user_name, emergency_key_combination,
+                      created_at, updated_at)
+                     VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8, ?9, ?10, ?11, ?12, ?13)",
+                    params![
+                        settings.id,
+                        settings.focus_duration,
+                        settings.short_break_duration,
+                        settings.long_break_duration,
+                        settings.cycles_per_long_break,
+                        settings.cycles_per_long_break_v2,
+                        settings.pre_alert_seconds,
+                        settings.strict_mode,
+                        settings.pin_hash,
+                        settings.user_name,
+                        settings.emergency_key_combination,
+                        settings.created_at,
+                        settings.updated_at,
+                    ],
+                )
+                .map_err(DatabaseError::Sqlite)?;
+            } else {
+                // Fallback for older database schema
+                conn.execute(
+                    "INSERT OR REPLACE INTO user_settings 
+                     (id, focus_duration, short_break_duration, long_break_duration, 
+                      cycles_per_long_break, pre_alert_seconds, strict_mode, pin_hash, 
+                      created_at, updated_at)
+                     VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8, ?9, ?10)",
+                    params![
+                        settings.id,
+                        settings.focus_duration,
+                        settings.short_break_duration,
+                        settings.long_break_duration,
+                        settings.cycles_per_long_break,
+                        settings.pre_alert_seconds,
+                        settings.strict_mode,
+                        settings.pin_hash,
+                        settings.created_at,
+                        settings.updated_at,
+                    ],
+                )
+                .map_err(DatabaseError::Sqlite)?;
+            }
 
             Ok(())
         })

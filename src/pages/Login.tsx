@@ -1,24 +1,14 @@
 import { useState, useEffect } from "react";
 import { invoke } from "@tauri-apps/api/core";
-import { listen, UnlistenFn } from "@tauri-apps/api/event";
+import { listen } from "@tauri-apps/api/event";
 import { ArrowRightIcon } from "lucide-react";
-import OnboardingWizard from "../components/OnboardingWizard";
 
 export default function Login() {
   const [status, setStatus] = useState("");
   const [isLoading, setIsLoading] = useState(false);
-  const [showOnboarding, setShowOnboarding] = useState(true);
-  const [isOnboardingComplete, setIsOnboardingComplete] = useState(false);
-
-  console.log(
-    "show onboarding",
-    showOnboarding,
-    "onboarding complete",
-    isOnboardingComplete
-  );
 
   useEffect(() => {
-    const unlistenSuccess = listen("auth:success", (event) => {
+    const unlistenSuccess = listen("auth:success", () => {
       setStatus("Login successful! Redirecting...");
       setIsLoading(false);
       setTimeout(() => {
@@ -31,28 +21,12 @@ export default function Login() {
       setIsLoading(false);
     });
 
-    // Check if tokens exist and onboarding status
+    // Check if tokens exist
     const checkTokens = async () => {
       try {
         const tokens = await invoke("read_tokens");
         if (tokens) {
-          // Check if onboarding is complete
-          try {
-            const onboardingComplete = await invoke<boolean>(
-              "get_onboarding_status"
-            );
-            setIsOnboardingComplete(onboardingComplete);
-
-            if (onboardingComplete) {
-              window.location.hash = "#/dashboard";
-            } else {
-              setShowOnboarding(true);
-            }
-          } catch (error) {
-            console.error("Error checking onboarding status:", error);
-            // If we can't check onboarding status, assume it's not complete
-            setShowOnboarding(true);
-          }
+          window.location.hash = "#/dashboard";
         }
       } catch (error) {
         console.error("Error checking tokens:", error);
@@ -75,7 +49,7 @@ export default function Login() {
     setStatus("Opening browser...");
 
     try {
-      const result = await invoke("login_with_google");
+      await invoke("login_with_google");
       setStatus("Browser opened, waiting for authentication...");
     } catch (error) {
       console.error("Error calling login_with_google:", error);
@@ -83,27 +57,6 @@ export default function Login() {
       setIsLoading(false);
     }
   };
-
-  const handleOnboardingComplete = () => {
-    setShowOnboarding(false);
-    setIsOnboardingComplete(true);
-    window.location.hash = "#/dashboard";
-  };
-
-  const handleSkipOnboarding = () => {
-    setShowOnboarding(false);
-    window.location.hash = "#/dashboard";
-  };
-
-  // Show onboarding if user is authenticated but hasn't completed onboarding
-  if (showOnboarding) {
-    return (
-      <OnboardingWizard
-        onComplete={handleOnboardingComplete}
-        onSkip={handleSkipOnboarding}
-      />
-    );
-  }
 
   return (
     <div
@@ -128,18 +81,54 @@ export default function Login() {
           <p className="text-sm text-center opacity-50 mb-8">
             Focus. Breathe. Begin your next session.
           </p>
+          
+          {status && (
+            <p className="text-sm text-center text-gray-300 mb-4">
+              {status}
+            </p>
+          )}
+          
           <a
             onClick={handleLogin}
-            className="w-fit text-sm text-center flex items-center justify-center gap-[2px] cursor-pointer opacity-50 hover:opacity-100 transition-opacity duration-700"
+            className={`w-fit text-sm text-center flex items-center justify-center gap-[2px] cursor-pointer transition-opacity duration-700 ${
+              isLoading ? "opacity-50 cursor-not-allowed" : "opacity-50 hover:opacity-100"
+            }`}
             style={{
               fontFamily: "Poppins",
               fontWeight: 500,
               fontStyle: "normal",
             }}
           >
-            <span>Continue with Google</span>
-            <ArrowRightIcon className="w-4 h-4 mt-[1px]" strokeWidth={3} />
+            {isLoading ? (
+              <>
+                <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-white mr-2"></div>
+                <span>Connecting...</span>
+              </>
+            ) : (
+              <>
+                <span>Continue with Google</span>
+                <ArrowRightIcon className="w-4 h-4 mt-[1px]" strokeWidth={3} />
+              </>
+            )}
           </a>
+          
+          {/* Development button to reset onboarding */}
+          {process.env.NODE_ENV === 'development' && (
+            <button
+              onClick={async () => {
+                try {
+                  await invoke("reset_onboarding_for_testing");
+                  setStatus("Onboarding reset! Refresh the page to test onboarding flow.");
+                } catch (error) {
+                  console.error("Error resetting onboarding:", error);
+                  setStatus("Error resetting onboarding: " + String(error));
+                }
+              }}
+              className="mt-4 text-xs text-red-400 hover:text-red-300 underline"
+            >
+              [DEV] Reset Onboarding
+            </button>
+          )}
         </div>
       </div>
     </div>

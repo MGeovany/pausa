@@ -20,7 +20,7 @@ export type OnboardingStep =
   | "Complete";
 
 interface OnboardingWizardProps {
-  onComplete?: () => void;
+  onComplete?: (config: any) => void;
   onSkip?: () => void;
 }
 
@@ -31,6 +31,8 @@ export default function OnboardingWizard({
   const [currentStep, setCurrentStep] = useState<OnboardingStep>("Welcome");
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [validationErrors, setValidationErrors] = useState<string[]>([]);
+  const [isRecovering, setIsRecovering] = useState(false);
 
   // Initialize onboarding when component mounts
   useEffect(() => {
@@ -40,6 +42,7 @@ export default function OnboardingWizard({
   const initializeOnboarding = async () => {
     setIsLoading(true);
     setError(null);
+    setValidationErrors([]);
 
     try {
       const step = await invoke<OnboardingStep>("start_onboarding");
@@ -52,17 +55,82 @@ export default function OnboardingWizard({
     }
   };
 
+  const validateCurrentStep = async (stepData: any): Promise<boolean> => {
+    try {
+      await invoke("validate_step_config", {
+        step: currentStep,
+        stepData: stepData || {},
+      });
+      setValidationErrors([]);
+      return true;
+    } catch (err) {
+      console.error("Step validation failed:", err);
+      if (typeof err === "string" && err.includes("validation errors:")) {
+        const errors = err.replace("Step validation errors: ", "").split("; ");
+        setValidationErrors(errors);
+      } else {
+        setValidationErrors([typeof err === "string" ? err : "Validation failed"]);
+      }
+      return false;
+    }
+  };
+
+  const createBackup = async (): Promise<void> => {
+    try {
+      const backupId = await invoke<string>("create_configuration_backup", {
+        backupType: "pre_update",
+        description: `Backup before ${currentStep} step`,
+      });
+      console.log("✅ [Frontend] Backup created:", backupId);
+    } catch (err) {
+      console.warn("⚠️ [Frontend] Failed to create backup:", err);
+      // Don't block the flow for backup failures
+    }
+  };
+
+  const recoverFromError = async () => {
+    setIsRecovering(true);
+    setError(null);
+    setValidationErrors([]);
+
+    try {
+      // Try to get configuration health check
+      const healthCheck = await invoke("get_configuration_health_check");
+      console.log("🏥 [Frontend] Health check:", healthCheck);
+
+      // Reset onboarding if needed
+      await invoke("reset_onboarding_for_testing");
+      
+      // Reinitialize
+      await initializeOnboarding();
+    } catch (err) {
+      console.error("❌ [Frontend] Recovery failed:", err);
+      setError("Recovery failed. Please restart the application.");
+    } finally {
+      setIsRecovering(false);
+    }
+  };
+
   const [stepData, setStepData] = useState<Record<string, any>>({});
 
   const handleNext = async () => {
     setIsLoading(true);
     setError(null);
+    setValidationErrors([]);
 
     try {
-      console.log(`🔄 [Frontend] Attempting to navigate from ${currentStep}`);
-
       // Get step data for current step
       const currentStepData = stepData[currentStep] || null;
+
+      // Validate current step data before proceeding
+      if (currentStepData && !(await validateCurrentStep(currentStepData))) {
+        setIsLoading(false);
+        return;
+      }
+
+      // Create backup before making changes
+      await createBackup();
+      console.log(`🔄 [Frontend] Attempting to navigate from ${currentStep}`);
 
       // Save work schedule data if we're leaving the WorkHours step
       if (currentStep === "WorkHours" && currentStepData) {
@@ -168,9 +236,51 @@ export default function OnboardingWizard({
       // Handle completion
       if (nextStep === "Complete") {
         console.log("🎉 [Frontend] Onboarding completed");
+        
+        // Collect all configuration data
+        const finalConfig = {
+          // Work schedule configuration
+          workSchedule: {
+            useWorkSchedule: stepData.WorkSchedule?.useWorkSchedule || false,
+            workStartTime: stepData.WorkHours?.startTime || null,
+            workEndTime: stepData.WorkHours?.endTime || null,
+          },
+          // Cycle configuration
+          focusDuration: stepData.CycleConfig?.focusDuration || 25,
+          breakDuration: stepData.CycleConfig?.breakDuration || 5,
+          longBreakDuration: stepData.CycleConfig?.longBreakDuration || 15,
+          cyclesPerLongBreak: stepData.CycleConfig?.cyclesPerLongBreak || 4,
+          // Strict mode configuration
+          strictMode: stepData.StrictMode?.strictMode || false,
+          emergencyKey: stepData.StrictMode?.emergencyKey || null,
+          userName: stepData.StrictMode?.userName || null,
+        };
+
+        console.log("📋 [Frontend] Final onboarding configuration:", finalConfig);
+
+        // Validate final configuration before completion
+        try {
+          await invoke("validate_onboarding_config", { config: finalConfig });
+          console.log("✅ [Frontend] Final configuration validation passed");
+        } catch (validationErr) {
+          console.error("❌ [Frontend] Final configuration validation failed:", validationErr);
+          setError(`Configuration validation failed: ${validationErr}`);
+          return;
+        }
+
+        // Complete onboarding in backend
+        try {
+          await invoke("complete_onboarding", { finalConfig });
+          console.log("✅ [Frontend] Onboarding completion saved to backend");
+        } catch (completeErr) {
+          console.error("❌ [Frontend] Failed to complete onboarding:", completeErr);
+          setError("Failed to complete onboarding. Please try again.");
+          return;
+        }
+
         // Onboarding is now complete, the app should transition to main view
         if (_onComplete) {
-          _onComplete();
+          _onComplete(finalConfig);
         }
       }
     } catch (err) {
@@ -361,14 +471,36 @@ export default function OnboardingWizard({
 
         {/* Error display */}
         {error && (
-          <div className="mb-6 p-4 bg-red-900/50 border border-red-700 rounded-lg text-red-200 text-center">
-            {error}
-            <button
-              onClick={initializeOnboarding}
-              className="ml-2 underline hover:no-underline"
-            >
-              Retry
-            </button>
+          <div className="mb-6 p-4 bg-red-900/50 border border-red-700 rounded-lg text-red-200">
+            <div className="text-center mb-2">{error}</div>
+            <div className="flex justify-center space-x-2">
+              <button
+                onClick={initializeOnboarding}
+                className="px-3 py-1 text-sm underline hover:no-underline"
+                disabled={isRecovering}
+              >
+                Retry
+              </button>
+              <button
+                onClick={recoverFromError}
+                className="px-3 py-1 text-sm bg-red-700 hover:bg-red-600 rounded transition-colors"
+                disabled={isRecovering}
+              >
+                {isRecovering ? "Recovering..." : "Recover"}
+              </button>
+            </div>
+          </div>
+        )}
+
+        {/* Validation errors display */}
+        {validationErrors.length > 0 && (
+          <div className="mb-6 p-4 bg-yellow-900/50 border border-yellow-700 rounded-lg text-yellow-200">
+            <div className="font-medium mb-2">Please fix the following issues:</div>
+            <ul className="list-disc list-inside space-y-1 text-sm">
+              {validationErrors.map((error, index) => (
+                <li key={index}>{error}</li>
+              ))}
+            </ul>
           </div>
         )}
 

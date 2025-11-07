@@ -1,7 +1,7 @@
 /// Database schema definitions for Pausa application
 /// Based on the design document specifications
 
-pub const SCHEMA_VERSION: i32 = 4;
+pub const SCHEMA_VERSION: i32 = 5;
 
 /// Initial database schema - creates all tables
 pub const INITIAL_SCHEMA: &str = r#"
@@ -82,6 +82,7 @@ CREATE TABLE work_schedule (
 -- Onboarding completion tracking
 CREATE TABLE onboarding_completion (
     id INTEGER PRIMARY KEY,
+    user_email TEXT NOT NULL, -- Email of the user who completed onboarding
     completed_at DATETIME DEFAULT CURRENT_TIMESTAMP,
     version TEXT NOT NULL DEFAULT '1.0',
     config_snapshot TEXT -- JSON of final configuration
@@ -204,6 +205,7 @@ CREATE TABLE work_schedule (
 pub const CREATE_ONBOARDING_COMPLETION: &str = r#"
 CREATE TABLE onboarding_completion (
     id INTEGER PRIMARY KEY,
+    user_email TEXT NOT NULL,
     completed_at DATETIME DEFAULT CURRENT_TIMESTAMP,
     version TEXT NOT NULL DEFAULT '1.0',
     config_snapshot TEXT

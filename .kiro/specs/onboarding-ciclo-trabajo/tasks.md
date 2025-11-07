@@ -65,7 +65,7 @@
     - Conectar configuración de modo estricto con backend
     - _Requirements: 5.1, 5.6_
 
-- [ ] 4. Completar onboarding y generar configuración
+- [x] 4. Completar onboarding y generar configuración
   - [x] 4.1 Implementar SummaryStep y finalización
     - Crear paso de resumen con toda la configuración
     - Implementar comando complete_onboarding
@@ -73,14 +73,14 @@
     - Generar configuración final y guardar en base de datos
     - _Requirements: 6.1, 6.3, 6.5_
 
-  - [ ] 4.2 Integrar onboarding con aplicación principal
+  - [x] 4.2 Integrar onboarding con aplicación principal
     - Implementar detección de primera ejecución
     - Crear ventana de onboarding separada
     - Agregar redirección automática al onboarding si no está completo
     - Conectar configuración de onboarding con settings existentes
     - _Requirements: 1.1, 6.5_
 
-  - [ ] 4.3 Agregar persistencia y validación de configuración
+  - [x] 4.3 Agregar persistencia y validación de configuración
     - Implementar validación completa de configuración
     - Agregar manejo de errores y recuperación
     - Crear sistema de backup de configuración

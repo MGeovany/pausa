@@ -1,5 +1,5 @@
 import { useState, useEffect } from "react";
-import { ArrowLeftIcon, CheckIcon } from "lucide-react";
+import { ArrowLeftIcon } from "lucide-react";
 import { invoke } from "@tauri-apps/api/core";
 import { StepProps } from "./types";
 
@@ -20,6 +20,7 @@ interface OnboardingConfig {
 }
 
 export default function SummaryStep({
+  onNext,
   onPrevious,
   canGoPrevious,
   setStepData,
@@ -86,14 +87,8 @@ export default function SummaryStep({
     setError(null);
 
     try {
-      // Complete the onboarding process
-      await invoke("complete_onboarding", {
-        finalConfig: config,
-      });
-
-      console.log("✅ Onboarding completed successfully");
-
-      // The onboarding wizard will handle the transition to main app
+      // Use the onNext handler to let the wizard handle completion
+      await onNext();
     } catch (err) {
       console.error("Failed to complete onboarding:", err);
       setError("Failed to complete onboarding. Please try again.");

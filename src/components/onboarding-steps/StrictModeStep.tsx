@@ -1,4 +1,4 @@
-import { useState, useEffect } from "react";
+import { useState, useEffect, useRef } from "react";
 import type { StepProps } from "./types";
 
 interface StrictModeConfig {
@@ -22,7 +22,7 @@ export default function StrictModeStep({
   });
 
   const [isCapturingKey, setIsCapturingKey] = useState(false);
-  const [capturedKeys, setCapturedKeys] = useState<string[]>([]);
+  const pressedKeysRef = useRef<Set<string>>(new Set());
 
   // Update parent component when config changes
   useEffect(() => {
@@ -37,36 +37,53 @@ export default function StrictModeStep({
       event.preventDefault();
       event.stopPropagation();
 
-      const keys: string[] = [];
+      // Ignore repeated keydown events (when key is held down)
+      if (event.repeat) return;
 
-      // Add modifier keys
-      if (event.metaKey) keys.push("⌘");
-      if (event.ctrlKey) keys.push("Ctrl");
-      if (event.altKey) keys.push("Alt");
-      if (event.shiftKey) keys.push("⇧");
+      const pressedKeys = pressedKeysRef.current;
+      
+      // Add modifier keys to the set
+      if (event.metaKey && !pressedKeys.has("⌘")) {
+        pressedKeys.add("⌘");
+      }
+      if (event.ctrlKey && !pressedKeys.has("Ctrl")) {
+        pressedKeys.add("Ctrl");
+      }
+      if (event.altKey && !pressedKeys.has("Alt")) {
+        pressedKeys.add("Alt");
+      }
+      if (event.shiftKey && !pressedKeys.has("⇧")) {
+        pressedKeys.add("⇧");
+      }
 
       // Add the main key (if it's not a modifier)
       if (!["Meta", "Control", "Alt", "Shift"].includes(event.key)) {
-        keys.push(event.key.toUpperCase());
+        const mainKey = event.key.toUpperCase();
+        if (!pressedKeys.has(mainKey)) {
+          pressedKeys.add(mainKey);
+        }
       }
 
-      if (keys.length > 0) {
-        setCapturedKeys(keys);
-        const keyCombo = keys.join(" + ");
+      // Update the display with all pressed keys
+      const keysArray = Array.from(pressedKeys);
+      if (keysArray.length > 0) {
+        const keyCombo = keysArray.join(" + ");
         setConfig((prev) => ({ ...prev, emergencyKey: keyCombo }));
-        setIsCapturingKey(false);
       }
     };
 
     const handleKeyUp = (event: KeyboardEvent) => {
-      // Stop capturing if all keys are released
+      event.preventDefault();
+      event.stopPropagation();
+
+      // Stop capturing when all keys are released
       if (
         !event.metaKey &&
         !event.ctrlKey &&
         !event.altKey &&
         !event.shiftKey
       ) {
-        if (capturedKeys.length > 0) {
+        if (pressedKeysRef.current.size > 0) {
           setIsCapturingKey(false);
         }
       }
@@ -79,17 +96,17 @@ export default function StrictModeStep({
       document.removeEventListener("keydown", handleKeyDown, true);
       document.removeEventListener("keyup", handleKeyUp, true);
     };
-  }, [isCapturingKey, capturedKeys]);
+  }, [isCapturingKey]);
 
   const startKeyCapture = () => {
     setIsCapturingKey(true);
-    setCapturedKeys([]);
+    pressedKeysRef.current.clear();
     setConfig((prev) => ({ ...prev, emergencyKey: "" }));
   };
 
   const clearKeyCapture = () => {
     setIsCapturingKey(false);
-    setCapturedKeys([]);
+    pressedKeysRef.current.clear();
     setConfig((prev) => ({ ...prev, emergencyKey: "" }));
   };
 
