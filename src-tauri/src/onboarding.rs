@@ -16,7 +16,6 @@ pub use validation::{validate_step_data, OnboardingValidator, ValidationError, V
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq)]
 pub enum OnboardingStep {
     Welcome,
-    WorkSchedule,
     WorkHours,
     CycleConfig,
     StrictMode,
@@ -61,21 +60,7 @@ impl OnboardingManager {
 
         match self.current_step {
             OnboardingStep::Welcome => {
-                self.current_step = OnboardingStep::WorkSchedule;
-                Ok(self.current_step.clone())
-            }
-            OnboardingStep::WorkSchedule => {
-                // Check if user wants to use work schedule
-                if let Some(data) = self.get_step_data(&OnboardingStep::WorkSchedule) {
-                    if let Some(use_schedule) = data.get("useWorkSchedule") {
-                        if use_schedule.as_bool().unwrap_or(false) {
-                            self.current_step = OnboardingStep::WorkHours;
-                            return Ok(self.current_step.clone());
-                        }
-                    }
-                }
-                // Go to CycleConfig if not using work schedule
-                self.current_step = OnboardingStep::CycleConfig;
+                self.current_step = OnboardingStep::WorkHours;
                 Ok(self.current_step.clone())
             }
             OnboardingStep::WorkHours => {
@@ -102,25 +87,12 @@ impl OnboardingManager {
     pub fn previous_step(&mut self) -> Result<OnboardingStep, String> {
         match self.current_step {
             OnboardingStep::Welcome => Err("Cannot go back from welcome step".to_string()),
-            OnboardingStep::WorkSchedule => {
+            OnboardingStep::WorkHours => {
                 self.current_step = OnboardingStep::Welcome;
                 Ok(self.current_step.clone())
             }
-            OnboardingStep::WorkHours => {
-                self.current_step = OnboardingStep::WorkSchedule;
-                Ok(self.current_step.clone())
-            }
             OnboardingStep::CycleConfig => {
-                // Check if we came from WorkHours or WorkSchedule
-                if let Some(data) = self.get_step_data(&OnboardingStep::WorkSchedule) {
-                    if let Some(use_schedule) = data.get("useWorkSchedule") {
-                        if use_schedule.as_bool().unwrap_or(false) {
-                            self.current_step = OnboardingStep::WorkHours;
-                            return Ok(self.current_step.clone());
-                        }
-                    }
-                }
-                self.current_step = OnboardingStep::WorkSchedule;
+                self.current_step = OnboardingStep::WorkHours;
                 Ok(self.current_step.clone())
             }
             OnboardingStep::StrictMode => {
@@ -166,5 +138,3 @@ impl Default for OnboardingManager {
         Self::new()
     }
 }
-
-

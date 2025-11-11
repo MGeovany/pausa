@@ -411,21 +411,8 @@ pub fn validate_step_data(step: &str, data: &serde_json::Value) -> ValidationRes
     let mut validator = OnboardingValidator::new();
 
     match step {
-        "WorkSchedule" => {
-            if let Some(use_schedule) = data.get("useWorkSchedule") {
-                if !use_schedule.is_boolean() {
-                    validator.errors.push(ValidationError::InvalidValue {
-                        field: "useWorkSchedule".to_string(),
-                        reason: "must be true or false".to_string(),
-                    });
-                }
-            } else {
-                validator.errors.push(ValidationError::MissingField {
-                    field: "useWorkSchedule".to_string(),
-                });
-            }
-        }
         "WorkHours" => {
+            // Always validate work hours - they are now mandatory
             let work_schedule = serde_json::json!({
                 "useWorkSchedule": true,
                 "workStartTime": data.get("startTime"),
@@ -453,4 +440,3 @@ pub fn validate_step_data(step: &str, data: &serde_json::Value) -> ValidationRes
         Ok(())
     }
 }
-
