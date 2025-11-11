@@ -1,7 +1,6 @@
 import { useState, useEffect } from "react";
 import { invoke } from "@tauri-apps/api/core";
 import WelcomeStep from "./onboarding-steps/WelcomeStep";
-import WorkScheduleStep from "./onboarding-steps/WorkScheduleStep";
 import WorkHoursStep from "./onboarding-steps/WorkHoursStep";
 import CycleConfigStep from "./onboarding-steps/CycleConfigStep";
 import StrictModeStep from "./onboarding-steps/StrictModeStep";
@@ -12,7 +11,6 @@ import type { StepProps } from "./onboarding-steps/types";
 // Types for onboarding
 export type OnboardingStep =
   | "Welcome"
-  | "WorkSchedule"
   | "WorkHours"
   | "CycleConfig"
   | "StrictMode"
@@ -151,29 +149,7 @@ export default function OnboardingWizard({
         }
       }
 
-      // Save work schedule choice if we're leaving WorkSchedule step
-      if (currentStep === "WorkSchedule" && currentStepData) {
-        if (!currentStepData.useWorkSchedule) {
-          try {
-            await invoke("save_work_schedule", {
-              config: {
-                use_work_schedule: false,
-                work_start_time: null,
-                work_end_time: null,
-                timezone: "local",
-              },
-            });
-            console.log("✅ [Frontend] Work schedule disabled successfully");
-          } catch (saveErr) {
-            console.error(
-              "❌ [Frontend] Failed to save work schedule choice:",
-              saveErr
-            );
-            setError("Failed to save work schedule choice. Please try again.");
-            return;
-          }
-        }
-      }
+
 
       // Save cycle configuration if we're leaving the CycleConfig step
       if (currentStep === "CycleConfig" && currentStepData) {
@@ -239,9 +215,9 @@ export default function OnboardingWizard({
         
         // Collect all configuration data
         const finalConfig = {
-          // Work schedule configuration
+          // Work schedule configuration - always enabled now
           workSchedule: {
-            useWorkSchedule: stepData.WorkSchedule?.useWorkSchedule || false,
+            useWorkSchedule: true,
             workStartTime: stepData.WorkHours?.startTime || null,
             workEndTime: stepData.WorkHours?.endTime || null,
           },
@@ -369,8 +345,6 @@ export default function OnboardingWizard({
     switch (currentStep) {
       case "Welcome":
         return <WelcomeStep {...stepProps} />;
-      case "WorkSchedule":
-        return <WorkScheduleStep {...stepProps} />;
       case "WorkHours":
         return <WorkHoursStep {...stepProps} />;
       case "CycleConfig":
@@ -421,11 +395,6 @@ export default function OnboardingWizard({
             />
             <div
               className={`w-2 h-2 rounded-full ${
-                currentStep === "WorkSchedule" ? "bg-white" : "bg-gray-600"
-              }`}
-            />
-            <div
-              className={`w-2 h-2 rounded-full ${
                 currentStep === "WorkHours" ? "bg-white" : "bg-gray-600"
               }`}
             />
@@ -454,18 +423,16 @@ export default function OnboardingWizard({
             Step{" "}
             {currentStep === "Welcome"
               ? "1"
-              : currentStep === "WorkSchedule"
-              ? "2"
               : currentStep === "WorkHours"
-              ? "3"
+              ? "2"
               : currentStep === "CycleConfig"
-              ? "4"
+              ? "3"
               : currentStep === "StrictMode"
-              ? "5"
+              ? "4"
               : currentStep === "Summary"
-              ? "6"
-              : "7"}{" "}
-            of 7
+              ? "5"
+              : "6"}{" "}
+            of 6
           </p>
         </div>
 
