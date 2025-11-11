@@ -61,6 +61,7 @@ pub struct CycleConfig {
     pub work_schedule: Option<WorkSchedule>,
     pub emergency_key: Option<String>,
     pub user_name: Option<String>,
+    pub pre_alert_seconds: u32, // seconds before end to send pre-alert
 }
 
 impl CycleConfig {
@@ -75,6 +76,7 @@ impl CycleConfig {
             work_schedule,
             emergency_key: settings.emergency_key_combination,
             user_name: settings.user_name,
+            pre_alert_seconds: settings.pre_alert_seconds as u32,
         }
     }
 }
@@ -298,8 +300,11 @@ impl CycleOrchestrator {
                 remaining: self.state.remaining_seconds,
             });
 
-            // Check for pre-alert (2 minutes before end)
-            if self.state.remaining_seconds == 120 {
+            // Check for pre-alert (configurable seconds before end, only for focus sessions)
+            if self.config.pre_alert_seconds > 0
+                && self.state.phase == CyclePhase::Focus
+                && self.state.remaining_seconds == self.config.pre_alert_seconds
+            {
                 events.push(CycleEvent::PreAlert {
                     remaining: self.state.remaining_seconds,
                 });
@@ -326,4 +331,3 @@ impl CycleOrchestrator {
         self.config = config;
     }
 }
-

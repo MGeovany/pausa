@@ -1,4 +1,3 @@
-use std::sync::Arc;
 use tauri::{AppHandle, Manager};
 use tokio::sync::Mutex;
 
@@ -6,6 +5,7 @@ use crate::config::{tokens_path, AppConfig};
 use crate::cycle_orchestrator::CycleOrchestrator;
 use crate::database::DatabaseManager;
 use crate::domain::tokens::TokenStorage;
+use crate::notification_service::NotificationService;
 use crate::services::google_oauth::GoogleOAuthService;
 
 pub struct AppState {
@@ -14,6 +14,7 @@ pub struct AppState {
     pub database: DatabaseManager,
     pub app_handle: AppHandle,
     pub cycle_orchestrator: Mutex<Option<CycleOrchestrator>>,
+    pub notification_service: Mutex<NotificationService>,
 }
 
 impl AppState {
@@ -31,12 +32,16 @@ impl AppState {
         let database = DatabaseManager::new(db_path)
             .map_err(|e| format!("Failed to initialize database: {}", e))?;
 
+        // Initialize notification service
+        let notification_service = NotificationService::new();
+
         Ok(Self {
             oauth_google: Mutex::new(svc),
             tokens_storage: storage,
             database,
             app_handle: app.clone(),
             cycle_orchestrator: Mutex::new(None),
+            notification_service: Mutex::new(notification_service),
         })
     }
 }

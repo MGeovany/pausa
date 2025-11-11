@@ -124,9 +124,9 @@
     - Mostrar progreso hacia break largo
     - _Requirements: 7.2, 10.2, 10.3_
 
-- [ ] 6. Implementar notificaciones de ciclos
+- [x] 6. Implementar notificaciones de ciclos
 
-  - [ ] 6.1 Crear sistema básico de notificaciones
+  - [x] 6.1 Crear sistema básico de notificaciones
 
     - Implementar NotificationService en Rust
     - Crear templates de mensajes para cada fase
@@ -134,7 +134,7 @@
     - Integrar con sistema de notificaciones existente
     - _Requirements: 7.3, 8.1, 12.1_
 
-  - [ ] 6.2 Agregar notificaciones pre-alerta
+  - [x] 6.2 Agregar notificaciones pre-alerta
 
     - Implementar notificación 2 minutos antes del final
     - Crear mensajes específicos para cada tipo de sesión
@@ -142,7 +142,7 @@
     - Conectar con timer service para timing preciso
     - _Requirements: 7.4, 8.1, 8.2_
 
-  - [ ] 6.3 Crear historial de notificaciones
+  - [x] 6.3 Crear historial de notificaciones
     - Implementar tabla notification_history
     - Agregar tracking de notificaciones enviadas
     - Crear comandos para consultar historial

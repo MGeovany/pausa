@@ -1,7 +1,7 @@
 /// Database schema definitions for Pausa application
 /// Based on the design document specifications
 
-pub const SCHEMA_VERSION: i32 = 5;
+pub const SCHEMA_VERSION: i32 = 6;
 
 /// Initial database schema - creates all tables
 pub const INITIAL_SCHEMA: &str = r#"
@@ -209,5 +209,17 @@ CREATE TABLE onboarding_completion (
     completed_at DATETIME DEFAULT CURRENT_TIMESTAMP,
     version TEXT NOT NULL DEFAULT '1.0',
     config_snapshot TEXT
+)
+"#;
+
+pub const CREATE_NOTIFICATION_HISTORY: &str = r#"
+CREATE TABLE notification_history (
+    id INTEGER PRIMARY KEY,
+    session_id TEXT,
+    notification_type TEXT NOT NULL,
+    title TEXT NOT NULL,
+    message TEXT NOT NULL,
+    sent_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+    FOREIGN KEY (session_id) REFERENCES sessions (id)
 )
 "#;

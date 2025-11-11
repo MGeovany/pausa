@@ -68,7 +68,7 @@ export const CycleControl: React.FC = () => {
   }
 
   return (
-    <div className="bg-gray-800 rounded-lg p-6 border border-gray-700">
+    <div className="bg-gray-200 opacity-95 rounded-lg p-6 border">
       <div className="flex items-center justify-between mb-4">
         <h2 className="text-xl font-semibold text-white">Work Cycles</h2>
         {cycleState.cycle_count > 0 && (
@@ -135,13 +135,15 @@ export const CycleControl: React.FC = () => {
         )}
 
         {cycleState.phase !== "idle" && (
-          <button
-            onClick={handleEndSession}
-            className="flex-1 flex items-center justify-center space-x-2 bg-red-600 hover:bg-red-700 text-white font-medium py-3 px-4 rounded-lg transition-colors"
-          >
-            <Square className="w-5 h-5" />
-            <span>End Session</span>
-          </button>
+          <div className="flex w-full items-center justify-center">
+            <button
+              onClick={handleEndSession}
+              className="w-fit flex items-center justify-center space-x-2 bg-red-600 hover:bg-red-700 text-white font-medium py-2 px-3 rounded-lg transition-colors"
+            >
+              <Square className="w-5 h-5" />
+              <span>End Session</span>
+            </button>
+          </div>
         )}
       </div>
 

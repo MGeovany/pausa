@@ -1,4 +1,4 @@
-use crate::cycle_orchestrator::{CycleConfig, CycleOrchestrator, CycleState};
+use crate::cycle_orchestrator::{CycleConfig, CycleOrchestrator, CyclePhase, CycleState};
 use crate::database::models::{UserSettings, WorkSchedule};
 use crate::state::AppState;
 use serde::{Deserialize, Serialize};
@@ -13,7 +13,7 @@ pub struct InitializeCycleRequest {
 #[tauri::command]
 pub async fn initialize_cycle_orchestrator(
     state: State<'_, AppState>,
-    app: AppHandle,
+    _app: AppHandle,
 ) -> Result<CycleState, String> {
     println!("🔄 [Rust] initialize_cycle_orchestrator called");
 
@@ -64,7 +64,7 @@ pub async fn initialize_cycle_orchestrator(
         .map_err(|e| format!("Failed to get work schedule: {}", e))?;
 
     // Create cycle config
-    let config = CycleConfig::from_user_settings(user_settings, work_schedule);
+    let config = CycleConfig::from_user_settings(user_settings.clone(), work_schedule);
 
     // Create orchestrator
     let orchestrator = CycleOrchestrator::new(config);
@@ -74,6 +74,10 @@ pub async fn initialize_cycle_orchestrator(
     // Store in app state
     let mut cycle_orchestrator = state.cycle_orchestrator.lock().await;
     *cycle_orchestrator = Some(orchestrator);
+
+    // Initialize notification service with user name
+    let mut notification_service = state.notification_service.lock().await;
+    notification_service.set_user_name(user_settings.user_name);
 
     println!("✅ [Rust] Cycle orchestrator initialized");
 
@@ -105,6 +109,10 @@ pub async fn start_focus_session(
 
     let current_state = orchestrator.get_state();
 
+    // Send focus start notification
+    let notification_service = state.notification_service.lock().await;
+    notification_service.notify_focus_start(&app);
+
     println!("✅ [Rust] Focus session started");
 
     Ok(current_state)
@@ -130,6 +138,8 @@ pub async fn start_break_session(
 
     let events = orchestrator.start_break(force_long.unwrap_or(false))?;
 
+    let current_state = orchestrator.get_state();
+
     // Emit events to frontend
     for event in events {
         if let Err(e) = app.emit("cycle-event", &event) {
@@ -137,7 +147,12 @@ pub async fn start_break_session(
         }
     }
 
-    let current_state = orchestrator.get_state();
+    // Send appropriate break notification based on phase
+    let notification_service = state.notification_service.lock().await;
+    match current_state.phase {
+        CyclePhase::LongBreak => notification_service.notify_long_break_start(&app),
+        _ => notification_service.notify_break_start(&app),
+    };
 
     println!("✅ [Rust] Break session started");
 
@@ -202,6 +217,9 @@ pub async fn end_cycle_session(
         .as_mut()
         .ok_or_else(|| "Cycle orchestrator not initialized".to_string())?;
 
+    // Get the phase before ending to send appropriate notification
+    let phase_before_end = orchestrator.get_state().phase.clone();
+
     let events = orchestrator.end_session(completed)?;
 
     // Emit events to frontend
@@ -212,6 +230,18 @@ pub async fn end_cycle_session(
     }
 
     let current_state = orchestrator.get_state();
+
+    // Send appropriate end notification if session was completed
+    if completed {
+        let notification_service = state.notification_service.lock().await;
+        match phase_before_end {
+            CyclePhase::Focus => notification_service.notify_focus_end(&app),
+            CyclePhase::ShortBreak | CyclePhase::LongBreak => {
+                notification_service.notify_break_end(&app)
+            }
+            _ => {}
+        };
+    }
 
     println!("✅ [Rust] Cycle session ended");
 
@@ -244,6 +274,25 @@ pub async fn cycle_tick(state: State<'_, AppState>, app: AppHandle) -> Result<Cy
         .ok_or_else(|| "Cycle orchestrator not initialized".to_string())?;
 
     let events = orchestrator.tick()?;
+
+    // Check for pre-alert events and send notifications
+    let notification_service = state.notification_service.lock().await;
+    let current_state = orchestrator.get_state();
+
+    for event in &events {
+        match event {
+            crate::cycle_orchestrator::CycleEvent::PreAlert { remaining } => {
+                // Send pre-alert notification for focus sessions
+                let minutes_left = (remaining + 59) / 60; // Round up to nearest minute
+                notification_service.notify_focus_warning(&app, minutes_left);
+            }
+            crate::cycle_orchestrator::CycleEvent::CycleCompleted { cycle_count } => {
+                // Send cycle completed notification
+                notification_service.notify_cycle_complete(&app, *cycle_count);
+            }
+            _ => {}
+        }
+    }
 
     // Emit events to frontend
     for event in events {

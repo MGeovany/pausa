@@ -297,3 +297,92 @@ pub async fn get_strict_mode_config(
         }
     }
 }
+
+#[derive(Debug, Serialize, Deserialize)]
+pub struct PreAlertConfig {
+    pub pre_alert_seconds: i32,
+    pub enabled: bool,
+}
+
+/// Update pre-alert configuration
+#[tauri::command]
+pub async fn update_pre_alert_config(
+    config: PreAlertConfig,
+    state: State<'_, AppState>,
+) -> Result<(), String> {
+    println!(
+        "💾 [Rust] update_pre_alert_config called with config: {:?}",
+        config
+    );
+
+    // Validate pre-alert seconds (30-300 seconds, i.e., 30 seconds to 5 minutes)
+    if config.pre_alert_seconds < 30 || config.pre_alert_seconds > 300 {
+        return Err("Pre-alert time must be between 30 and 300 seconds".to_string());
+    }
+
+    let now = Utc::now();
+
+    // If disabled, set to 0, otherwise use the configured value
+    let pre_alert_value = if config.enabled {
+        config.pre_alert_seconds
+    } else {
+        0
+    };
+
+    let result = state.database.with_connection(|conn| {
+        conn.execute(
+            "UPDATE user_settings SET pre_alert_seconds = ?1, updated_at = ?2 WHERE id = 1",
+            params![pre_alert_value, now],
+        )
+        .map_err(|e| crate::database::DatabaseError::Sqlite(e))
+    });
+
+    match result {
+        Ok(_) => {
+            println!("✅ [Rust] Pre-alert configuration updated successfully");
+            Ok(())
+        }
+        Err(e) => {
+            let error_msg = format!("Failed to update pre-alert configuration: {}", e);
+            println!("❌ [Rust] {}", error_msg);
+            Err(error_msg)
+        }
+    }
+}
+
+/// Get pre-alert configuration
+#[tauri::command]
+pub async fn get_pre_alert_config(state: State<'_, AppState>) -> Result<PreAlertConfig, String> {
+    println!("📖 [Rust] get_pre_alert_config called");
+
+    let result = state.database.with_connection(|conn| {
+        let mut stmt = conn
+            .prepare("SELECT pre_alert_seconds FROM user_settings WHERE id = 1")
+            .map_err(|e| crate::database::DatabaseError::Sqlite(e))?;
+
+        let pre_alert_seconds: i32 = stmt
+            .query_row([], |row| row.get(0))
+            .map_err(|e| crate::database::DatabaseError::Sqlite(e))?;
+
+        Ok(PreAlertConfig {
+            pre_alert_seconds: if pre_alert_seconds > 0 {
+                pre_alert_seconds
+            } else {
+                120 // Default to 2 minutes if disabled
+            },
+            enabled: pre_alert_seconds > 0,
+        })
+    });
+
+    match result {
+        Ok(config) => {
+            println!("✅ [Rust] Pre-alert configuration retrieved: {:?}", config);
+            Ok(config)
+        }
+        Err(e) => {
+            let error_msg = format!("Failed to get pre-alert configuration: {}", e);
+            println!("❌ [Rust] {}", error_msg);
+            Err(error_msg)
+        }
+    }
+}

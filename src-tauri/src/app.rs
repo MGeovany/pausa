@@ -2,7 +2,8 @@ use std::sync::Mutex;
 use tauri::Manager;
 
 use crate::handlers::{
-    auth_handler, cycle_config_handler, cycle_handler, onboarding_handler, work_schedule_handler,
+    auth_handler, cycle_config_handler, cycle_handler, notification_handler, onboarding_handler,
+    work_schedule_handler,
 };
 use crate::{config::AppConfig, onboarding::OnboardingManager, state::AppState};
 
@@ -13,6 +14,7 @@ pub fn run() -> Result<(), String> {
     let cfg = AppConfig::from_env()?;
     tauri::Builder::default()
         .plugin(tauri_plugin_shell::init())
+        .plugin(tauri_plugin_notification::init())
         .setup(move |app| {
             let state = AppState::init(app.handle(), cfg.clone())?;
             app.manage(state);
@@ -54,6 +56,8 @@ pub fn run() -> Result<(), String> {
             cycle_config_handler::update_user_name,
             cycle_config_handler::save_strict_mode_config,
             cycle_config_handler::get_strict_mode_config,
+            cycle_config_handler::update_pre_alert_config,
+            cycle_config_handler::get_pre_alert_config,
             cycle_handler::initialize_cycle_orchestrator,
             cycle_handler::start_focus_session,
             cycle_handler::start_break_session,
@@ -62,7 +66,9 @@ pub fn run() -> Result<(), String> {
             cycle_handler::end_cycle_session,
             cycle_handler::get_cycle_state,
             cycle_handler::cycle_tick,
-            cycle_handler::reset_cycle_count
+            cycle_handler::reset_cycle_count,
+            notification_handler::update_notification_user_name,
+            notification_handler::get_notification_user_name
         ])
         .run(tauri::generate_context!())
         .map_err(|e| e.to_string())

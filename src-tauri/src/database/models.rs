@@ -324,3 +324,27 @@ impl OnboardingCompletion {
         })
     }
 }
+
+/// Notification history model
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct NotificationHistory {
+    pub id: Option<i32>,
+    pub session_id: Option<String>,
+    pub notification_type: String,
+    pub title: String,
+    pub message: String,
+    pub sent_at: DateTime<Utc>,
+}
+
+impl NotificationHistory {
+    pub fn from_row(row: &rusqlite::Row) -> rusqlite::Result<Self> {
+        Ok(Self {
+            id: Some(row.get("id")?),
+            session_id: row.get("session_id")?,
+            notification_type: row.get("notification_type")?,
+            title: row.get("title")?,
+            message: row.get("message")?,
+            sent_at: row.get("sent_at")?,
+        })
+    }
+}

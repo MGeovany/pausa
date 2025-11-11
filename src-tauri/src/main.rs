@@ -8,6 +8,7 @@ mod domain;
 mod errors;
 mod handlers;
 mod infra;
+mod notification_service;
 mod onboarding;
 mod pkce;
 mod services;

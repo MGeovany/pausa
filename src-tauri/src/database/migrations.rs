@@ -90,6 +90,10 @@ impl MigrationManager {
                 // Version 5: Add user_email to onboarding_completion table
                 Self::migrate_to_v5(conn)
             }
+            6 => {
+                // Version 6: Add notification_history table
+                Self::migrate_to_v6(conn)
+            }
             _ => Err(DatabaseError::Migration(format!(
                 "Unknown migration version: {}",
                 version
@@ -216,6 +220,7 @@ impl MigrationManager {
             "insights",
             "work_schedule",
             "onboarding_completion",
+            "notification_history",
             "schema_version",
         ];
 
@@ -281,6 +286,48 @@ impl MigrationManager {
         })?;
 
         println!("Database backed up to: {}", backup_path);
+        Ok(())
+    }
+
+    /// Migration to version 6: Add notification_history table
+    fn migrate_to_v6(conn: &Connection) -> DatabaseResult<()> {
+        println!("Applying migration to version 6: Adding notification_history table");
+
+        // Create notification_history table
+        conn.execute(
+            r#"
+            CREATE TABLE notification_history (
+                id INTEGER PRIMARY KEY,
+                session_id TEXT,
+                notification_type TEXT NOT NULL,
+                title TEXT NOT NULL,
+                message TEXT NOT NULL,
+                sent_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+                FOREIGN KEY (session_id) REFERENCES sessions (id)
+            )
+            "#,
+            [],
+        )
+        .map_err(DatabaseError::Sqlite)?;
+
+        // Create index for faster queries
+        conn.execute(
+            "CREATE INDEX idx_notification_history_sent_at ON notification_history (sent_at)",
+            [],
+        )
+        .map_err(DatabaseError::Sqlite)?;
+
+        conn.execute(
+            "CREATE INDEX idx_notification_history_session ON notification_history (session_id)",
+            [],
+        )
+        .map_err(DatabaseError::Sqlite)?;
+
+        // Update schema version
+        conn.execute("INSERT INTO schema_version (version) VALUES (6)", [])
+            .map_err(DatabaseError::Sqlite)?;
+
+        println!("Migration to version 6 completed successfully");
         Ok(())
     }
 }
