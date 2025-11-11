@@ -325,3 +325,45 @@ pub async fn reset_cycle_count(state: State<'_, AppState>) -> Result<CycleState,
 
     Ok(current_state)
 }
+
+#[derive(Debug, Serialize, Deserialize)]
+pub struct BypassAttemptLog {
+    pub session_id: String,
+    pub method: String,
+    pub timestamp: String,
+}
+
+/// Log a bypass attempt during strict mode
+#[tauri::command]
+pub async fn log_bypass_attempt(
+    session_id: String,
+    method: String,
+    timestamp: String,
+    state: State<'_, AppState>,
+) -> Result<(), String> {
+    println!(
+        "⚠️ [Rust] Bypass attempt logged - Session: {}, Method: {}, Time: {}",
+        session_id, method, timestamp
+    );
+
+    // Store in database for persistent logging
+    state
+        .database
+        .with_connection(|conn| {
+            conn.execute(
+                r#"
+                INSERT INTO bypass_attempts (session_id, method, timestamp, created_at)
+                VALUES (?1, ?2, ?3, CURRENT_TIMESTAMP)
+                "#,
+                rusqlite::params![session_id, method, timestamp],
+            )
+            .map_err(|e| crate::database::DatabaseError::Sqlite(e))?;
+
+            Ok(())
+        })
+        .map_err(|e| format!("Failed to log bypass attempt: {}", e))?;
+
+    println!("✅ [Rust] Bypass attempt logged to database");
+
+    Ok(())
+}

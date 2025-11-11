@@ -1,7 +1,7 @@
 import type { BreakActivity } from '../types';
 
 // Default break activities database
-const DEFAULT_ACTIVITIES: BreakActivity[] = [
+const SHORT_BREAK_ACTIVITIES: BreakActivity[] = [
   {
     title: "Hydrate & Refresh",
     description: "Take care of your body's basic needs and refresh your mind.",
@@ -84,6 +84,77 @@ const DEFAULT_ACTIVITIES: BreakActivity[] = [
   }
 ];
 
+const LONG_BREAK_ACTIVITIES: BreakActivity[] = [
+  {
+    title: "Full Body Reset",
+    description: "Give your body a complete break and recharge deeply.",
+    checklist: [
+      "Take a 10-minute walk outside",
+      "Do a full body stretch routine",
+      "Drink water and have a healthy snack",
+      "Practice 5 minutes of deep breathing",
+      "Wash your face and hands"
+    ]
+  },
+  {
+    title: "Mental Recharge",
+    description: "Clear your mind and prepare for the next work session.",
+    checklist: [
+      "Step away from all screens",
+      "Practice meditation or mindfulness for 5 minutes",
+      "Journal about your progress today",
+      "Set clear intentions for your next session",
+      "Do something that makes you smile"
+    ]
+  },
+  {
+    title: "Nourish & Energize",
+    description: "Take care of your nutritional and energy needs.",
+    checklist: [
+      "Prepare and eat a nutritious meal or snack",
+      "Drink plenty of water",
+      "Avoid heavy or sugary foods",
+      "Take a short walk after eating",
+      "Plan your next meal"
+    ]
+  },
+  {
+    title: "Social & Creative Break",
+    description: "Connect with others or engage in creative activities.",
+    checklist: [
+      "Call or message a friend or family member",
+      "Read a few pages of a book",
+      "Listen to your favorite music",
+      "Doodle or do a creative activity",
+      "Share something positive with someone"
+    ]
+  },
+  {
+    title: "Power Nap & Refresh",
+    description: "Rest deeply to restore your energy and focus.",
+    checklist: [
+      "Find a comfortable, quiet place",
+      "Set an alarm for 15-20 minutes",
+      "Close your eyes and relax completely",
+      "Wake up gently and stretch",
+      "Splash cold water on your face"
+    ]
+  },
+  {
+    title: "Environment Reset",
+    description: "Refresh your workspace and surroundings.",
+    checklist: [
+      "Tidy and organize your entire workspace",
+      "Open windows for fresh air",
+      "Adjust lighting and temperature",
+      "Water your plants or add greenery",
+      "Prepare everything for your next session"
+    ]
+  }
+];
+
+const DEFAULT_ACTIVITIES: BreakActivity[] = [...SHORT_BREAK_ACTIVITIES, ...LONG_BREAK_ACTIVITIES];
+
 // Activity rotation and selection logic
 export class BreakActivityManager {
   private activities: BreakActivity[];
@@ -120,30 +191,41 @@ export class BreakActivityManager {
   getActivityForBreak(breakType: 'short' | 'long', duration: number): BreakActivity {
     // For short breaks (< 10 minutes), prefer simpler activities
     if (breakType === 'short' || duration < 600) {
-      const shortBreakActivities = this.activities.filter(activity =>
-        activity.checklist.length <= 4 &&
-        (activity.title.includes('Hydrate') ||
-          activity.title.includes('Eyes') ||
-          activity.title.includes('Move') ||
-          activity.title.includes('Mindful'))
-      );
+      const shortBreakActivities = SHORT_BREAK_ACTIVITIES;
+      const availableActivities = shortBreakActivities.filter(activity => {
+        const index = this.activities.indexOf(activity);
+        return !this.lastUsedIndexes.includes(index);
+      });
 
-      if (shortBreakActivities.length > 0) {
-        const availableActivities = shortBreakActivities.filter(activity => {
-          const index = this.activities.indexOf(activity);
-          return !this.lastUsedIndexes.includes(index);
-        });
-
-        if (availableActivities.length > 0) {
-          const selected = availableActivities[Math.floor(Math.random() * availableActivities.length)];
-          this.addToHistory(this.activities.indexOf(selected));
-          return selected;
-        }
+      if (availableActivities.length > 0) {
+        const selected = availableActivities[Math.floor(Math.random() * availableActivities.length)];
+        this.addToHistory(this.activities.indexOf(selected));
+        return selected;
       }
+
+      // If all short activities used, pick any short activity
+      const selected = shortBreakActivities[Math.floor(Math.random() * shortBreakActivities.length)];
+      this.addToHistory(this.activities.indexOf(selected));
+      return selected;
     }
 
-    // For long breaks, any activity is suitable
-    return this.getRandomActivity();
+    // For long breaks, prefer long break activities
+    const longBreakActivities = LONG_BREAK_ACTIVITIES;
+    const availableActivities = longBreakActivities.filter(activity => {
+      const index = this.activities.indexOf(activity);
+      return !this.lastUsedIndexes.includes(index);
+    });
+
+    if (availableActivities.length > 0) {
+      const selected = availableActivities[Math.floor(Math.random() * availableActivities.length)];
+      this.addToHistory(this.activities.indexOf(selected));
+      return selected;
+    }
+
+    // If all long activities used, pick any long activity
+    const selected = longBreakActivities[Math.floor(Math.random() * longBreakActivities.length)];
+    this.addToHistory(this.activities.indexOf(selected));
+    return selected;
   }
 
   /**

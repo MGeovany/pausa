@@ -1,7 +1,7 @@
 /// Database schema definitions for Pausa application
 /// Based on the design document specifications
 
-pub const SCHEMA_VERSION: i32 = 6;
+pub const SCHEMA_VERSION: i32 = 7;
 
 /// Initial database schema - creates all tables
 pub const INITIAL_SCHEMA: &str = r#"

@@ -94,6 +94,10 @@ impl MigrationManager {
                 // Version 6: Add notification_history table
                 Self::migrate_to_v6(conn)
             }
+            7 => {
+                // Version 7: Add bypass_attempts table
+                Self::migrate_to_v7(conn)
+            }
             _ => Err(DatabaseError::Migration(format!(
                 "Unknown migration version: {}",
                 version
@@ -221,6 +225,7 @@ impl MigrationManager {
             "work_schedule",
             "onboarding_completion",
             "notification_history",
+            "bypass_attempts",
             "schema_version",
         ];
 
@@ -328,6 +333,46 @@ impl MigrationManager {
             .map_err(DatabaseError::Sqlite)?;
 
         println!("Migration to version 6 completed successfully");
+        Ok(())
+    }
+
+    /// Migration to version 7: Add bypass_attempts table
+    fn migrate_to_v7(conn: &Connection) -> DatabaseResult<()> {
+        println!("Applying migration to version 7: Adding bypass_attempts table");
+
+        // Create bypass_attempts table
+        conn.execute(
+            r#"
+            CREATE TABLE bypass_attempts (
+                id INTEGER PRIMARY KEY,
+                session_id TEXT NOT NULL,
+                method TEXT NOT NULL,
+                timestamp TEXT NOT NULL,
+                created_at DATETIME DEFAULT CURRENT_TIMESTAMP
+            )
+            "#,
+            [],
+        )
+        .map_err(DatabaseError::Sqlite)?;
+
+        // Create index for faster queries
+        conn.execute(
+            "CREATE INDEX idx_bypass_attempts_session ON bypass_attempts (session_id)",
+            [],
+        )
+        .map_err(DatabaseError::Sqlite)?;
+
+        conn.execute(
+            "CREATE INDEX idx_bypass_attempts_created_at ON bypass_attempts (created_at)",
+            [],
+        )
+        .map_err(DatabaseError::Sqlite)?;
+
+        // Update schema version
+        conn.execute("INSERT INTO schema_version (version) VALUES (7)", [])
+            .map_err(DatabaseError::Sqlite)?;
+
+        println!("Migration to version 7 completed successfully");
         Ok(())
     }
 }

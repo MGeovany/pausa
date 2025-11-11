@@ -149,9 +149,9 @@
     - Implementar limpieza automática de historial antiguo
     - _Requirements: 8.1, 8.2_
 
-- [ ] 7. Mejorar break overlay para ciclos
+- [x] 7. Mejorar break overlay para ciclos
 
-  - [ ] 7.1 Extender break overlay existente
+  - [x] 7.1 Extender break overlay existente
 
     - Agregar mensajes específicos para breaks cortos vs largos
     - Implementar colores y estilos diferentes por tipo de break
@@ -159,7 +159,7 @@
     - Agregar contador de ciclos completados
     - _Requirements: 8.4, 11.2, 11.3_
 
-  - [ ] 7.2 Implementar modo estricto mejorado
+  - [x] 7.2 Implementar modo estricto mejorado
 
     - Crear overlay fullscreen para todos los monitores
     - Implementar manejo de clave de emergencia
@@ -167,7 +167,7 @@
     - Crear interfaz de finalización de break
     - _Requirements: 9.1, 9.2, 9.5_
 
-  - [ ] 7.3 Agregar celebración de completación de ciclos
+  - [x] 7.3 Agregar celebración de completación de ciclos
     - Crear mensajes de felicitación por ciclos completados
     - Implementar animaciones para hitos importantes
     - Agregar estadísticas de progreso diario
