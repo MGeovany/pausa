@@ -2,7 +2,7 @@ import { useState, useEffect } from 'react';
 import { EmergencyOverride } from './EmergencyOverride';
 import { activityCompletionTracker, breakActivityManager } from '../lib/breakActivities';
 import type { BreakSession, BreakActivity, CycleState } from '../types';
-import { useCycleState } from '../store';
+import { useCycleState, useSettings } from '../store';
 import { invoke } from '@tauri-apps/api/core';
 
 interface BreakOverlayProps {
@@ -374,6 +374,7 @@ export function BreakOverlay({
   const [showEmergencyModal, setShowEmergencyModal] = useState(false);
   const [bypassAttempts, setBypassAttempts] = useState(0);
   const storeCycleState = useCycleState();
+  const settings = useSettings();
   const [isVisible, setIsVisible] = useState(false);
   
   // Use provided cycleState or fall back to store
@@ -500,7 +501,7 @@ export function BreakOverlay({
             breakType={breakSession.type}
             userName={userName}
             cyclesCompleted={currentCycleState?.cycle_count || 0}
-            focusMinutes={Math.floor((currentCycleState?.cycle_count || 0) * 25)} // Approximate
+              focusMinutes={(currentCycleState?.cycle_count || 0) * settings.focusDuration}
             onStartNewBlock={onCompleteBreak}
             onEndSession={onCompleteBreak}
           />
@@ -520,7 +521,7 @@ export function BreakOverlay({
             {currentCycleState && currentCycleState.cycle_count > 0 && (
               <CycleProgressIndicator
                 cycleCount={currentCycleState.cycle_count}
-                cyclesPerLongBreak={4} // TODO: Get from settings
+                cyclesPerLongBreak={settings.cyclesPerLongBreak}
                 breakType={breakSession.type}
               />
             )}

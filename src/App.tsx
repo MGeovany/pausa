@@ -5,6 +5,8 @@ import Login from "./pages/Login";
 import Dashboard from "./pages/Dashboard";
 import OnboardingWizard from "./components/OnboardingWizard";
 import { ErrorBoundary } from "./components/ErrorBoundary";
+import { ToastContainer } from "./components/ToastContainer";
+import { StatsModal } from "./components/StatsModal";
 import { errorHandler } from "./lib/errorHandler";
 
 export default function App() {
@@ -90,6 +92,8 @@ export default function App() {
           <Route path="/dashboard" element={<Dashboard />} />
         </Routes>
       </HashRouter>
+      <ToastContainer />
+      <StatsModal />
     </ErrorBoundary>
   );
 }

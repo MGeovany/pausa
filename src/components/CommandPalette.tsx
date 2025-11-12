@@ -1,7 +1,8 @@
-import React, { useState, useEffect, useRef, useMemo } from 'react';
-import { Search, Clock, Lock, Coffee, BarChart3, Settings } from 'lucide-react';
-import { ANIMATIONS, COMMAND_PALETTE, SHADOWS } from '../constants/design';
-import type { Command } from '../types';
+import React, { useState, useEffect, useRef, useMemo } from "react";
+import { Search, Clock, Lock, Coffee, BarChart3, Settings } from "lucide-react";
+import { ANIMATIONS, COMMAND_PALETTE, SHADOWS } from "../constants/design";
+import type { Command } from "../types";
+import { toastManager } from "../lib/toastManager";
 
 interface CommandPaletteProps {
   isOpen: boolean;
@@ -23,40 +24,42 @@ interface CommandGroupProps {
   startIndex: number;
 }
 
-
-
-const CommandItem: React.FC<CommandItemProps> = ({ command, isSelected, onClick }) => {
-  const getIcon = (category: Command['category']) => {
+const CommandItem: React.FC<CommandItemProps> = ({
+  command,
+  isSelected,
+  onClick,
+}) => {
+  const getIcon = (category: Command["category"]) => {
     switch (category) {
-      case 'focus':
+      case "focus":
         return <Clock className="w-4 h-4" />;
-      case 'lock':
+      case "lock":
         return <Lock className="w-4 h-4" />;
-      case 'break':
+      case "break":
         return <Coffee className="w-4 h-4" />;
-      case 'stats':
+      case "stats":
         return <BarChart3 className="w-4 h-4" />;
-      case 'settings':
+      case "settings":
         return <Settings className="w-4 h-4" />;
       default:
         return <Clock className="w-4 h-4" />;
     }
   };
 
-  const getCategoryColor = (category: Command['category']) => {
+  const getCategoryColor = (category: Command["category"]) => {
     switch (category) {
-      case 'focus':
-        return isSelected ? 'text-white' : 'text-blue-400';
-      case 'lock':
-        return isSelected ? 'text-white' : 'text-red-400';
-      case 'break':
-        return isSelected ? 'text-white' : 'text-green-400';
-      case 'stats':
-        return isSelected ? 'text-white' : 'text-purple-400';
-      case 'settings':
-        return isSelected ? 'text-white' : 'text-gray-400';
+      case "focus":
+        return isSelected ? "text-white" : "text-blue-400";
+      case "lock":
+        return isSelected ? "text-white" : "text-red-400";
+      case "break":
+        return isSelected ? "text-white" : "text-green-400";
+      case "stats":
+        return isSelected ? "text-white" : "text-purple-400";
+      case "settings":
+        return isSelected ? "text-white" : "text-gray-400";
       default:
-        return isSelected ? 'text-white' : 'text-gray-400';
+        return isSelected ? "text-white" : "text-gray-400";
     }
   };
 
@@ -64,16 +67,19 @@ const CommandItem: React.FC<CommandItemProps> = ({ command, isSelected, onClick 
     <div
       className={`
         flex items-center justify-between px-4 py-3 cursor-pointer transition-all duration-150
-        ${isSelected 
-          ? 'bg-blue-500 text-white transform scale-[1.02]' 
-          : 'text-gray-300 hover:bg-gray-800/50'
+        ${
+          isSelected
+            ? "bg-blue-500 text-white transform scale-[1.02]"
+            : "text-gray-300 hover:bg-gray-800/50"
         }
         rounded-lg mx-2 my-1
       `}
       onClick={onClick}
-      style={{ 
+      style={{
         height: COMMAND_PALETTE.itemHeight - 8,
-        animation: isSelected ? `pulse ${ANIMATIONS.duration.normal} ${ANIMATIONS.easing.easeOut}` : undefined
+        animation: isSelected
+          ? `pulse ${ANIMATIONS.duration.normal} ${ANIMATIONS.easing.easeOut}`
+          : undefined,
       }}
     >
       <div className="flex items-center space-x-3">
@@ -83,13 +89,16 @@ const CommandItem: React.FC<CommandItemProps> = ({ command, isSelected, onClick 
         <span className="font-medium">{command.label}</span>
       </div>
       {command.shortcut && (
-        <kbd className={`
+        <kbd
+          className={`
           px-2 py-1 text-xs font-mono rounded border transition-all duration-150
-          ${isSelected 
-            ? 'bg-blue-600/50 border-blue-400/50 text-blue-100' 
-            : 'bg-gray-700/50 border-gray-600/50 text-gray-400'
+          ${
+            isSelected
+              ? "bg-blue-600/50 border-blue-400/50 text-blue-100"
+              : "bg-gray-700/50 border-gray-600/50 text-gray-400"
           }
-        `}>
+        `}
+        >
           {command.shortcut}
         </kbd>
       )}
@@ -97,25 +106,25 @@ const CommandItem: React.FC<CommandItemProps> = ({ command, isSelected, onClick 
   );
 };
 
-const CommandGroup: React.FC<CommandGroupProps> = ({ 
-  category, 
-  commands, 
-  selectedIndex, 
-  onCommandClick, 
-  startIndex 
+const CommandGroup: React.FC<CommandGroupProps> = ({
+  category,
+  commands,
+  selectedIndex,
+  onCommandClick,
+  startIndex,
 }) => {
   const getCategoryLabel = (category: string) => {
     switch (category) {
-      case 'focus':
-        return 'Focus';
-      case 'break':
-        return 'Break';
-      case 'lock':
-        return 'Lock';
-      case 'stats':
-        return 'Statistics';
-      case 'settings':
-        return 'Settings';
+      case "focus":
+        return "Focus";
+      case "break":
+        return "Break";
+      case "lock":
+        return "Lock";
+      case "stats":
+        return "Statistics";
+      case "settings":
+        return "Settings";
       default:
         return category.charAt(0).toUpperCase() + category.slice(1);
     }
@@ -141,14 +150,12 @@ const CommandGroup: React.FC<CommandGroupProps> = ({
   );
 };
 
-
-
-export const CommandPalette: React.FC<CommandPaletteProps> = ({ 
-  isOpen, 
-  onClose, 
-  commands 
+export const CommandPalette: React.FC<CommandPaletteProps> = ({
+  isOpen,
+  onClose,
+  commands,
 }) => {
-  const [searchQuery, setSearchQuery] = useState('');
+  const [searchQuery, setSearchQuery] = useState("");
   const [selectedIndex, setSelectedIndex] = useState(0);
   const searchInputRef = useRef<HTMLInputElement>(null);
   const containerRef = useRef<HTMLDivElement>(null);
@@ -160,15 +167,15 @@ export const CommandPalette: React.FC<CommandPaletteProps> = ({
     }
 
     const query = searchQuery.toLowerCase();
-    return commands.filter(command => {
+    return commands.filter((command) => {
       const label = command.label.toLowerCase();
       const category = command.category.toLowerCase();
-      
+
       // Exact match
       if (label.includes(query) || category.includes(query)) {
         return true;
       }
-      
+
       // Fuzzy match - check if query characters appear in order
       return fuzzyMatch(query, label) || fuzzyMatch(query, category);
     });
@@ -177,8 +184,8 @@ export const CommandPalette: React.FC<CommandPaletteProps> = ({
   // Group commands by category
   const groupedCommands = useMemo(() => {
     const groups: Record<string, Command[]> = {};
-    
-    filteredCommands.forEach(command => {
+
+    filteredCommands.forEach((command) => {
       if (!groups[command.category]) {
         groups[command.category] = [];
       }
@@ -186,17 +193,17 @@ export const CommandPalette: React.FC<CommandPaletteProps> = ({
     });
 
     // Sort categories in a logical order
-    const categoryOrder = ['focus', 'break', 'lock', 'stats', 'settings'];
+    const categoryOrder = ["focus", "break", "lock", "stats", "settings"];
     const sortedGroups: Record<string, Command[]> = {};
-    
-    categoryOrder.forEach(category => {
+
+    categoryOrder.forEach((category) => {
       if (groups[category]) {
         sortedGroups[category] = groups[category];
       }
     });
 
     // Add any remaining categories
-    Object.keys(groups).forEach(category => {
+    Object.keys(groups).forEach((category) => {
       if (!sortedGroups[category]) {
         sortedGroups[category] = groups[category];
       }
@@ -240,33 +247,29 @@ export const CommandPalette: React.FC<CommandPaletteProps> = ({
       if (!isOpen) return;
 
       switch (event.key) {
-        case 'ArrowDown':
+        case "ArrowDown":
           event.preventDefault();
-          setSelectedIndex(prev => 
-            prev < totalCommands - 1 ? prev + 1 : 0
-          );
+          setSelectedIndex((prev) => (prev < totalCommands - 1 ? prev + 1 : 0));
           break;
-        case 'ArrowUp':
+        case "ArrowUp":
           event.preventDefault();
-          setSelectedIndex(prev => 
-            prev > 0 ? prev - 1 : totalCommands - 1
-          );
+          setSelectedIndex((prev) => (prev > 0 ? prev - 1 : totalCommands - 1));
           break;
-        case 'Enter':
+        case "Enter":
           event.preventDefault();
           if (filteredCommands[selectedIndex]) {
             handleCommandExecute(filteredCommands[selectedIndex]);
           }
           break;
-        case 'Escape':
+        case "Escape":
           event.preventDefault();
           handleClose();
           break;
       }
     };
 
-    document.addEventListener('keydown', handleKeyDown);
-    return () => document.removeEventListener('keydown', handleKeyDown);
+    document.addEventListener("keydown", handleKeyDown);
+    return () => document.removeEventListener("keydown", handleKeyDown);
   }, [isOpen, totalCommands, selectedIndex, filteredCommands]);
 
   const handleCommandExecute = async (command: Command) => {
@@ -274,14 +277,17 @@ export const CommandPalette: React.FC<CommandPaletteProps> = ({
       await command.action();
       handleClose();
     } catch (error) {
-      console.error('Failed to execute command:', error);
-      // TODO: Show error toast notification
+      console.error("Failed to execute command:", error);
+      toastManager.showError(
+        "The command couldn't be completed. Please try again.",
+        { title: "Command Execution Failed" }
+      );
     }
   };
 
   const handleClose = () => {
     onClose();
-    setSearchQuery('');
+    setSearchQuery("");
     setSelectedIndex(0);
   };
 
@@ -325,11 +331,13 @@ export const CommandPalette: React.FC<CommandPaletteProps> = ({
             value={searchQuery}
             onChange={handleSearchChange}
             className="flex-1 bg-transparent text-white placeholder-gray-500 outline-none text-lg font-medium"
-            style={{ fontFamily: 'Inter, SF Pro Display, system-ui, sans-serif' }}
+            style={{
+              fontFamily: "Inter, SF Pro Display, system-ui, sans-serif",
+            }}
           />
           {searchQuery && (
             <button
-              onClick={() => setSearchQuery('')}
+              onClick={() => setSearchQuery("")}
               className="ml-2 text-gray-500 hover:text-gray-300 transition-colors"
             >
               ✕
@@ -338,24 +346,29 @@ export const CommandPalette: React.FC<CommandPaletteProps> = ({
         </div>
 
         {/* Command List */}
-        <div className="max-h-96 overflow-y-auto py-2" style={{ scrollbarWidth: 'thin' }}>
+        <div
+          className="max-h-96 overflow-y-auto py-2"
+          style={{ scrollbarWidth: "thin" }}
+        >
           {totalCommands > 0 ? (
-            Object.entries(groupedCommands).map(([category, commands], groupIndex) => {
-              const startIndex = Object.entries(groupedCommands)
-                .slice(0, groupIndex)
-                .reduce((acc, [, cmds]) => acc + cmds.length, 0);
-              
-              return (
-                <CommandGroup
-                  key={category}
-                  category={category}
-                  commands={commands}
-                  selectedIndex={selectedIndex}
-                  onCommandClick={handleCommandExecute}
-                  startIndex={startIndex}
-                />
-              );
-            })
+            Object.entries(groupedCommands).map(
+              ([category, commands], groupIndex) => {
+                const startIndex = Object.entries(groupedCommands)
+                  .slice(0, groupIndex)
+                  .reduce((acc, [, cmds]) => acc + cmds.length, 0);
+
+                return (
+                  <CommandGroup
+                    key={category}
+                    category={category}
+                    commands={commands}
+                    selectedIndex={selectedIndex}
+                    onCommandClick={handleCommandExecute}
+                    startIndex={startIndex}
+                  />
+                );
+              }
+            )
           ) : (
             <div className="px-6 py-12 text-center text-gray-500">
               <Search className="w-12 h-12 mx-auto mb-4 opacity-30" />
@@ -371,16 +384,22 @@ export const CommandPalette: React.FC<CommandPaletteProps> = ({
             <div className="flex items-center justify-between text-xs text-gray-500">
               <div className="flex items-center space-x-4">
                 <span className="flex items-center space-x-1">
-                  <kbd className="px-1.5 py-0.5 bg-gray-800 rounded text-xs">↑↓</kbd>
+                  <kbd className="px-1.5 py-0.5 bg-gray-800 rounded text-xs">
+                    ↑↓
+                  </kbd>
                   <span>navigate</span>
                 </span>
                 <span className="flex items-center space-x-1">
-                  <kbd className="px-1.5 py-0.5 bg-gray-800 rounded text-xs">↵</kbd>
+                  <kbd className="px-1.5 py-0.5 bg-gray-800 rounded text-xs">
+                    ↵
+                  </kbd>
                   <span>select</span>
                 </span>
               </div>
               <span className="flex items-center space-x-1">
-                <kbd className="px-1.5 py-0.5 bg-gray-800 rounded text-xs">esc</kbd>
+                <kbd className="px-1.5 py-0.5 bg-gray-800 rounded text-xs">
+                  esc
+                </kbd>
                 <span>close</span>
               </span>
             </div>

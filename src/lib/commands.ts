@@ -61,8 +61,8 @@ export const createStatsCommand = (): Command =>
     'View Statistics',
     'stats',
     async () => {
-      // TODO: Implement stats view
-      console.log('Opening stats...');
+      const { showStats } = useAppStore.getState();
+      showStats();
     }
   );
 

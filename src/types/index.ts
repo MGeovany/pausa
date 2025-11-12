@@ -74,6 +74,7 @@ export interface AppState {
   isFocusWidgetVisible: boolean;
   isBreakOverlayVisible: boolean;
   isSettingsOpen: boolean;
+  isStatsOpen: boolean;
 
   // Settings
   settings: UserSettings;
@@ -90,6 +91,8 @@ export interface AppState {
   showBreakOverlay: () => void;
   hideBreakOverlay: () => void;
   toggleSettings: () => void;
+  showStats: () => void;
+  hideStats: () => void;
   updateSettings: (settings: Partial<UserSettings>) => void;
   setStats: (stats: SessionStats[]) => void;
 }

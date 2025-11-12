@@ -30,6 +30,7 @@ export const useAppStore = create<ExtendedAppState>()(
       isFocusWidgetVisible: false,
       isBreakOverlayVisible: false,
       isSettingsOpen: false,
+      isStatsOpen: false,
       settings: DEFAULT_SETTINGS,
       stats: [],
       cycleState: null,
@@ -92,6 +93,20 @@ export const useAppStore = create<ExtendedAppState>()(
           'toggleSettings'
         ),
 
+      showStats: () =>
+        set(
+          { isStatsOpen: true },
+          false,
+          'showStats'
+        ),
+
+      hideStats: () =>
+        set(
+          { isStatsOpen: false },
+          false,
+          'hideStats'
+        ),
+
       // Settings actions
       updateSettings: (newSettings: Partial<UserSettings>) =>
         set(
@@ -133,6 +148,7 @@ export const useUIState = () => useAppStore((state) => ({
   isFocusWidgetVisible: state.isFocusWidgetVisible,
   isBreakOverlayVisible: state.isBreakOverlayVisible,
   isSettingsOpen: state.isSettingsOpen,
+  isStatsOpen: state.isStatsOpen,
 }));
 export const useStats = () => useAppStore((state) => state.stats);
 export const useCycleState = () => useAppStore((state) => state.cycleState);

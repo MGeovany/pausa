@@ -1,11 +1,19 @@
-import React, { useState, useRef, useEffect, useCallback } from 'react';
-import { Play, Pause, RotateCcw, MoreHorizontal, Shield, Target } from 'lucide-react';
-import { useAppStore, useCurrentSession, useCycleState } from '../store';
-import { COLORS, FOCUS_WIDGET, SHADOWS, ANIMATIONS } from '../constants/design';
-import { setupEventListeners } from '../lib/tauri';
-import { SessionManager } from '../lib/commands';
-import { CycleManager } from '../lib/cycleCommands';
-import type { FocusSession, Position, CycleState } from '../types';
+import React, { useState, useRef, useEffect, useCallback } from "react";
+import {
+  Play,
+  Pause,
+  RotateCcw,
+  MoreHorizontal,
+  Shield,
+  Target,
+} from "lucide-react";
+import { useAppStore, useCurrentSession, useCycleState } from "../store";
+import { COLORS, FOCUS_WIDGET, SHADOWS, ANIMATIONS } from "../constants/design";
+import { setupEventListeners } from "../lib/tauri";
+import { SessionManager } from "../lib/commands";
+import { CycleManager } from "../lib/cycleCommands";
+import type { FocusSession, Position, CycleState } from "../types";
+import { toastManager } from "../lib/toastManager";
 
 interface FocusWidgetProps {
   session: FocusSession | null;
@@ -36,11 +44,7 @@ const CircularProgress: React.FC<CircularProgressProps> = ({
 
   return (
     <div className="relative" style={{ width: size, height: size }}>
-      <svg
-        className="transform -rotate-90"
-        width={size}
-        height={size}
-      >
+      <svg className="transform -rotate-90" width={size} height={size}>
         {/* Background circle */}
         <circle
           cx={size / 2}
@@ -50,7 +54,7 @@ const CircularProgress: React.FC<CircularProgressProps> = ({
           strokeWidth={strokeWidth}
           fill="transparent"
         />
-        
+
         {/* Progress circle */}
         <circle
           cx={size / 2}
@@ -63,10 +67,10 @@ const CircularProgress: React.FC<CircularProgressProps> = ({
           strokeDashoffset={strokeDashoffset}
           strokeLinecap="round"
           className={`transition-all duration-300 ${
-            isPreAlert ? 'animate-pulse' : ''
+            isPreAlert ? "animate-pulse" : ""
           }`}
         />
-        
+
         {/* Pre-alert ring animation */}
         {isPreAlert && (
           <>
@@ -87,12 +91,12 @@ const CircularProgress: React.FC<CircularProgressProps> = ({
               strokeWidth={1}
               fill="transparent"
               className="animate-ping opacity-30"
-              style={{ animationDelay: '0.5s' }}
+              style={{ animationDelay: "0.5s" }}
             />
           </>
         )}
       </svg>
-      
+
       {/* Strict mode indicator */}
       {isStrict && (
         <div className="absolute inset-0 flex items-center justify-center">
@@ -106,11 +110,13 @@ const CircularProgress: React.FC<CircularProgressProps> = ({
 const formatTime = (seconds: number): string => {
   const minutes = Math.floor(seconds / 60);
   const remainingSeconds = seconds % 60;
-  return `${minutes.toString().padStart(2, '0')}:${remainingSeconds.toString().padStart(2, '0')}`;
+  return `${minutes.toString().padStart(2, "0")}:${remainingSeconds
+    .toString()
+    .padStart(2, "0")}`;
 };
 
 // Widget positioning utilities
-const STORAGE_KEY = 'pausa-widget-position';
+const STORAGE_KEY = "pausa-widget-position";
 const SNAP_THRESHOLD = 20; // pixels
 const EDGE_MARGIN = 10; // pixels from screen edge
 
@@ -121,18 +127,18 @@ const getStoredPosition = (): Position => {
       const position = JSON.parse(stored) as Position;
       // Validate position is within current screen bounds
       if (
-        position.x >= 0 && 
+        position.x >= 0 &&
         position.x <= window.innerWidth - FOCUS_WIDGET.defaultSize.width &&
-        position.y >= 0 && 
+        position.y >= 0 &&
         position.y <= window.innerHeight - FOCUS_WIDGET.defaultSize.height
       ) {
         return position;
       }
     }
   } catch (error) {
-    console.warn('Failed to load widget position from storage:', error);
+    console.warn("Failed to load widget position from storage:", error);
   }
-  
+
   // Default to center-right of screen
   return {
     x: window.innerWidth - FOCUS_WIDGET.defaultSize.width - 50,
@@ -144,7 +150,7 @@ const savePosition = (position: Position) => {
   try {
     localStorage.setItem(STORAGE_KEY, JSON.stringify(position));
   } catch (error) {
-    console.warn('Failed to save widget position to storage:', error);
+    console.warn("Failed to save widget position to storage:", error);
   }
 };
 
@@ -152,10 +158,10 @@ const snapToEdges = (position: Position): Position => {
   const { x, y } = position;
   const maxX = window.innerWidth - FOCUS_WIDGET.defaultSize.width;
   const maxY = window.innerHeight - FOCUS_WIDGET.defaultSize.height;
-  
+
   let snappedX = x;
   let snappedY = y;
-  
+
   // Snap to left edge
   if (x < SNAP_THRESHOLD) {
     snappedX = EDGE_MARGIN;
@@ -164,7 +170,7 @@ const snapToEdges = (position: Position): Position => {
   else if (x > maxX - SNAP_THRESHOLD) {
     snappedX = maxX - EDGE_MARGIN;
   }
-  
+
   // Snap to top edge
   if (y < SNAP_THRESHOLD) {
     snappedY = EDGE_MARGIN;
@@ -173,7 +179,7 @@ const snapToEdges = (position: Position): Position => {
   else if (y > maxY - SNAP_THRESHOLD) {
     snappedY = maxY - EDGE_MARGIN;
   }
-  
+
   return { x: snappedX, y: snappedY };
 };
 
@@ -191,13 +197,13 @@ export const FocusWidget: React.FC<FocusWidgetProps> = ({
   const dragStartRef = useRef<Position | null>(null);
 
   // Calculate progress percentage
-  const progress = session 
-    ? ((session.duration - session.remaining) / session.duration) * 100 
+  const progress = session
+    ? ((session.duration - session.remaining) / session.duration) * 100
     : 0;
 
   // Check if we're in pre-alert state
-  const isPreAlert = session?.state === 'pre-alert';
-  
+  const isPreAlert = session?.state === "pre-alert";
+
   // Check if session is in strict mode
   const isStrict = session?.isStrict || false;
 
@@ -218,17 +224,17 @@ export const FocusWidget: React.FC<FocusWidgetProps> = ({
   // Handle mouse down for dragging
   const handleMouseDown = (event: React.MouseEvent) => {
     if (!widgetRef.current) return;
-    
+
     const rect = widgetRef.current.getBoundingClientRect();
     const offset = {
       x: event.clientX - rect.left,
       y: event.clientY - rect.top,
     };
-    
+
     setDragOffset(offset);
     setIsDragging(true);
     dragStartRef.current = position;
-    
+
     // Prevent text selection during drag
     event.preventDefault();
   };
@@ -251,27 +257,27 @@ export const FocusWidget: React.FC<FocusWidgetProps> = ({
         // Apply edge snapping on mouse up
         const snappedPosition = snapToEdges(position);
         const finalPosition = updatePosition(snappedPosition);
-        
+
         // Save position to localStorage
         savePosition(finalPosition);
-        
+
         setIsDragging(false);
         dragStartRef.current = null;
       }
     };
 
     if (isDragging) {
-      document.addEventListener('mousemove', handleMouseMove);
-      document.addEventListener('mouseup', handleMouseUp);
-      
+      document.addEventListener("mousemove", handleMouseMove);
+      document.addEventListener("mouseup", handleMouseUp);
+
       // Also handle mouse leave to ensure we don't get stuck in drag state
-      document.addEventListener('mouseleave', handleMouseUp);
+      document.addEventListener("mouseleave", handleMouseUp);
     }
 
     return () => {
-      document.removeEventListener('mousemove', handleMouseMove);
-      document.removeEventListener('mouseup', handleMouseUp);
-      document.removeEventListener('mouseleave', handleMouseUp);
+      document.removeEventListener("mousemove", handleMouseMove);
+      document.removeEventListener("mouseup", handleMouseUp);
+      document.removeEventListener("mouseleave", handleMouseUp);
     };
   }, [isDragging, dragOffset, position, updatePosition]);
 
@@ -280,7 +286,7 @@ export const FocusWidget: React.FC<FocusWidgetProps> = ({
     const handleResize = () => {
       const maxX = window.innerWidth - FOCUS_WIDGET.defaultSize.width;
       const maxY = window.innerHeight - FOCUS_WIDGET.defaultSize.height;
-      
+
       if (position.x > maxX || position.y > maxY) {
         const newPosition = {
           x: Math.min(position.x, maxX),
@@ -291,8 +297,8 @@ export const FocusWidget: React.FC<FocusWidgetProps> = ({
       }
     };
 
-    window.addEventListener('resize', handleResize);
-    return () => window.removeEventListener('resize', handleResize);
+    window.addEventListener("resize", handleResize);
+    return () => window.removeEventListener("resize", handleResize);
   }, [position, updatePosition]);
 
   // Handle visibility change to restore position
@@ -305,8 +311,9 @@ export const FocusWidget: React.FC<FocusWidgetProps> = ({
       }
     };
 
-    document.addEventListener('visibilitychange', handleVisibilityChange);
-    return () => document.removeEventListener('visibilitychange', handleVisibilityChange);
+    document.addEventListener("visibilitychange", handleVisibilityChange);
+    return () =>
+      document.removeEventListener("visibilitychange", handleVisibilityChange);
   }, [updatePosition]);
 
   // Get cycle state from store
@@ -324,12 +331,13 @@ export const FocusWidget: React.FC<FocusWidgetProps> = ({
         fixed bg-gray-900 border border-gray-700 rounded-full
         flex items-center px-4 py-2 space-x-3
         transition-all duration-200 select-none
-        ${isDragging 
-          ? 'cursor-grabbing scale-105 shadow-2xl z-[9999]' 
-          : 'cursor-grab hover:bg-gray-800 z-50'
+        ${
+          isDragging
+            ? "cursor-grabbing scale-105 shadow-2xl z-[9999]"
+            : "cursor-grab hover:bg-gray-800 z-50"
         }
-        ${isPreAlert ? 'ring-2 ring-blue-400 ring-opacity-50' : ''}
-        ${isHovered ? 'shadow-lg' : ''}
+        ${isPreAlert ? "ring-2 ring-blue-400 ring-opacity-50" : ""}
+        ${isHovered ? "shadow-lg" : ""}
       `}
       style={{
         left: position.x,
@@ -337,11 +345,11 @@ export const FocusWidget: React.FC<FocusWidgetProps> = ({
         width: FOCUS_WIDGET.defaultSize.width,
         height: FOCUS_WIDGET.defaultSize.height,
         boxShadow: isDragging ? SHADOWS.xl : SHADOWS.widget,
-        animation: isPreAlert 
+        animation: isPreAlert
           ? `pulse ${ANIMATIONS.duration.slow} ${ANIMATIONS.easing.easeInOut} infinite`
           : undefined,
-        userSelect: 'none',
-        WebkitUserSelect: 'none',
+        userSelect: "none",
+        WebkitUserSelect: "none",
       }}
       onMouseDown={handleMouseDown}
       onMouseEnter={() => setIsHovered(true)}
@@ -358,10 +366,12 @@ export const FocusWidget: React.FC<FocusWidgetProps> = ({
 
       {/* Time display */}
       <div className="flex-1 text-center">
-        <div className={`
+        <div
+          className={`
           font-mono text-lg font-semibold transition-colors duration-300
-          ${isPreAlert ? 'text-yellow-400 animate-pulse' : 'text-white'}
-        `}>
+          ${isPreAlert ? "text-yellow-400 animate-pulse" : "text-white"}
+        `}
+        >
           {formatTime(session.remaining)}
         </div>
       </div>
@@ -377,9 +387,9 @@ export const FocusWidget: React.FC<FocusWidgetProps> = ({
           className={`
             p-1.5 rounded-full transition-colors duration-150
             hover:bg-gray-700 active:bg-gray-600
-            ${session.isRunning ? 'text-yellow-400' : 'text-green-400'}
+            ${session.isRunning ? "text-yellow-400" : "text-green-400"}
           `}
-          title={session.isRunning ? 'Pause session' : 'Resume session'}
+          title={session.isRunning ? "Pause session" : "Resume session"}
         >
           {session.isRunning ? (
             <Pause className="w-4 h-4" />
@@ -442,12 +452,12 @@ export const FocusWidget: React.FC<FocusWidgetProps> = ({
 // Hook to use the FocusWidget with store integration and real-time updates
 export const useFocusWidget = () => {
   const session = useCurrentSession();
-  const { 
-    setCurrentSession, 
-    setCurrentBreak, 
-    showFocusWidget, 
-    hideFocusWidget, 
-    toggleSettings 
+  const {
+    setCurrentSession,
+    setCurrentBreak,
+    showFocusWidget,
+    hideFocusWidget,
+    toggleSettings,
   } = useAppStore();
 
   // Set up real-time session updates from backend
@@ -458,29 +468,33 @@ export const useFocusWidget = () => {
       try {
         unsubscribe = await setupEventListeners((event) => {
           switch (event.type) {
-            case 'session-update':
+            case "session-update":
               setCurrentSession(event.session);
               // Show widget when session starts
               if (event.session && event.session.isRunning) {
                 showFocusWidget();
               }
               break;
-            case 'break-update':
+            case "break-update":
               setCurrentBreak(event.breakSession);
               // Hide widget during breaks
               hideFocusWidget();
               break;
-            case 'state-change':
+            case "state-change":
               console.log(`State changed from ${event.from} to ${event.to}`);
               // Handle specific state transitions
-              if (event.to === 'idle') {
+              if (event.to === "idle") {
                 hideFocusWidget();
               }
               break;
           }
         });
       } catch (error) {
-        console.error('Failed to setup event listeners:', error);
+        console.error("Failed to setup event listeners:", error);
+        toastManager.showError(
+          "Real-time updates are temporarily unavailable. Session status may be outdated.",
+          { title: "Live Updates Disabled", duration: 6000 }
+        );
       }
     };
 
@@ -499,7 +513,7 @@ export const useFocusWidget = () => {
       try {
         const currentSession = await SessionManager.getCurrentSession();
         const currentBreak = await SessionManager.getCurrentBreak();
-        
+
         setCurrentSession(currentSession);
         setCurrentBreak(currentBreak);
 
@@ -510,7 +524,7 @@ export const useFocusWidget = () => {
           hideFocusWidget();
         }
       } catch (error) {
-        console.error('Failed to sync session state:', error);
+        console.error("Failed to sync session state:", error);
         // In case of error, hide the widget to avoid showing stale data
         hideFocusWidget();
       }
@@ -524,8 +538,11 @@ export const useFocusWidget = () => {
       await SessionManager.toggleSession();
       // State will be updated via event listener
     } catch (error) {
-      console.error('Failed to toggle session:', error);
-      // TODO: Show error toast
+      console.error("Failed to toggle session:", error);
+      toastManager.showError(
+        "We couldn't toggle the focus session. Please try again.",
+        { title: "Toggle Focus Failed" }
+      );
     }
   };
 
@@ -534,8 +551,11 @@ export const useFocusWidget = () => {
       await SessionManager.resetSession();
       // State will be updated via event listener
     } catch (error) {
-      console.error('Failed to reset session:', error);
-      // TODO: Show error toast
+      console.error("Failed to reset session:", error);
+      toastManager.showError(
+        "We couldn't reset the current session. Please try again.",
+        { title: "Reset Session Failed" }
+      );
     }
   };
 
