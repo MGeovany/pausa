@@ -34,6 +34,7 @@ pub struct CycleState {
     pub can_start: bool,
     pub session_id: Option<String>,
     pub started_at: Option<DateTime<Utc>>,
+    pub within_work_hours: bool,
 }
 
 impl Default for CycleState {
@@ -46,6 +47,7 @@ impl Default for CycleState {
             can_start: true,
             session_id: None,
             started_at: None,
+            within_work_hours: true,
         }
     }
 }
@@ -149,10 +151,18 @@ impl CycleOrchestrator {
         true // Default to allowing if no schedule configured
     }
 
-    /// Start a focus session
+    /// Start a focus session with optional override for work hours
     pub fn start_focus_session(&mut self) -> Result<Vec<CycleEvent>, String> {
+        self.start_focus_session_with_override(false)
+    }
+
+    /// Start a focus session with optional work hours override
+    pub fn start_focus_session_with_override(
+        &mut self,
+        override_work_hours: bool,
+    ) -> Result<Vec<CycleEvent>, String> {
         // Check if we can start (work hours validation)
-        if !self.is_within_work_hours() {
+        if !override_work_hours && !self.is_within_work_hours() {
             return Err("Cannot start focus session outside work hours".to_string());
         }
 
@@ -167,12 +177,16 @@ impl CycleOrchestrator {
         // Generate session ID
         let session_id = uuid::Uuid::new_v4().to_string();
 
+        // Track if within work hours
+        let within_work_hours = self.is_within_work_hours();
+
         // Update state
         self.state.phase = CyclePhase::Focus;
         self.state.remaining_seconds = self.config.focus_duration;
         self.state.is_running = true;
         self.state.session_id = Some(session_id);
         self.state.started_at = Some(Utc::now());
+        self.state.within_work_hours = within_work_hours;
 
         Ok(vec![CycleEvent::PhaseStarted {
             phase: CyclePhase::Focus,
@@ -205,12 +219,16 @@ impl CycleOrchestrator {
         // Generate session ID
         let session_id = uuid::Uuid::new_v4().to_string();
 
+        // Track if within work hours
+        let within_work_hours = self.is_within_work_hours();
+
         // Update state
         self.state.phase = phase.clone();
         self.state.remaining_seconds = duration;
         self.state.is_running = true;
         self.state.session_id = Some(session_id);
         self.state.started_at = Some(Utc::now());
+        self.state.within_work_hours = within_work_hours;
 
         let mut events = vec![CycleEvent::PhaseStarted {
             phase: phase.clone(),
@@ -330,4 +348,28 @@ impl CycleOrchestrator {
     pub fn update_config(&mut self, config: CycleConfig) {
         self.config = config;
     }
+
+    /// Get work schedule information for UI display
+    pub fn get_work_schedule_info(&self) -> Option<WorkScheduleInfo> {
+        if let Some(ref schedule) = self.config.work_schedule {
+            if schedule.use_work_schedule {
+                return Some(WorkScheduleInfo {
+                    start_time: schedule.work_start_time.clone(),
+                    end_time: schedule.work_end_time.clone(),
+                    timezone: schedule.timezone.clone(),
+                    is_within_hours: self.is_within_work_hours(),
+                });
+            }
+        }
+        None
+    }
+}
+
+/// Work schedule information for UI display
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct WorkScheduleInfo {
+    pub start_time: Option<String>,
+    pub end_time: Option<String>,
+    pub timezone: String,
+    pub is_within_hours: bool,
 }

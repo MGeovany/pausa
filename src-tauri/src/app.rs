@@ -67,6 +67,9 @@ pub fn run() -> Result<(), String> {
             cycle_handler::get_cycle_state,
             cycle_handler::cycle_tick,
             cycle_handler::reset_cycle_count,
+            cycle_handler::log_bypass_attempt,
+            cycle_handler::get_work_schedule_info,
+            cycle_handler::get_work_hours_stats,
             notification_handler::update_notification_user_name,
             notification_handler::get_notification_user_name
         ])

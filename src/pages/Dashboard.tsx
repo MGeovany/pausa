@@ -96,7 +96,9 @@ export default function Dashboard() {
         {/* Sidebar */}
         <aside className="hidden md:flex h-screen w-16 flex-col items-center justify-between py-4 border-r border-gray-800 bg-gray-900/40 sticky top-0">
           <div className="flex flex-col items-center gap-4">
-            <div className="w-8 h-8 rounded-lg bg-gray-800 border border-gray-700" />
+            <div className="w-8 h-8 rounded-lg bg-gray-800 border border-gray-700 flex items-center justify-center text-md font-black text-gray-300">
+              P
+            </div>
             <nav className="flex flex-col items-center gap-2">
               <button className="p-2 rounded-lg hover:bg-gray-800" title="Home">
                 <Home className="w-5 h-5" />

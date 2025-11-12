@@ -129,9 +129,9 @@ export const useCycleManager = () => {
   }, [setCycleState]);
 
   return {
-    startFocusSession: async () => {
+    startFocusSession: async (overrideWorkHours?: boolean) => {
       try {
-        const state = await CycleManager.startFocusSession();
+        const state = await CycleManager.startFocusSession(overrideWorkHours);
         setCycleState(state);
       } catch (error) {
         console.error("Failed to start focus session:", error);

@@ -98,6 +98,10 @@ impl MigrationManager {
                 // Version 7: Add bypass_attempts table
                 Self::migrate_to_v7(conn)
             }
+            8 => {
+                // Version 8: Add within_work_hours and cycle_number to sessions table
+                Self::migrate_to_v8(conn)
+            }
             _ => Err(DatabaseError::Migration(format!(
                 "Unknown migration version: {}",
                 version
@@ -373,6 +377,43 @@ impl MigrationManager {
             .map_err(DatabaseError::Sqlite)?;
 
         println!("Migration to version 7 completed successfully");
+        Ok(())
+    }
+
+    /// Migration to version 8: Add within_work_hours and cycle_number to sessions table
+    fn migrate_to_v8(conn: &Connection) -> DatabaseResult<()> {
+        println!("Applying migration to version 8: Adding work hours tracking to sessions");
+
+        // Add within_work_hours column to sessions table
+        conn.execute(
+            "ALTER TABLE sessions ADD COLUMN within_work_hours BOOLEAN DEFAULT TRUE",
+            [],
+        )
+        .map_err(DatabaseError::Sqlite)?;
+
+        // Add cycle_number column to sessions table
+        conn.execute("ALTER TABLE sessions ADD COLUMN cycle_number INTEGER", [])
+            .map_err(DatabaseError::Sqlite)?;
+
+        // Add is_long_break column to sessions table
+        conn.execute(
+            "ALTER TABLE sessions ADD COLUMN is_long_break BOOLEAN DEFAULT FALSE",
+            [],
+        )
+        .map_err(DatabaseError::Sqlite)?;
+
+        // Create index for work hours queries
+        conn.execute(
+            "CREATE INDEX idx_sessions_within_work_hours ON sessions (within_work_hours)",
+            [],
+        )
+        .map_err(DatabaseError::Sqlite)?;
+
+        // Update schema version
+        conn.execute("INSERT INTO schema_version (version) VALUES (8)", [])
+            .map_err(DatabaseError::Sqlite)?;
+
+        println!("Migration to version 8 completed successfully");
         Ok(())
     }
 }

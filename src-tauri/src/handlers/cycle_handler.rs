@@ -84,13 +84,18 @@ pub async fn initialize_cycle_orchestrator(
     Ok(current_state)
 }
 
-/// Start a focus session
+/// Start a focus session with optional work hours override
 #[tauri::command]
 pub async fn start_focus_session(
+    override_work_hours: Option<bool>,
     state: State<'_, AppState>,
     app: AppHandle,
 ) -> Result<CycleState, String> {
-    println!("▶️ [Rust] start_focus_session called");
+    let override_flag = override_work_hours.unwrap_or(false);
+    println!(
+        "▶️ [Rust] start_focus_session called (override: {})",
+        override_flag
+    );
 
     let mut cycle_orchestrator = state.cycle_orchestrator.lock().await;
 
@@ -98,7 +103,7 @@ pub async fn start_focus_session(
         .as_mut()
         .ok_or_else(|| "Cycle orchestrator not initialized".to_string())?;
 
-    let events = orchestrator.start_focus_session()?;
+    let events = orchestrator.start_focus_session_with_override(override_flag)?;
 
     // Emit events to frontend
     for event in events {
@@ -366,4 +371,95 @@ pub async fn log_bypass_attempt(
     println!("✅ [Rust] Bypass attempt logged to database");
 
     Ok(())
+}
+
+/// Get work schedule information for UI display
+#[tauri::command]
+pub async fn get_work_schedule_info(
+    state: State<'_, AppState>,
+) -> Result<Option<crate::cycle_orchestrator::WorkScheduleInfo>, String> {
+    println!("📅 [Rust] get_work_schedule_info called");
+
+    let cycle_orchestrator = state.cycle_orchestrator.lock().await;
+
+    let orchestrator = cycle_orchestrator
+        .as_ref()
+        .ok_or_else(|| "Cycle orchestrator not initialized".to_string())?;
+
+    let info = orchestrator.get_work_schedule_info();
+
+    println!("✅ [Rust] Work schedule info retrieved: {:?}", info);
+
+    Ok(info)
+}
+
+/// Get work hours compliance statistics
+#[tauri::command]
+pub async fn get_work_hours_stats(
+    days: Option<u32>,
+    state: State<'_, AppState>,
+) -> Result<crate::database::models::WorkHoursStats, String> {
+    let days = days.unwrap_or(30); // Default to last 30 days
+    println!(
+        "📊 [Rust] get_work_hours_stats called for last {} days",
+        days
+    );
+
+    let stats = state
+        .database
+        .with_connection(|conn| {
+            // Calculate date range
+            let now = chrono::Utc::now();
+            let start_date = now - chrono::Duration::days(days as i64);
+
+            // Query sessions within date range
+            let mut stmt = conn
+                .prepare(
+                    r#"
+                    SELECT 
+                        COUNT(*) as total_sessions,
+                        SUM(CASE WHEN within_work_hours = 1 THEN 1 ELSE 0 END) as within_hours,
+                        SUM(CASE WHEN within_work_hours = 0 THEN 1 ELSE 0 END) as outside_hours,
+                        SUM(CASE WHEN within_work_hours = 1 AND session_type = 'focus' AND completed = 1 
+                            THEN actual_duration ELSE 0 END) as focus_minutes_within,
+                        SUM(CASE WHEN within_work_hours = 0 AND session_type = 'focus' AND completed = 1 
+                            THEN actual_duration ELSE 0 END) as focus_minutes_outside
+                    FROM sessions
+                    WHERE start_time >= ?1 AND session_type = 'focus'
+                    "#,
+                )
+                .map_err(|e| crate::database::DatabaseError::Sqlite(e))?;
+
+            let result = stmt.query_row([start_date], |row| {
+                let total: u32 = row.get(0).unwrap_or(0);
+                let within: u32 = row.get(1).unwrap_or(0);
+                let outside: u32 = row.get(2).unwrap_or(0);
+                let focus_within_seconds: i32 = row.get(3).unwrap_or(0);
+                let focus_outside_seconds: i32 = row.get(4).unwrap_or(0);
+
+                let compliance_percentage = if total > 0 {
+                    (within as f64 / total as f64) * 100.0
+                } else {
+                    0.0
+                };
+
+                Ok(crate::database::models::WorkHoursStats {
+                    total_sessions: total,
+                    within_work_hours: within,
+                    outside_work_hours: outside,
+                    compliance_percentage,
+                    total_focus_minutes_within: (focus_within_seconds / 60) as u32,
+                    total_focus_minutes_outside: (focus_outside_seconds / 60) as u32,
+                    period_start: start_date.format("%Y-%m-%d").to_string(),
+                    period_end: now.format("%Y-%m-%d").to_string(),
+                })
+            });
+
+            result.map_err(|e| crate::database::DatabaseError::Sqlite(e))
+        })
+        .map_err(|e| format!("Failed to get work hours stats: {}", e))?;
+
+    println!("✅ [Rust] Work hours stats retrieved: {:?}", stats);
+
+    Ok(stats)
 }

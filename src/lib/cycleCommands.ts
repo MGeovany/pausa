@@ -20,11 +20,15 @@ export class CycleManager {
   }
 
   /**
-   * Start a focus session
+   * Start a focus session with optional work hours override
    */
-  static async startFocusSession(): Promise<CycleState> {
+  static async startFocusSession(
+    overrideWorkHours?: boolean
+  ): Promise<CycleState> {
     try {
-      const state = await invoke<CycleState>("start_focus_session");
+      const state = await invoke<CycleState>("start_focus_session", {
+        overrideWorkHours: overrideWorkHours || false,
+      });
       console.log("✅ Focus session started:", state);
       return state;
     } catch (error) {
@@ -131,5 +135,61 @@ export class CycleManager {
       console.error("❌ Failed to reset cycle count:", error);
       throw error;
     }
+  }
+
+  /**
+   * Get work schedule information
+   */
+  static async getWorkScheduleInfo(): Promise<WorkScheduleInfo | null> {
+    try {
+      const info = await invoke<WorkScheduleInfo | null>(
+        "get_work_schedule_info"
+      );
+      return info;
+    } catch (error) {
+      console.error("❌ Failed to get work schedule info:", error);
+      throw error;
+    }
+  }
+}
+
+/**
+ * Work schedule information
+ */
+export interface WorkScheduleInfo {
+  start_time: string | null;
+  end_time: string | null;
+  timezone: string;
+  is_within_hours: boolean;
+}
+
+/**
+ * Work hours compliance statistics
+ */
+export interface WorkHoursStats {
+  total_sessions: number;
+  within_work_hours: number;
+  outside_work_hours: number;
+  compliance_percentage: number;
+  total_focus_minutes_within: number;
+  total_focus_minutes_outside: number;
+  period_start: string;
+  period_end: string;
+}
+
+/**
+ * Get work hours compliance statistics
+ */
+export async function getWorkHoursStats(
+  days?: number
+): Promise<WorkHoursStats> {
+  try {
+    const stats = await invoke<WorkHoursStats>("get_work_hours_stats", {
+      days: days || 30,
+    });
+    return stats;
+  } catch (error) {
+    console.error("❌ Failed to get work hours stats:", error);
+    throw error;
   }
 }

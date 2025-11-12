@@ -1,7 +1,21 @@
-import React from "react";
-import { Play, Coffee, Square, Target } from "lucide-react";
+import React, { useState, useEffect } from "react";
+import {
+  Play,
+  Coffee,
+  Square,
+  Target,
+  Clock,
+  AlertCircle,
+  TrendingUp,
+} from "lucide-react";
 import { useCycleState } from "../store";
 import { useCycleManager } from "../lib/useCycleManager";
+import {
+  CycleManager,
+  WorkScheduleInfo,
+  WorkHoursStats,
+  getWorkHoursStats,
+} from "../lib/cycleCommands";
 
 /**
  * Component to control work cycles (start focus, start break, end session)
@@ -10,13 +24,52 @@ export const CycleControl: React.FC = () => {
   const cycleState = useCycleState();
   const { startFocusSession, startBreakSession, endSession } =
     useCycleManager();
+  const [workScheduleInfo, setWorkScheduleInfo] =
+    useState<WorkScheduleInfo | null>(null);
+  const [showOverrideConfirm, setShowOverrideConfirm] = useState(false);
+  const [workHoursStats, setWorkHoursStats] = useState<WorkHoursStats | null>(
+    null
+  );
+  const [showStats, setShowStats] = useState(false);
 
-  const handleStartFocus = async () => {
+  // Load work schedule info on mount
+  useEffect(() => {
+    const loadWorkScheduleInfo = async () => {
+      try {
+        const info = await CycleManager.getWorkScheduleInfo();
+        setWorkScheduleInfo(info);
+      } catch (error) {
+        console.error("Failed to load work schedule info:", error);
+      }
+    };
+
+    loadWorkScheduleInfo();
+  }, []);
+
+  // Load work hours stats
+  const loadWorkHoursStats = async () => {
     try {
-      await startFocusSession();
+      const stats = await getWorkHoursStats(30);
+      setWorkHoursStats(stats);
+      setShowStats(true);
+    } catch (error) {
+      console.error("Failed to load work hours stats:", error);
+    }
+  };
+
+  const handleStartFocus = async (override: boolean = false) => {
+    try {
+      await startFocusSession(override);
+      setShowOverrideConfirm(false);
     } catch (error) {
       console.error("Failed to start focus session:", error);
-      // TODO: Show error toast
+      // Show override option if outside work hours
+      if (
+        error instanceof Error &&
+        error.message.includes("outside work hours")
+      ) {
+        setShowOverrideConfirm(true);
+      }
     }
   };
 
@@ -117,7 +170,7 @@ export const CycleControl: React.FC = () => {
         {cycleState.phase === "idle" && (
           <>
             <button
-              onClick={handleStartFocus}
+              onClick={() => handleStartFocus(false)}
               disabled={!cycleState.can_start}
               className="flex-1 flex items-center justify-center space-x-2 bg-blue-600 hover:bg-blue-700 disabled:bg-gray-700 disabled:cursor-not-allowed text-white font-medium py-3 px-4 rounded-lg transition-colors"
             >
@@ -147,13 +200,151 @@ export const CycleControl: React.FC = () => {
         )}
       </div>
 
-      {/* Work hours warning */}
-      {!cycleState.can_start && cycleState.phase === "idle" && (
-        <div className="mt-4 p-3 bg-yellow-900/20 border border-yellow-700/50 rounded-lg">
-          <p className="text-sm text-yellow-400">
-            ⚠️ Outside work hours. Focus sessions are restricted to your
-            configured work schedule.
-          </p>
+      {/* Work schedule information */}
+      {workScheduleInfo && (
+        <div className="mt-4 p-3 bg-gray-700/50 border border-gray-600 rounded-lg">
+          <div className="flex items-center justify-between mb-2">
+            <div className="flex items-center space-x-2">
+              <Clock className="w-4 h-4 text-blue-400" />
+              <span className="text-sm font-medium text-gray-300">
+                Work Schedule
+              </span>
+            </div>
+            {workScheduleInfo.start_time && workScheduleInfo.end_time && (
+              <button
+                onClick={loadWorkHoursStats}
+                className="text-xs text-blue-400 hover:text-blue-300 flex items-center space-x-1"
+              >
+                <TrendingUp className="w-3 h-3" />
+                <span>View Stats</span>
+              </button>
+            )}
+          </div>
+          <div className="text-sm text-gray-400">
+            {workScheduleInfo.start_time && workScheduleInfo.end_time ? (
+              <>
+                <p>
+                  Hours: {workScheduleInfo.start_time} -{" "}
+                  {workScheduleInfo.end_time}
+                </p>
+                <p className="mt-1">
+                  Status:{" "}
+                  <span
+                    className={
+                      workScheduleInfo.is_within_hours
+                        ? "text-green-400"
+                        : "text-yellow-400"
+                    }
+                  >
+                    {workScheduleInfo.is_within_hours
+                      ? "Within work hours"
+                      : "Outside work hours"}
+                  </span>
+                </p>
+              </>
+            ) : (
+              <p>No work schedule configured</p>
+            )}
+          </div>
+        </div>
+      )}
+
+      {/* Work hours statistics */}
+      {showStats && workHoursStats && (
+        <div className="mt-4 p-4 bg-gray-700/50 border border-gray-600 rounded-lg">
+          <div className="flex items-center justify-between mb-3">
+            <h3 className="text-sm font-semibold text-gray-300">
+              Work Hours Compliance (Last 30 Days)
+            </h3>
+            <button
+              onClick={() => setShowStats(false)}
+              className="text-xs text-gray-400 hover:text-gray-300"
+            >
+              Hide
+            </button>
+          </div>
+
+          <div className="space-y-3">
+            {/* Compliance percentage */}
+            <div>
+              <div className="flex items-center justify-between mb-1">
+                <span className="text-xs text-gray-400">Compliance Rate</span>
+                <span className="text-sm font-semibold text-green-400">
+                  {workHoursStats.compliance_percentage.toFixed(1)}%
+                </span>
+              </div>
+              <div className="w-full bg-gray-600 rounded-full h-2">
+                <div
+                  className="bg-green-500 h-2 rounded-full transition-all"
+                  style={{
+                    width: `${workHoursStats.compliance_percentage}%`,
+                  }}
+                />
+              </div>
+            </div>
+
+            {/* Session counts */}
+            <div className="grid grid-cols-2 gap-3">
+              <div className="bg-gray-800/50 rounded p-2">
+                <p className="text-xs text-gray-400 mb-1">Within Hours</p>
+                <p className="text-lg font-semibold text-green-400">
+                  {workHoursStats.within_work_hours}
+                </p>
+                <p className="text-xs text-gray-500">
+                  {workHoursStats.total_focus_minutes_within} min
+                </p>
+              </div>
+              <div className="bg-gray-800/50 rounded p-2">
+                <p className="text-xs text-gray-400 mb-1">Outside Hours</p>
+                <p className="text-lg font-semibold text-yellow-400">
+                  {workHoursStats.outside_work_hours}
+                </p>
+                <p className="text-xs text-gray-500">
+                  {workHoursStats.total_focus_minutes_outside} min
+                </p>
+              </div>
+            </div>
+
+            {/* Total sessions */}
+            <div className="text-center pt-2 border-t border-gray-600">
+              <p className="text-xs text-gray-400">Total Focus Sessions</p>
+              <p className="text-xl font-bold text-white">
+                {workHoursStats.total_sessions}
+              </p>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Override confirmation dialog */}
+      {showOverrideConfirm && (
+        <div className="mt-4 p-4 bg-yellow-900/30 border border-yellow-700/50 rounded-lg">
+          <div className="flex items-start space-x-3">
+            <AlertCircle className="w-5 h-5 text-yellow-400 flex-shrink-0 mt-0.5" />
+            <div className="flex-1">
+              <h3 className="text-sm font-semibold text-yellow-400 mb-2">
+                Outside Work Hours
+              </h3>
+              <p className="text-sm text-gray-300 mb-3">
+                You're trying to start a focus session outside your configured
+                work hours. Would you like to proceed anyway?
+              </p>
+              <div className="flex space-x-2">
+                <button
+                  onClick={() => handleStartFocus(true)}
+                  className="flex-1 bg-yellow-600 hover:bg-yellow-700 text-white font-medium py-2 px-3 rounded-lg transition-colors text-sm"
+                >
+                  Yes, Start Anyway
+                </button>
+                <button
+                  onClick={() => setShowOverrideConfirm(false)}
+                  className="flex-1 bg-gray-600 hover:bg-gray-700 text-white font-medium py-2 px-3 rounded-lg transition-colors text-sm"
+                >
+                  Cancel
+                </button>
+              </div>
+            </div>
+          </div>
         </div>
       )}
     </div>

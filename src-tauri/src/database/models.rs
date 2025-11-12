@@ -92,6 +92,9 @@ pub struct Session {
     pub completed: bool,
     pub notes: Option<String>,
     pub created_at: DateTime<Utc>,
+    pub within_work_hours: bool,
+    pub cycle_number: Option<i32>,
+    pub is_long_break: bool,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq)]
@@ -154,6 +157,19 @@ pub struct SessionStats {
     pub breaks_completed: u32,
     pub sessions_completed: u32,
     pub evasion_attempts: u32,
+}
+
+/// Work hours compliance statistics
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct WorkHoursStats {
+    pub total_sessions: u32,
+    pub within_work_hours: u32,
+    pub outside_work_hours: u32,
+    pub compliance_percentage: f64,
+    pub total_focus_minutes_within: u32,
+    pub total_focus_minutes_outside: u32,
+    pub period_start: String,
+    pub period_end: String,
 }
 
 /// Work schedule model for managing work hours
@@ -260,6 +276,9 @@ impl Session {
             completed: row.get("completed")?,
             notes: row.get("notes")?,
             created_at: row.get("created_at")?,
+            within_work_hours: row.get("within_work_hours").unwrap_or(true),
+            cycle_number: row.get("cycle_number").ok(),
+            is_long_break: row.get("is_long_break").unwrap_or(false),
         })
     }
 }

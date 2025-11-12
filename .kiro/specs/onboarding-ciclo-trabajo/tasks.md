@@ -174,9 +174,9 @@
     - Crear motivación personalizada con nombre de usuario
     - _Requirements: 11.3, 12.1, 12.3_
 
-- [ ] 8. Integrar validación de horarios de trabajo
+- [x] 8. Integrar validación de horarios de trabajo
 
-  - [ ] 8.1 Conectar horarios con inicio de ciclos
+  - [x] 8.1 Conectar horarios con inicio de ciclos
 
     - Implementar validación antes de iniciar ciclos
     - Crear mensajes informativos sobre horarios
@@ -184,7 +184,7 @@
     - Integrar con configuración de work_schedule
     - _Requirements: 3.4, 7.1_
 
-  - [ ] 8.2 Crear estadísticas de cumplimiento de horarios
+  - [x] 8.2 Crear estadísticas de cumplimiento de horarios
     - Implementar tracking de sesiones dentro/fuera de horario
     - Agregar campo within_work_hours a sessions
     - Crear reportes de efectividad por horarios
