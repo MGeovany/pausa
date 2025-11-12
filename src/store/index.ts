@@ -12,6 +12,7 @@ const DEFAULT_SETTINGS: UserSettings = {
   strictMode: false,
   blockedApps: [],
   blockedWebsites: [],
+  emergencyKeyCombination: undefined,
 };
 
 // Extended AppState interface with cycle state

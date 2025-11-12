@@ -8,6 +8,7 @@ export interface UserSettings {
   preAlertSeconds: number;
   strictMode: boolean;
   pinHash?: string;
+  emergencyKeyCombination?: string;
   blockedApps: string[];
   blockedWebsites: string[];
 }

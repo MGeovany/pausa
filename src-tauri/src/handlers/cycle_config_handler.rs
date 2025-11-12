@@ -418,6 +418,7 @@ pub async fn get_settings(state: State<'_, AppState>) -> Result<ApiUserSettings,
         pre_alert_seconds: db_settings.pre_alert_seconds as u32,
         strict_mode: db_settings.strict_mode,
         pin_hash: db_settings.pin_hash,
+        emergency_key_combination: db_settings.emergency_key_combination,
     };
 
     println!("✅ [Rust] Settings retrieved successfully");
@@ -439,7 +440,7 @@ pub async fn update_settings(
         .map_err(|e| format!("Failed to get existing settings: {}", e))?;
 
     // Convert API settings to database model
-    let mut db_settings = UserSettings {
+    let db_settings = UserSettings {
         id: 1,
         focus_duration: (settings.focus_duration * 60) as i32, // Convert minutes to seconds
         short_break_duration: (settings.short_break_duration * 60) as i32,
@@ -450,7 +451,9 @@ pub async fn update_settings(
         strict_mode: settings.strict_mode,
         pin_hash: settings.pin_hash,
         user_name: existing_settings.as_ref().and_then(|s| s.user_name.clone()),
-        emergency_key_combination: existing_settings.as_ref().and_then(|s| s.emergency_key_combination.clone()),
+        emergency_key_combination: settings.emergency_key_combination.or_else(|| {
+            existing_settings.as_ref().and_then(|s| s.emergency_key_combination.clone())
+        }),
         created_at: existing_settings.as_ref().map(|s| s.created_at).unwrap_or(now),
         updated_at: now,
     };

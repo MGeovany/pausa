@@ -1,5 +1,5 @@
-import { useState, useEffect } from "react";
-import { Plus, Trash2, Save } from "lucide-react";
+import { useState, useEffect, useRef } from "react";
+import { Plus, Trash2, Save, X } from "lucide-react";
 import { useSettings, useAppStore } from "../store";
 import { tauriCommands } from "../lib/tauri";
 import type { UserSettings } from "../types";
@@ -29,6 +29,10 @@ export function Settings({ onClose }: SettingsProps) {
     type: "success" | "error";
     text: string;
   } | null>(null);
+  const [showEmergencyKeyModal, setShowEmergencyKeyModal] = useState(false);
+  const [emergencyKey, setEmergencyKey] = useState("");
+  const [isCapturingKey, setIsCapturingKey] = useState(false);
+  const pressedKeysRef = useRef<Set<string>>(new Set());
 
   // Update local settings when initial settings change
   useEffect(() => {
@@ -36,7 +40,77 @@ export function Settings({ onClose }: SettingsProps) {
     setCustomFocus(initialSettings.focusDuration);
     setCustomShortBreak(initialSettings.shortBreakDuration);
     setCustomLongBreak(initialSettings.longBreakDuration);
+    setEmergencyKey(initialSettings.emergencyKeyCombination || "");
   }, [initialSettings]);
+
+  // Key capture logic for emergency key combination
+  useEffect(() => {
+    if (!isCapturingKey || !showEmergencyKeyModal) return;
+
+    const handleKeyDown = (event: KeyboardEvent) => {
+      event.preventDefault();
+      event.stopPropagation();
+
+      // Ignore repeated keydown events (when key is held down)
+      if (event.repeat) return;
+
+      const pressedKeys = pressedKeysRef.current;
+      
+      // Add modifier keys to the set
+      if (event.metaKey && !pressedKeys.has("⌘")) {
+        pressedKeys.add("⌘");
+      }
+      if (event.ctrlKey && !pressedKeys.has("Ctrl")) {
+        pressedKeys.add("Ctrl");
+      }
+      if (event.altKey && !pressedKeys.has("Alt")) {
+        pressedKeys.add("Alt");
+      }
+      if (event.shiftKey && !pressedKeys.has("⇧")) {
+        pressedKeys.add("⇧");
+      }
+
+      // Add the main key (if it's not a modifier)
+      if (!["Meta", "Control", "Alt", "Shift"].includes(event.key)) {
+        const mainKey = event.key.toUpperCase();
+        if (!pressedKeys.has(mainKey)) {
+          pressedKeys.add(mainKey);
+        }
+      }
+
+      // Update the display with all pressed keys
+      const keysArray = Array.from(pressedKeys);
+      if (keysArray.length > 0) {
+        const keyCombo = keysArray.join(" + ");
+        setEmergencyKey(keyCombo);
+      }
+    };
+
+    const handleKeyUp = (event: KeyboardEvent) => {
+      event.preventDefault();
+      event.stopPropagation();
+
+      // Stop capturing when all keys are released
+      if (
+        !event.metaKey &&
+        !event.ctrlKey &&
+        !event.altKey &&
+        !event.shiftKey
+      ) {
+        if (pressedKeysRef.current.size > 0) {
+          setIsCapturingKey(false);
+        }
+      }
+    };
+
+    document.addEventListener("keydown", handleKeyDown, true);
+    document.addEventListener("keyup", handleKeyUp, true);
+
+    return () => {
+      document.removeEventListener("keydown", handleKeyDown, true);
+      document.removeEventListener("keyup", handleKeyUp, true);
+    };
+  }, [isCapturingKey, showEmergencyKeyModal]);
 
   const focusOptions = [25, 30, 45];
   const breakOptions = [5, 10, 15];
@@ -75,6 +149,49 @@ export function Settings({ onClose }: SettingsProps) {
     updateLocalSettings({
       blockedApps: localSettings.blockedApps.filter((item) => item !== app),
     });
+  };
+
+  const handleStrictModeToggle = (enabled: boolean) => {
+    if (enabled && !localSettings.emergencyKeyCombination) {
+      // If enabling strict mode and no emergency key is set, show modal
+      setShowEmergencyKeyModal(true);
+      setEmergencyKey("");
+    } else {
+      updateLocalSettings({ strictMode: enabled });
+    }
+  };
+
+  const startKeyCapture = () => {
+    setIsCapturingKey(true);
+    pressedKeysRef.current.clear();
+    setEmergencyKey("");
+  };
+
+  const clearKeyCapture = () => {
+    setIsCapturingKey(false);
+    pressedKeysRef.current.clear();
+    setEmergencyKey("");
+  };
+
+  const handleSaveEmergencyKey = () => {
+    if (emergencyKey.trim()) {
+      updateLocalSettings({
+        strictMode: true,
+        emergencyKeyCombination: emergencyKey.trim(),
+      });
+      setShowEmergencyKeyModal(false);
+      setIsCapturingKey(false);
+      pressedKeysRef.current.clear();
+    }
+  };
+
+  const handleCancelEmergencyKey = () => {
+    setShowEmergencyKeyModal(false);
+    setIsCapturingKey(false);
+    pressedKeysRef.current.clear();
+    setEmergencyKey("");
+    // Revert strict mode toggle
+    updateLocalSettings({ strictMode: false });
   };
 
   const handleSave = async () => {
@@ -271,9 +388,7 @@ export function Settings({ onClose }: SettingsProps) {
             </p>
           </div>
           <button
-            onClick={() =>
-              updateLocalSettings({ strictMode: !localSettings.strictMode })
-            }
+            onClick={() => handleStrictModeToggle(!localSettings.strictMode)}
             className={`toggle ${localSettings.strictMode ? "enabled" : ""}`}
           >
             <span className="toggle-thumb"></span>
@@ -304,7 +419,136 @@ export function Settings({ onClose }: SettingsProps) {
             </span>
           </div>
         </div>
+
+        {localSettings.strictMode && localSettings.emergencyKeyCombination && (
+          <div className="mt-6 rounded-xl border border-gray-800 bg-gray-950/60 p-4">
+            <h3 className="text-sm font-semibold text-white mb-2">
+              Emergency Key Combination
+            </h3>
+            <div className="flex items-center justify-between">
+              <p className="text-sm text-gray-300">
+                {localSettings.emergencyKeyCombination}
+              </p>
+              <button
+                onClick={() => {
+                  setEmergencyKey(localSettings.emergencyKeyCombination || "");
+                  setShowEmergencyKeyModal(true);
+                }}
+                className="text-xs text-blue-400 hover:text-blue-300 transition-colors"
+              >
+                Change
+              </button>
+            </div>
+          </div>
+        )}
       </section>
+
+      {/* Emergency Key Combination Modal */}
+      {showEmergencyKeyModal && (
+        <div className="fixed inset-0 z-50 bg-black/70 flex items-center justify-center p-4">
+          <div className="bg-gray-800 rounded-2xl p-6 max-w-md w-full border border-gray-700">
+            <div className="flex items-center justify-between mb-6">
+              <h3 className="text-xl font-semibold text-white">
+                Emergency Key Combination
+              </h3>
+              <button
+                onClick={handleCancelEmergencyKey}
+                className="text-gray-400 hover:text-white transition-colors"
+              >
+                <X className="h-5 w-5" />
+              </button>
+            </div>
+
+            <p className="text-gray-300 mb-6 text-sm">
+              Configure a key combination to exit strict mode in case of emergency.
+              This combination will be required to unlock the screen during focus sessions.
+            </p>
+
+            <div className="space-y-4">
+              <div>
+                <label className="block text-gray-300 text-sm font-medium mb-2">
+                  Key Combination
+                </label>
+                <div className="flex space-x-3">
+                  <div className="flex-1">
+                    <input
+                      type="text"
+                      value={emergencyKey}
+                      readOnly
+                      placeholder="Press your combination to exit strict mode"
+                      className="w-full p-3 bg-gray-900/50 border border-gray-700 rounded-lg text-white placeholder-gray-500 focus:border-blue-500 focus:outline-none"
+                    />
+                  </div>
+                  <button
+                    onClick={startKeyCapture}
+                    disabled={isCapturingKey}
+                    className={`px-4 py-3 rounded-lg font-medium transition-all ${
+                      isCapturingKey
+                        ? "bg-yellow-600 text-yellow-100 cursor-not-allowed"
+                        : "bg-yellow-700 text-yellow-100 hover:bg-yellow-600"
+                    }`}
+                  >
+                    {isCapturingKey ? "Press keys..." : "Capture"}
+                  </button>
+                  {emergencyKey && (
+                    <button
+                      onClick={clearKeyCapture}
+                      className="px-4 py-3 rounded-lg font-medium bg-gray-700 text-gray-300 hover:bg-gray-600 transition-all"
+                    >
+                      Clear
+                    </button>
+                  )}
+                </div>
+              </div>
+
+              <div className="bg-gray-900/30 rounded-lg p-4">
+                <p className="text-gray-400 text-xs mb-2">
+                  <strong className="text-gray-300">Example:</strong> ⌘ + ⇧ + P
+                </p>
+                <p className="text-gray-500 text-xs">
+                  Choose something you'll remember but others won't guess.
+                </p>
+              </div>
+
+              {isCapturingKey && (
+                <div className="bg-blue-900/20 border border-blue-700/50 rounded-lg p-4">
+                  <p className="text-blue-200 text-sm">
+                    🎯 Press your desired key combination now...
+                  </p>
+                </div>
+              )}
+
+              {!emergencyKey && (
+                <div className="bg-red-900/20 border border-red-700/50 rounded-lg p-4">
+                  <p className="text-red-200 text-sm">
+                    ⚠️ Emergency key combination is required when strict mode is enabled.
+                  </p>
+                </div>
+              )}
+            </div>
+
+            <div className="flex justify-end gap-3 mt-6">
+              <button
+                onClick={handleCancelEmergencyKey}
+                className="px-4 py-2 rounded-lg font-medium bg-gray-700 text-gray-300 hover:bg-gray-600 transition-all"
+              >
+                Cancel
+              </button>
+              <button
+                onClick={handleSaveEmergencyKey}
+                disabled={!emergencyKey.trim()}
+                className={`px-4 py-2 rounded-lg font-medium transition-all ${
+                  emergencyKey.trim()
+                    ? "bg-blue-600 text-white hover:bg-blue-700"
+                    : "bg-gray-600 text-gray-400 cursor-not-allowed"
+                }`}
+              >
+                Save
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }

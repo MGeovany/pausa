@@ -18,6 +18,7 @@ pub struct UserSettings {
     pub pre_alert_seconds: u32,
     pub strict_mode: bool,
     pub pin_hash: Option<String>,
+    pub emergency_key_combination: Option<String>,
 }
 
 impl Default for UserSettings {
@@ -30,6 +31,7 @@ impl Default for UserSettings {
             pre_alert_seconds: 120, // 2 minutes
             strict_mode: false,
             pin_hash: None,
+            emergency_key_combination: None,
         }
     }
 }
@@ -110,6 +112,7 @@ impl From<DbUserSettings> for UserSettings {
             pre_alert_seconds: db_settings.pre_alert_seconds as u32,
             strict_mode: db_settings.strict_mode,
             pin_hash: db_settings.pin_hash,
+            emergency_key_combination: db_settings.emergency_key_combination,
         }
     }
 }
