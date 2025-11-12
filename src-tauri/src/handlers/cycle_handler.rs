@@ -97,11 +97,63 @@ pub async fn start_focus_session(
         override_flag
     );
 
+    // Reload settings from database to ensure we have the latest configuration
+    let user_settings = state
+        .database
+        .with_connection(|conn| {
+            let mut stmt = conn
+                .prepare(
+                    r#"
+                SELECT id, focus_duration, short_break_duration, long_break_duration,
+                       cycles_per_long_break, cycles_per_long_break_v2, pre_alert_seconds,
+                       strict_mode, pin_hash, user_name, emergency_key_combination,
+                       created_at, updated_at
+                FROM user_settings 
+                WHERE id = 1
+                "#,
+                )
+                .map_err(|e| crate::database::DatabaseError::Sqlite(e))?;
+
+            let settings = stmt
+                .query_row([], |row| UserSettings::from_row(row))
+                .map_err(|e| crate::database::DatabaseError::Sqlite(e))?;
+
+            Ok(settings)
+        })
+        .map_err(|e| format!("Failed to get user settings: {}", e))?;
+
+    // Get work schedule
+    let work_schedule = state
+        .database
+        .with_connection(|conn| {
+            let mut stmt = conn
+                .prepare(
+                    r#"
+                SELECT id, user_id, use_work_schedule, work_start_time, 
+                       work_end_time, timezone, created_at, updated_at
+                FROM work_schedule 
+                WHERE id = 1
+                "#,
+                )
+                .map_err(|e| crate::database::DatabaseError::Sqlite(e))?;
+
+            let schedule = stmt.query_row([], |row| WorkSchedule::from_row(row)).ok();
+
+            Ok(schedule)
+        })
+        .map_err(|e| format!("Failed to get work schedule: {}", e))?;
+
+    // Create updated cycle config
+    let config = CycleConfig::from_user_settings(user_settings.clone(), work_schedule);
+
     let mut cycle_orchestrator = state.cycle_orchestrator.lock().await;
 
     let orchestrator = cycle_orchestrator
         .as_mut()
         .ok_or_else(|| "Cycle orchestrator not initialized".to_string())?;
+
+    // Update orchestrator with latest configuration
+    orchestrator.update_config(config);
 
     let events = orchestrator.start_focus_session_with_override(override_flag)?;
 
@@ -135,11 +187,63 @@ pub async fn start_break_session(
         force_long
     );
 
+    // Reload settings from database to ensure we have the latest configuration
+    let user_settings = state
+        .database
+        .with_connection(|conn| {
+            let mut stmt = conn
+                .prepare(
+                    r#"
+                SELECT id, focus_duration, short_break_duration, long_break_duration,
+                       cycles_per_long_break, cycles_per_long_break_v2, pre_alert_seconds,
+                       strict_mode, pin_hash, user_name, emergency_key_combination,
+                       created_at, updated_at
+                FROM user_settings 
+                WHERE id = 1
+                "#,
+                )
+                .map_err(|e| crate::database::DatabaseError::Sqlite(e))?;
+
+            let settings = stmt
+                .query_row([], |row| UserSettings::from_row(row))
+                .map_err(|e| crate::database::DatabaseError::Sqlite(e))?;
+
+            Ok(settings)
+        })
+        .map_err(|e| format!("Failed to get user settings: {}", e))?;
+
+    // Get work schedule
+    let work_schedule = state
+        .database
+        .with_connection(|conn| {
+            let mut stmt = conn
+                .prepare(
+                    r#"
+                SELECT id, user_id, use_work_schedule, work_start_time, 
+                       work_end_time, timezone, created_at, updated_at
+                FROM work_schedule 
+                WHERE id = 1
+                "#,
+                )
+                .map_err(|e| crate::database::DatabaseError::Sqlite(e))?;
+
+            let schedule = stmt.query_row([], |row| WorkSchedule::from_row(row)).ok();
+
+            Ok(schedule)
+        })
+        .map_err(|e| format!("Failed to get work schedule: {}", e))?;
+
+    // Create updated cycle config
+    let config = CycleConfig::from_user_settings(user_settings.clone(), work_schedule);
+
     let mut cycle_orchestrator = state.cycle_orchestrator.lock().await;
 
     let orchestrator = cycle_orchestrator
         .as_mut()
         .ok_or_else(|| "Cycle orchestrator not initialized".to_string())?;
+
+    // Update orchestrator with latest configuration
+    orchestrator.update_config(config);
 
     let events = orchestrator.start_break(force_long.unwrap_or(false))?;
 

@@ -125,6 +125,11 @@ impl CycleOrchestrator {
         }
     }
 
+    /// Update configuration (used when settings change)
+    pub fn update_config(&mut self, config: CycleConfig) {
+        self.config = config;
+    }
+
     /// Get the current cycle state
     pub fn get_state(&self) -> CycleState {
         self.state.clone()
@@ -344,10 +349,6 @@ impl CycleOrchestrator {
         self.state.cycle_count = 0;
     }
 
-    /// Update the configuration
-    pub fn update_config(&mut self, config: CycleConfig) {
-        self.config = config;
-    }
 
     /// Get work schedule information for UI display
     pub fn get_work_schedule_info(&self) -> Option<WorkScheduleInfo> {
