@@ -6,8 +6,9 @@ import Dashboard from "./pages/Dashboard";
 import OnboardingWizard from "./components/OnboardingWizard";
 import { ErrorBoundary } from "./components/ErrorBoundary";
 import { ToastContainer } from "./components/ToastContainer";
-import { StatsModal } from "./components/StatsModal";
 import { errorHandler } from "./lib/errorHandler";
+import Stats from "./pages/Stats";
+import Settings from "./pages/Settings";
 
 export default function App() {
   const [needsOnboarding, setNeedsOnboarding] = useState<boolean | null>(null);
@@ -18,16 +19,18 @@ export default function App() {
       try {
         // Check if onboarding is needed (first launch or onboarding not complete)
         const firstLaunch = await invoke<boolean>("is_first_launch");
-        const onboardingComplete = await invoke<boolean>("get_onboarding_status");
-        
+        const onboardingComplete = await invoke<boolean>(
+          "get_onboarding_status"
+        );
+
         // User needs onboarding if it's first launch OR onboarding is not complete
         const needsOnboardingFlow = firstLaunch || !onboardingComplete;
         setNeedsOnboarding(needsOnboardingFlow);
 
-        console.log("App state check:", { 
-          firstLaunch, 
-          onboardingComplete, 
-          needsOnboardingFlow 
+        console.log("App state check:", {
+          firstLaunch,
+          onboardingComplete,
+          needsOnboardingFlow,
         });
       } catch (error) {
         console.error("Error checking app state:", error);
@@ -90,10 +93,11 @@ export default function App() {
         <Routes>
           <Route path="/" element={<Login />} />
           <Route path="/dashboard" element={<Dashboard />} />
+          <Route path="/stats" element={<Stats />} />
+          <Route path="/settings" element={<Settings />} />
         </Routes>
       </HashRouter>
       <ToastContainer />
-      <StatsModal />
     </ErrorBoundary>
   );
 }

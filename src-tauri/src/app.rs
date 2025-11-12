@@ -3,7 +3,7 @@ use tauri::Manager;
 
 use crate::handlers::{
     auth_handler, cycle_config_handler, cycle_handler, notification_handler, onboarding_handler,
-    work_schedule_handler,
+    stats_handler, work_schedule_handler,
 };
 use crate::{config::AppConfig, onboarding::OnboardingManager, state::AppState};
 
@@ -70,6 +70,7 @@ pub fn run() -> Result<(), String> {
             cycle_handler::log_bypass_attempt,
             cycle_handler::get_work_schedule_info,
             cycle_handler::get_work_hours_stats,
+            stats_handler::get_session_stats,
             notification_handler::update_notification_user_name,
             notification_handler::get_notification_user_name
         ])

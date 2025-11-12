@@ -29,10 +29,7 @@ export const useAppStore = create<ExtendedAppState>()(
       isCommandPaletteOpen: false,
       isFocusWidgetVisible: false,
       isBreakOverlayVisible: false,
-      isSettingsOpen: false,
-      isStatsOpen: false,
       settings: DEFAULT_SETTINGS,
-      stats: [],
       cycleState: null,
 
       // Session actions
@@ -86,27 +83,6 @@ export const useAppStore = create<ExtendedAppState>()(
           'hideBreakOverlay'
         ),
 
-      toggleSettings: () =>
-        set(
-          (state) => ({ isSettingsOpen: !state.isSettingsOpen }),
-          false,
-          'toggleSettings'
-        ),
-
-      showStats: () =>
-        set(
-          { isStatsOpen: true },
-          false,
-          'showStats'
-        ),
-
-      hideStats: () =>
-        set(
-          { isStatsOpen: false },
-          false,
-          'hideStats'
-        ),
-
       // Settings actions
       updateSettings: (newSettings: Partial<UserSettings>) =>
         set(
@@ -115,14 +91,6 @@ export const useAppStore = create<ExtendedAppState>()(
           }),
           false,
           'updateSettings'
-        ),
-
-      // Stats actions
-      setStats: (stats: SessionStats[]) =>
-        set(
-          { stats },
-          false,
-          'setStats'
         ),
 
       // Cycle actions
@@ -147,8 +115,5 @@ export const useUIState = () => useAppStore((state) => ({
   isCommandPaletteOpen: state.isCommandPaletteOpen,
   isFocusWidgetVisible: state.isFocusWidgetVisible,
   isBreakOverlayVisible: state.isBreakOverlayVisible,
-  isSettingsOpen: state.isSettingsOpen,
-  isStatsOpen: state.isStatsOpen,
 }));
-export const useStats = () => useAppStore((state) => state.stats);
 export const useCycleState = () => useAppStore((state) => state.cycleState);

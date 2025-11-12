@@ -61,8 +61,7 @@ export const createStatsCommand = (): Command =>
     'View Statistics',
     'stats',
     async () => {
-      const { showStats } = useAppStore.getState();
-      showStats();
+      window.location.hash = '#/stats';
     }
   );
 
@@ -72,8 +71,7 @@ export const createSettingsCommand = (): Command =>
     'Open Settings',
     'settings',
     async () => {
-      const { toggleSettings } = useAppStore.getState();
-      toggleSettings();
+      window.location.hash = '#/settings';
     }
   );
 

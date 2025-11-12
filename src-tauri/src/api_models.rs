@@ -123,9 +123,12 @@ impl From<UserSettings> for DbUserSettings {
             short_break_duration: (api_settings.short_break_duration * 60) as i32,
             long_break_duration: (api_settings.long_break_duration * 60) as i32,
             cycles_per_long_break: api_settings.cycles_per_long_break as i32,
+            cycles_per_long_break_v2: api_settings.cycles_per_long_break as i32, // Use same value
             pre_alert_seconds: api_settings.pre_alert_seconds as i32,
             strict_mode: api_settings.strict_mode,
             pin_hash: api_settings.pin_hash,
+            user_name: None, // Not exposed in API model
+            emergency_key_combination: None, // Not exposed in API model
             created_at: now,
             updated_at: now,
         }
@@ -203,6 +206,9 @@ impl FocusSession {
             completed: !self.is_running && self.remaining == 0,
             notes: None,
             created_at: self.start_time,
+            within_work_hours: false, // Default value, should be set by orchestrator
+            cycle_number: None, // Default value, should be set by orchestrator
+            is_long_break: false, // Focus sessions are not breaks
         }
     }
 }
@@ -263,6 +269,9 @@ impl BreakSession {
             completed: false,
             notes: None,
             created_at: start_time,
+            within_work_hours: false, // Default value, should be set by orchestrator
+            cycle_number: None, // Default value, should be set by orchestrator
+            is_long_break: matches!(self.break_type, BreakType::Long),
         }
     }
 }

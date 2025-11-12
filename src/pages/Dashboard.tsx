@@ -103,19 +103,16 @@ export default function Dashboard() {
               <button className="p-2 rounded-lg hover:bg-gray-800" title="Home">
                 <Home className="w-5 h-5" />
               </button>
+
               <button
-                className="p-2 rounded-lg hover:bg-gray-800"
-                title="Focus"
-              >
-                <Timer className="w-5 h-5" />
-              </button>
-              <button
+                onClick={() => navigate("/stats")}
                 className="p-2 rounded-lg hover:bg-gray-800"
                 title="Stats"
               >
                 <BarChart3 className="w-5 h-5" />
               </button>
               <button
+                onClick={() => navigate("/settings")}
                 className="p-2 rounded-lg hover:bg-gray-800"
                 title="Settings"
               >
@@ -305,6 +302,10 @@ export default function Dashboard() {
                   <li>
                     <span className="text-gray-500">⌘</span> +{" "}
                     <span className="text-gray-500">⇧L</span> — Lock Now
+                  </li>
+                  <li>
+                    <span className="text-gray-500">⌘</span> +{" "}
+                    <span className="text-gray-500">P</span> — Abrir Ajustes
                   </li>
                 </ul>
               </section>

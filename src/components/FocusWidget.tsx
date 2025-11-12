@@ -452,13 +452,7 @@ export const FocusWidget: React.FC<FocusWidgetProps> = ({
 // Hook to use the FocusWidget with store integration and real-time updates
 export const useFocusWidget = () => {
   const session = useCurrentSession();
-  const {
-    setCurrentSession,
-    setCurrentBreak,
-    showFocusWidget,
-    hideFocusWidget,
-    toggleSettings,
-  } = useAppStore();
+  const { setCurrentSession, setCurrentBreak, showFocusWidget, hideFocusWidget } = useAppStore();
 
   // Set up real-time session updates from backend
   useEffect(() => {
@@ -560,7 +554,7 @@ export const useFocusWidget = () => {
   };
 
   const handleOpenMenu = () => {
-    toggleSettings();
+    window.location.hash = '#/settings';
   };
 
   return {

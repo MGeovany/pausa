@@ -73,14 +73,9 @@ export interface AppState {
   isCommandPaletteOpen: boolean;
   isFocusWidgetVisible: boolean;
   isBreakOverlayVisible: boolean;
-  isSettingsOpen: boolean;
-  isStatsOpen: boolean;
 
   // Settings
   settings: UserSettings;
-
-  // Statistics
-  stats: SessionStats[];
 
   // Actions
   setCurrentSession: (session: FocusSession | null) => void;
@@ -90,11 +85,7 @@ export interface AppState {
   hideFocusWidget: () => void;
   showBreakOverlay: () => void;
   hideBreakOverlay: () => void;
-  toggleSettings: () => void;
-  showStats: () => void;
-  hideStats: () => void;
   updateSettings: (settings: Partial<UserSettings>) => void;
-  setStats: (stats: SessionStats[]) => void;
 }
 
 // Toast notification types
