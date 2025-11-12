@@ -1,3 +1,4 @@
+use crate::api_models::UserSettings as ApiUserSettings;
 use crate::database::models::UserSettings;
 use crate::state::AppState;
 use chrono::Utc;
@@ -385,4 +386,81 @@ pub async fn get_pre_alert_config(state: State<'_, AppState>) -> Result<PreAlert
             Err(error_msg)
         }
     }
+}
+
+/// Get all user settings 
+#[tauri::command]
+pub async fn get_settings(state: State<'_, AppState>) -> Result<ApiUserSettings, String> {
+    println!("📖 [Rust] get_settings called");
+
+    // Get user settings from database
+    let db_settings = match state.database.get_user_settings() {
+        Ok(Some(settings)) => settings,
+        Ok(None) => {
+            // Return default settings if none exist
+            return Ok(ApiUserSettings::default());
+        }
+        Err(e) => {
+            let error_msg = format!("Failed to get user settings: {}", e);
+            println!("❌ [Rust] {}", error_msg);
+            return Err(error_msg);
+        }
+    };
+
+   
+
+    // Convert to API model
+    let api_settings = ApiUserSettings {
+        focus_duration: (db_settings.focus_duration / 60) as u32,
+        short_break_duration: (db_settings.short_break_duration / 60) as u32,
+        long_break_duration: (db_settings.long_break_duration / 60) as u32,
+        cycles_per_long_break: db_settings.cycles_per_long_break as u32,
+        pre_alert_seconds: db_settings.pre_alert_seconds as u32,
+        strict_mode: db_settings.strict_mode,
+        pin_hash: db_settings.pin_hash,
+    };
+
+    println!("✅ [Rust] Settings retrieved successfully");
+    Ok(api_settings)
+}
+
+/// Update all user settings including blocked apps and websites
+#[tauri::command]
+pub async fn update_settings(
+    settings: ApiUserSettings,
+    state: State<'_, AppState>,
+) -> Result<(), String> {
+    println!("💾 [Rust] update_settings called");
+
+    let now = Utc::now();
+
+    // Get existing settings to preserve user_name, emergency_key_combination, and created_at
+    let existing_settings = state.database.get_user_settings()
+        .map_err(|e| format!("Failed to get existing settings: {}", e))?;
+
+    // Convert API settings to database model
+    let mut db_settings = UserSettings {
+        id: 1,
+        focus_duration: (settings.focus_duration * 60) as i32, // Convert minutes to seconds
+        short_break_duration: (settings.short_break_duration * 60) as i32,
+        long_break_duration: (settings.long_break_duration * 60) as i32,
+        cycles_per_long_break: settings.cycles_per_long_break as i32,
+        cycles_per_long_break_v2: settings.cycles_per_long_break as i32,
+        pre_alert_seconds: settings.pre_alert_seconds as i32,
+        strict_mode: settings.strict_mode,
+        pin_hash: settings.pin_hash,
+        user_name: existing_settings.as_ref().and_then(|s| s.user_name.clone()),
+        emergency_key_combination: existing_settings.as_ref().and_then(|s| s.emergency_key_combination.clone()),
+        created_at: existing_settings.as_ref().map(|s| s.created_at).unwrap_or(now),
+        updated_at: now,
+    };
+
+    // Save user settings
+    state
+        .database
+        .save_user_settings(&db_settings)
+        .map_err(|e| format!("Failed to save user settings: {}", e))?;
+
+    println!("✅ [Rust] Settings updated successfully");
+    Ok(())
 }

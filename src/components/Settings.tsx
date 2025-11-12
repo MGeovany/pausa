@@ -1,56 +1,112 @@
-import { useState } from "react";
-import { Plus, Trash2 } from "lucide-react";
+import { useState, useEffect } from "react";
+import { Plus, Trash2, Save } from "lucide-react";
 import { useSettings, useAppStore } from "../store";
+import { tauriCommands } from "../lib/tauri";
+import type { UserSettings } from "../types";
 
 interface SettingsProps {
   onClose?: () => void;
 }
 
 export function Settings({ onClose }: SettingsProps) {
-  const settings = useSettings();
+  const initialSettings = useSettings();
   const { updateSettings } = useAppStore();
-  const [customFocus, setCustomFocus] = useState(settings.focusDuration);
+
+  // Local state for all settings
+  const [localSettings, setLocalSettings] =
+    useState<UserSettings>(initialSettings);
+  const [customFocus, setCustomFocus] = useState(initialSettings.focusDuration);
   const [customShortBreak, setCustomShortBreak] = useState(
-    settings.shortBreakDuration
+    initialSettings.shortBreakDuration
   );
   const [customLongBreak, setCustomLongBreak] = useState(
-    settings.longBreakDuration
+    initialSettings.longBreakDuration
   );
   const [websiteInput, setWebsiteInput] = useState("");
   const [appInput, setAppInput] = useState("");
+  const [isSaving, setIsSaving] = useState(false);
+  const [saveMessage, setSaveMessage] = useState<{
+    type: "success" | "error";
+    text: string;
+  } | null>(null);
+
+  // Update local settings when initial settings change
+  useEffect(() => {
+    setLocalSettings(initialSettings);
+    setCustomFocus(initialSettings.focusDuration);
+    setCustomShortBreak(initialSettings.shortBreakDuration);
+    setCustomLongBreak(initialSettings.longBreakDuration);
+  }, [initialSettings]);
 
   const focusOptions = [25, 30, 45];
   const breakOptions = [5, 10, 15];
   const longBreakOptions = [15, 20];
   const cyclesOptions = [3, 4, 5];
 
+  const updateLocalSettings = (updates: Partial<UserSettings>) => {
+    setLocalSettings((prev) => ({ ...prev, ...updates }));
+  };
+
   const handleAddWebsite = () => {
     const value = websiteInput.trim();
     if (!value) return;
-    const next = Array.from(new Set([...settings.blockedWebsites, value]));
-    updateSettings({ blockedWebsites: next });
+    const next = Array.from(new Set([...localSettings.blockedWebsites, value]));
+    updateLocalSettings({ blockedWebsites: next });
     setWebsiteInput("");
   };
 
   const handleRemoveWebsite = (site: string) => {
-    updateSettings({
-      blockedWebsites: settings.blockedWebsites.filter((item) => item !== site),
+    updateLocalSettings({
+      blockedWebsites: localSettings.blockedWebsites.filter(
+        (item) => item !== site
+      ),
     });
   };
 
   const handleAddApp = () => {
     const value = appInput.trim();
     if (!value) return;
-    const next = Array.from(new Set([...settings.blockedApps, value]));
-    updateSettings({ blockedApps: next });
+    const next = Array.from(new Set([...localSettings.blockedApps, value]));
+    updateLocalSettings({ blockedApps: next });
     setAppInput("");
   };
 
   const handleRemoveApp = (app: string) => {
-    updateSettings({
-      blockedApps: settings.blockedApps.filter((item) => item !== app),
+    updateLocalSettings({
+      blockedApps: localSettings.blockedApps.filter((item) => item !== app),
     });
   };
+
+  const handleSave = async () => {
+    setIsSaving(true);
+    setSaveMessage(null);
+
+    try {
+      // Save to backend
+      await tauriCommands.updateSettings(localSettings);
+
+      // Update store
+      updateSettings(localSettings);
+
+      setSaveMessage({ type: "success", text: "Settings saved successfully!" });
+
+      // Clear message after 3 seconds
+      setTimeout(() => {
+        setSaveMessage(null);
+      }, 3000);
+    } catch (error) {
+      console.error("Failed to save settings:", error);
+      setSaveMessage({
+        type: "error",
+        text: "Failed to save settings. Please try again.",
+      });
+    } finally {
+      setIsSaving(false);
+    }
+  };
+
+  const hasChanges =
+    JSON.stringify(localSettings) !== JSON.stringify(initialSettings);
 
   return (
     <div className="space-y-8">
@@ -61,14 +117,37 @@ export function Settings({ onClose }: SettingsProps) {
             Tailor focus cycles, breaks, and strict mode to match how you work.
           </p>
         </div>
-        {onClose && (
-          <button
-            onClick={onClose}
-            className="rounded-xl border border-gray-800 bg-gray-900/70 px-3 py-2 text-sm text-gray-300 hover:bg-gray-900 hover:text-white transition-colors"
-          >
-            Close
-          </button>
-        )}
+        <div className="flex items-center gap-3">
+          {hasChanges && (
+            <button
+              onClick={handleSave}
+              disabled={isSaving}
+              className="flex items-center gap-2 rounded-xl border border-blue-500 bg-blue-500/20 px-4 py-2 text-sm text-blue-200 hover:bg-blue-500/30 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+            >
+              <Save className="h-4 w-4" />
+              {isSaving ? "Saving..." : "Save"}
+            </button>
+          )}
+          {saveMessage && (
+            <div
+              className={`rounded-xl px-4 py-2 text-sm ${
+                saveMessage.type === "success"
+                  ? "bg-green-500/20 text-green-200 border border-green-500/40"
+                  : "bg-red-500/20 text-red-200 border border-red-500/40"
+              }`}
+            >
+              {saveMessage.text}
+            </div>
+          )}
+          {onClose && (
+            <button
+              onClick={onClose}
+              className="rounded-xl border border-gray-800 bg-gray-900/70 px-3 py-2 text-sm text-gray-300 hover:bg-gray-900 hover:text-white transition-colors"
+            >
+              Close
+            </button>
+          )}
+        </div>
       </header>
 
       <section className="rounded-2xl border border-gray-800 bg-gray-900/60 p-6">
@@ -83,10 +162,10 @@ export function Settings({ onClose }: SettingsProps) {
               key={option}
               onClick={() => {
                 setCustomFocus(option);
-                updateSettings({ focusDuration: option });
+                updateLocalSettings({ focusDuration: option });
               }}
               className={`rounded-xl border px-4 py-2 text-sm transition-colors ${
-                settings.focusDuration === option
+                localSettings.focusDuration === option
                   ? "border-blue-500 bg-blue-500/20 text-blue-200"
                   : "border-gray-700 bg-gray-800/60 text-gray-300 hover:border-blue-500/40 hover:text-white"
               }`}
@@ -106,7 +185,7 @@ export function Settings({ onClose }: SettingsProps) {
               onChange={(event) => {
                 const value = Number(event.target.value);
                 setCustomFocus(value);
-                updateSettings({ focusDuration: value });
+                updateLocalSettings({ focusDuration: value });
               }}
               className="w-16 rounded-lg border border-gray-700 bg-gray-900 px-2 py-1 text-sm text-white focus:border-blue-500 focus:outline-none"
             />
@@ -122,15 +201,15 @@ export function Settings({ onClose }: SettingsProps) {
             title="Short break"
             description="Quick pause to reset energy between focus blocks."
             options={breakOptions}
-            selected={settings.shortBreakDuration}
+            selected={localSettings.shortBreakDuration}
             onSelect={(value) => {
               setCustomShortBreak(value);
-              updateSettings({ shortBreakDuration: value });
+              updateLocalSettings({ shortBreakDuration: value });
             }}
             customValue={customShortBreak}
             onCustomChange={(value) => {
               setCustomShortBreak(value);
-              updateSettings({ shortBreakDuration: value });
+              updateLocalSettings({ shortBreakDuration: value });
             }}
             suffix="min"
           />
@@ -138,15 +217,15 @@ export function Settings({ onClose }: SettingsProps) {
             title="Long break"
             description="Longer pause to fully reset after several cycles."
             options={longBreakOptions}
-            selected={settings.longBreakDuration}
+            selected={localSettings.longBreakDuration}
             onSelect={(value) => {
               setCustomLongBreak(value);
-              updateSettings({ longBreakDuration: value });
+              updateLocalSettings({ longBreakDuration: value });
             }}
             customValue={customLongBreak}
             onCustomChange={(value) => {
               setCustomLongBreak(value);
-              updateSettings({ longBreakDuration: value });
+              updateLocalSettings({ longBreakDuration: value });
             }}
             suffix="min"
           />
@@ -159,9 +238,11 @@ export function Settings({ onClose }: SettingsProps) {
             {cyclesOptions.map((option) => (
               <button
                 key={option}
-                onClick={() => updateSettings({ cyclesPerLongBreak: option })}
+                onClick={() =>
+                  updateLocalSettings({ cyclesPerLongBreak: option })
+                }
                 className={`rounded-xl border px-4 py-2 text-sm transition-colors ${
-                  settings.cyclesPerLongBreak === option
+                  localSettings.cyclesPerLongBreak === option
                     ? "border-purple-500 bg-purple-500/20 text-purple-200"
                     : "border-gray-700 bg-gray-800/60 text-gray-300 hover:border-purple-500/40 hover:text-white"
                 }`}
@@ -190,8 +271,10 @@ export function Settings({ onClose }: SettingsProps) {
             </p>
           </div>
           <button
-            onClick={() => updateSettings({ strictMode: !settings.strictMode })}
-            className={`toggle ${settings.strictMode ? "enabled" : ""}`}
+            onClick={() =>
+              updateLocalSettings({ strictMode: !localSettings.strictMode })
+            }
+            className={`toggle ${localSettings.strictMode ? "enabled" : ""}`}
           >
             <span className="toggle-thumb"></span>
           </button>
@@ -208,14 +291,16 @@ export function Settings({ onClose }: SettingsProps) {
               min={0}
               max={300}
               step={15}
-              value={settings.preAlertSeconds}
+              value={localSettings.preAlertSeconds}
               onChange={(event) =>
-                updateSettings({ preAlertSeconds: Number(event.target.value) })
+                updateLocalSettings({
+                  preAlertSeconds: Number(event.target.value),
+                })
               }
               className="flex-1"
             />
             <span className="w-20 rounded-lg border border-gray-800 bg-gray-900/70 px-2 py-1 text-center text-sm text-white">
-              {Math.round(settings.preAlertSeconds / 60)} min
+              {Math.round(localSettings.preAlertSeconds / 60)} min
             </span>
           </div>
         </div>

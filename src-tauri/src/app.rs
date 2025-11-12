@@ -58,6 +58,8 @@ pub fn run() -> Result<(), String> {
             cycle_config_handler::get_strict_mode_config,
             cycle_config_handler::update_pre_alert_config,
             cycle_config_handler::get_pre_alert_config,
+            cycle_config_handler::get_settings,
+            cycle_config_handler::update_settings,
             cycle_handler::initialize_cycle_orchestrator,
             cycle_handler::start_focus_session,
             cycle_handler::start_break_session,
