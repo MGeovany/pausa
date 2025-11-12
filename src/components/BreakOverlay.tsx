@@ -374,6 +374,7 @@ export function BreakOverlay({
   const [showEmergencyModal, setShowEmergencyModal] = useState(false);
   const [bypassAttempts, setBypassAttempts] = useState(0);
   const storeCycleState = useCycleState();
+  const [isVisible, setIsVisible] = useState(false);
   
   // Use provided cycleState or fall back to store
   const currentCycleState = cycleState || storeCycleState;
@@ -381,6 +382,11 @@ export function BreakOverlay({
   // Get appropriate activity based on break type
   const activity = breakSession.activity || 
     breakActivityManager.getActivityForBreak(breakSession.type, breakSession.duration);
+
+  // Fade in animation on mount
+  useEffect(() => {
+    setIsVisible(true);
+  }, []);
 
   // Log bypass attempts
   const logBypassAttempt = async (method: string) => {
@@ -466,7 +472,11 @@ export function BreakOverlay({
 
   return (
     <div 
-      className={`fixed inset-0 z-50 ${bgColor} flex items-center justify-center transition-colors duration-500`}
+      className={`
+        fixed inset-0 z-50 ${bgColor} flex items-center justify-center 
+        transition-all duration-700 ease-out
+        ${isVisible ? 'opacity-100' : 'opacity-0'}
+      `}
       style={{ 
         // Ensure fullscreen on all monitors
         width: '100vw',
@@ -479,7 +489,11 @@ export function BreakOverlay({
       }}
     >
       {/* Main break content */}
-      <div className="flex flex-col items-center justify-center min-h-screen p-8 w-full">
+      <div className={`
+        flex flex-col items-center justify-center min-h-screen p-8 w-full
+        transition-all duration-500 ease-out
+        ${isVisible ? 'scale-100 opacity-100' : 'scale-95 opacity-0'}
+      `}>
         {showCompletionInterface ? (
           // Show completion interface when break is over
           <BreakCompletionInterface

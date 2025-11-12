@@ -31,6 +31,8 @@ export default function OnboardingWizard({
   const [error, setError] = useState<string | null>(null);
   const [validationErrors, setValidationErrors] = useState<string[]>([]);
   const [isRecovering, setIsRecovering] = useState(false);
+  const [isTransitioning, setIsTransitioning] = useState(false);
+  const [transitionDirection, setTransitionDirection] = useState<'forward' | 'backward'>('forward');
 
   // Initialize onboarding when component mounts
   useEffect(() => {
@@ -207,7 +209,14 @@ export default function OnboardingWizard({
       });
 
       console.log(`✅ [Frontend] Successfully navigated to ${nextStep}`);
-      setCurrentStep(nextStep);
+      
+      // Add smooth transition animation
+      setIsTransitioning(true);
+      setTransitionDirection('forward');
+      setTimeout(() => {
+        setCurrentStep(nextStep);
+        setIsTransitioning(false);
+      }, 150);
 
       // Handle completion
       if (nextStep === "Complete") {
@@ -295,7 +304,14 @@ export default function OnboardingWizard({
       console.log(
         `✅ [Frontend] Successfully navigated back to ${previousStep}`
       );
-      setCurrentStep(previousStep);
+      
+      // Add smooth transition animation
+      setIsTransitioning(true);
+      setTransitionDirection('backward');
+      setTimeout(() => {
+        setCurrentStep(previousStep);
+        setIsTransitioning(false);
+      }, 150);
     } catch (err) {
       console.error("❌ [Frontend] Backward navigation failed:", err);
 
@@ -472,7 +488,16 @@ export default function OnboardingWizard({
         )}
 
         {/* Current step content */}
-        <div className="bg-black/20 backdrop-blur-sm rounded-xl px-8 border border-white/10">
+        <div className={`
+          bg-black/20 backdrop-blur-sm rounded-xl px-8 border border-white/10
+          transition-all duration-300 ease-out
+          ${isTransitioning 
+            ? transitionDirection === 'forward' 
+              ? 'opacity-0 translate-x-4' 
+              : 'opacity-0 -translate-x-4'
+            : 'opacity-100 translate-x-0'
+          }
+        `}>
           {renderCurrentStep()}
         </div>
 

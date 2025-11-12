@@ -31,6 +31,7 @@ export const CycleControl: React.FC = () => {
     null
   );
   const [showStats, setShowStats] = useState(false);
+  const [actionFeedback, setActionFeedback] = useState<string | null>(null);
 
   // Load work schedule info on mount
   useEffect(() => {
@@ -59,10 +60,14 @@ export const CycleControl: React.FC = () => {
 
   const handleStartFocus = async (override: boolean = false) => {
     try {
+      setActionFeedback("Starting focus session...");
       await startFocusSession(override);
       setShowOverrideConfirm(false);
+      setActionFeedback("Focus session started!");
+      setTimeout(() => setActionFeedback(null), 2000);
     } catch (error) {
       console.error("Failed to start focus session:", error);
+      setActionFeedback(null);
       // Show override option if outside work hours
       if (
         error instanceof Error &&
@@ -75,19 +80,27 @@ export const CycleControl: React.FC = () => {
 
   const handleStartBreak = async () => {
     try {
+      setActionFeedback("Starting break...");
       await startBreakSession(false);
+      setActionFeedback("Break started!");
+      setTimeout(() => setActionFeedback(null), 2000);
     } catch (error) {
       console.error("Failed to start break:", error);
-      // TODO: Show error toast
+      setActionFeedback("Failed to start break");
+      setTimeout(() => setActionFeedback(null), 3000);
     }
   };
 
   const handleEndSession = async () => {
     try {
+      setActionFeedback("Ending session...");
       await endSession(false);
+      setActionFeedback("Session ended!");
+      setTimeout(() => setActionFeedback(null), 2000);
     } catch (error) {
       console.error("Failed to end session:", error);
-      // TODO: Show error toast
+      setActionFeedback("Failed to end session");
+      setTimeout(() => setActionFeedback(null), 3000);
     }
   };
 
@@ -121,7 +134,14 @@ export const CycleControl: React.FC = () => {
   }
 
   return (
-    <div className="bg-gray-200 opacity-95 rounded-lg p-6 border">
+    <div className="bg-gray-200 opacity-95 rounded-lg p-6 border transition-all duration-300 hover:shadow-lg">
+      {/* Action feedback toast */}
+      {actionFeedback && (
+        <div className="mb-4 p-3 bg-blue-500/20 border border-blue-500/30 rounded-lg text-blue-300 text-sm text-center animate-slide-in-down">
+          {actionFeedback}
+        </div>
+      )}
+      
       <div className="flex items-center justify-between mb-4">
         <h2 className="text-xl font-semibold text-white">Work Cycles</h2>
         {cycleState.cycle_count > 0 && (
@@ -172,14 +192,14 @@ export const CycleControl: React.FC = () => {
             <button
               onClick={() => handleStartFocus(false)}
               disabled={!cycleState.can_start}
-              className="flex-1 flex items-center justify-center space-x-2 bg-blue-600 hover:bg-blue-700 disabled:bg-gray-700 disabled:cursor-not-allowed text-white font-medium py-3 px-4 rounded-lg transition-colors"
+              className="flex-1 flex items-center justify-center space-x-2 bg-blue-600 hover:bg-blue-700 disabled:bg-gray-700 disabled:cursor-not-allowed text-white font-medium py-3 px-4 rounded-lg transition-all duration-200 transform hover:scale-105 active:scale-95"
             >
               <Play className="w-5 h-5" />
               <span>Start Focus</span>
             </button>
             <button
               onClick={handleStartBreak}
-              className="flex-1 flex items-center justify-center space-x-2 bg-green-600 hover:bg-green-700 text-white font-medium py-3 px-4 rounded-lg transition-colors"
+              className="flex-1 flex items-center justify-center space-x-2 bg-green-600 hover:bg-green-700 text-white font-medium py-3 px-4 rounded-lg transition-all duration-200 transform hover:scale-105 active:scale-95"
             >
               <Coffee className="w-5 h-5" />
               <span>Start Break</span>
@@ -191,7 +211,7 @@ export const CycleControl: React.FC = () => {
           <div className="flex w-full items-center justify-center">
             <button
               onClick={handleEndSession}
-              className="w-fit flex items-center justify-center space-x-2 bg-red-600 hover:bg-red-700 text-white font-medium py-2 px-3 rounded-lg transition-colors"
+              className="w-fit flex items-center justify-center space-x-2 bg-red-600 hover:bg-red-700 text-white font-medium py-2 px-3 rounded-lg transition-all duration-200 transform hover:scale-105 active:scale-95"
             >
               <Square className="w-5 h-5" />
               <span>End Session</span>

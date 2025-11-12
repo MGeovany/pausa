@@ -1,5 +1,6 @@
 import { invoke } from "@tauri-apps/api/core";
 import type { CycleState } from "../types";
+import { errorHandler } from "./errorHandler";
 
 /**
  * Cycle management commands for interacting with the Rust backend
@@ -32,7 +33,11 @@ export class CycleManager {
       console.log("✅ Focus session started:", state);
       return state;
     } catch (error) {
-      console.error("❌ Failed to start focus session:", error);
+      errorHandler.logError(
+        error as Error,
+        "CycleManager.startFocusSession",
+        "User attempted to start focus session"
+      );
       throw error;
     }
   }
@@ -92,7 +97,11 @@ export class CycleManager {
       console.log("✅ Cycle session ended:", state);
       return state;
     } catch (error) {
-      console.error("❌ Failed to end cycle session:", error);
+      errorHandler.logError(
+        error as Error,
+        "CycleManager.endSession",
+        "User attempted to end session"
+      );
       throw error;
     }
   }

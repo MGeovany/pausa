@@ -4,6 +4,8 @@ import { invoke } from "@tauri-apps/api/core";
 import Login from "./pages/Login";
 import Dashboard from "./pages/Dashboard";
 import OnboardingWizard from "./components/OnboardingWizard";
+import { ErrorBoundary } from "./components/ErrorBoundary";
+import { errorHandler } from "./lib/errorHandler";
 
 export default function App() {
   const [needsOnboarding, setNeedsOnboarding] = useState<boolean | null>(null);
@@ -27,6 +29,11 @@ export default function App() {
         });
       } catch (error) {
         console.error("Error checking app state:", error);
+        errorHandler.logError(
+          error as Error,
+          "App.checkAppState",
+          "Checking if onboarding is needed"
+        );
         // Default to showing onboarding if we can't determine state (safer)
         setNeedsOnboarding(true);
       } finally {
@@ -76,11 +83,13 @@ export default function App() {
 
   // Show normal app flow
   return (
-    <HashRouter>
-      <Routes>
-        <Route path="/" element={<Login />} />
-        <Route path="/dashboard" element={<Dashboard />} />
-      </Routes>
-    </HashRouter>
+    <ErrorBoundary>
+      <HashRouter>
+        <Routes>
+          <Route path="/" element={<Login />} />
+          <Route path="/dashboard" element={<Dashboard />} />
+        </Routes>
+      </HashRouter>
+    </ErrorBoundary>
   );
 }
