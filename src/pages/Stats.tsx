@@ -7,10 +7,21 @@ import {
   Flame,
   Coffee,
   BarChart,
+  Home,
+  Settings,
+  BarChart3,
+  LogOut,
 } from "lucide-react";
+import { invoke } from "@tauri-apps/api/core";
 import { tauriCommands } from "../lib/tauri";
 import type { SessionStats } from "../types";
 import { toastManager } from "../lib/toastManager";
+
+interface UserInfo {
+  name: string;
+  email: string;
+  picture: string;
+}
 
 const RANGE_OPTIONS = [
   { label: "Last 7 days", value: 7 },
@@ -25,6 +36,41 @@ export default function Stats() {
   const [stats, setStats] = useState<SessionStats[]>([]);
   const [isLoading, setIsLoading] = useState(false);
   const [lastUpdated, setLastUpdated] = useState<string | null>(null);
+  const [userInfo, setUserInfo] = useState<UserInfo | null>(null);
+  const [avatarError, setAvatarError] = useState(false);
+
+  useEffect(() => {
+    const fetchUserInfo = async () => {
+      try {
+        const info = await invoke<UserInfo>("get_user_info");
+        if (info) {
+          setUserInfo(info);
+        }
+      } catch (error) {
+        console.error("Error fetching user info:", error);
+      }
+    };
+
+    fetchUserInfo();
+  }, []);
+
+  useEffect(() => {
+    setAvatarError(false);
+  }, [userInfo?.picture]);
+
+  const handleLogout = async () => {
+    try {
+      await invoke("logout");
+      navigate("/");
+    } catch (error) {
+      console.error("Error logging out:", error);
+    }
+  };
+
+  const userInitial = useMemo(() => {
+    if (!userInfo?.name) return "?";
+    return userInfo.name.trim().charAt(0).toUpperCase();
+  }, [userInfo?.name]);
 
   useEffect(() => {
     const loadStats = async () => {
@@ -119,236 +165,310 @@ export default function Stats() {
   };
 
   return (
-    <div className="min-h-screen bg-gray-950 text-gray-100">
-      <div className="px-6 py-6 md:px-12">
-        <header className="flex flex-col gap-4 md:flex-row md:items-center md:justify-between">
-          <div>
-            <button
-              onClick={() => navigate(-1)}
-              className="inline-flex items-center gap-2 text-sm text-gray-400 hover:text-white transition-colors"
-            >
-              <ArrowLeft className="h-4 w-4" />
-              Back
-            </button>
-            <h1 className="mt-4 text-3xl font-semibold text-white">
-              Statistics
-            </h1>
-            <p className="text-sm text-gray-400">
-              Track your progress and uncover personal focus patterns.
-            </p>
-          </div>
-
-          <div className="flex flex-wrap items-center gap-3">
-            <div className="flex rounded-full border border-gray-800 bg-gray-900/80 p-1">
-              {RANGE_OPTIONS.map((option) => (
-                <button
-                  key={option.value}
-                  onClick={() => handleRangeChange(option.value)}
-                  className={`px-4 py-2 text-sm font-medium rounded-full transition-colors ${
-                    range === option.value
-                      ? "bg-blue-600 text-white shadow-lg"
-                      : "text-gray-400 hover:text-white"
-                  }`}
-                >
-                  {option.label}
-                </button>
-              ))}
+    <div className="min-h-screen bg-gray-950 text-gray-200">
+      {/* App Shell */}
+      <div className="flex">
+        {/* Sidebar */}
+        <aside className="hidden md:flex h-screen w-16 flex-col items-center justify-between py-4 border-r border-gray-800 bg-gray-900/40 sticky top-0">
+          <div className="flex flex-col items-center gap-4">
+            <div className="w-8 h-8 rounded-lg bg-gray-800 border border-gray-700 flex items-center justify-center text-md font-black text-gray-300">
+              P
             </div>
-            <button
-              onClick={() => setRange((prev) => prev)} // retrigger load
-              disabled={isLoading}
-              className="inline-flex items-center gap-2 rounded-xl border border-gray-800 bg-gray-900/60 px-4 py-2 text-sm text-gray-300 hover:text-white hover:bg-gray-900 transition-colors disabled:opacity-50"
-            >
-              <RefreshCcw
-                className={`h-4 w-4 ${isLoading ? "animate-spin" : ""}`}
-              />
-              Actualizar
-            </button>
+            <nav className="flex flex-col items-center gap-2">
+              <button
+                onClick={() => navigate("/dashboard")}
+                className="p-2 rounded-lg hover:bg-gray-800"
+                title="Home"
+              >
+                <Home className="w-5 h-5" />
+              </button>
+              <button
+                onClick={() => navigate("/stats")}
+                className="p-2 rounded-lg bg-gray-800"
+                title="Stats"
+              >
+                <BarChart3 className="w-5 h-5" />
+              </button>
+              <button
+                onClick={() => navigate("/settings")}
+                className="p-2 rounded-lg hover:bg-gray-800"
+                title="Settings"
+              >
+                <Settings className="w-5 h-5" />
+              </button>
+            </nav>
           </div>
-        </header>
+          <button
+            onClick={handleLogout}
+            className="p-2 rounded-lg hover:bg-gray-800"
+            title="Logout"
+          >
+            <LogOut className="w-5 h-5" />
+          </button>
+        </aside>
 
-        <section className="mt-8 grid gap-4 md:grid-cols-2 xl:grid-cols-4">
-          <StatCard
-            icon={<TrendingUp className="h-5 w-5" />}
-            label="Total focus minutes"
-            value={`${aggregates.totalFocusMinutes} min`}
-            helper={`Daily average ${aggregates.averageFocus} min`}
-          />
-          <StatCard
-            icon={<Flame className="h-5 w-5" />}
-            label="Sessions completed"
-            value={aggregates.totalSessions.toString()}
-            helper={
-              aggregates.focusTrend >= 0
-                ? `▲ ${aggregates.focusTrend}% vs previous period`
-                : `▼ ${Math.abs(aggregates.focusTrend)}% vs previous period`
-            }
-            helperTone={aggregates.focusTrend >= 0 ? "positive" : "negative"}
-          />
-          <StatCard
-            icon={<Coffee className="h-5 w-5" />}
-            label="Breaks completed"
-            value={aggregates.totalBreaks.toString()}
-            helper="Includes short and long breaks"
-          />
-          <StatCard
-            icon={<BarChart className="h-5 w-5" />}
-            label="Best day"
-            value={
-              aggregates.bestDay
-                ? new Date(aggregates.bestDay.date).toLocaleDateString(
-                    undefined,
-                    {
-                      weekday: "short",
-                      day: "numeric",
-                      month: "short",
-                    }
-                  )
-                : "No data"
-            }
-            helper={
-              aggregates.bestDay
-                ? `${aggregates.bestDay.focus_minutes} focus minutes`
-                : "Start a session to populate this insight"
-            }
-          />
-        </section>
-
-        <section className="mt-10 grid gap-6 lg:grid-cols-3">
-          <div className="lg:col-span-2 rounded-2xl border border-gray-800 bg-gray-900/60 p-6">
-            <div className="flex items-center justify-between">
-              <h2 className="text-lg font-semibold text-white">
-                Focus pace (last {range} days)
-              </h2>
-              <span className="text-xs text-gray-500">
-                Each bar represents the focus minutes for that day
-              </span>
-            </div>
-            <div className="mt-6 flex items-end gap-3 overflow-x-auto pb-3">
-              {stats.map((day) => {
-                const barHeight = Math.max(
-                  6,
-                  Math.round((day.focus_minutes / maxFocusMinutes) * 180)
-                );
-                return (
-                  <div
-                    key={day.date}
-                    className="flex flex-col items-center text-xs text-gray-400"
-                  >
-                    <div
-                      className="w-8 rounded-t-lg bg-gradient-to-t from-blue-600 to-blue-400 shadow-lg shadow-blue-500/20 transition-all hover:to-blue-300"
-                      style={{ height: `${barHeight}px` }}
-                    />
-                    <span className="mt-2 font-medium text-gray-300">
-                      {formatDayLabel(day.date)}
-                    </span>
-                    <span>{day.focus_minutes}m</span>
+        {/* Main */}
+        <main className="flex-1">
+          {/* Header */}
+          <header className="sticky top-0 z-10 bg-gray-950/90 border-b border-gray-900">
+            <div className="px-6 md:px-8 py-4 flex items-center justify-between">
+              <div className="text-sm text-gray-400">
+                Welcome{userInfo?.name ? "," : ""}{" "}
+                <span className="text-gray-100 font-medium">
+                  {userInfo?.name ?? "Pausa"}
+                </span>
+              </div>
+              {userInfo &&
+                (avatarError || !userInfo.picture ? (
+                  <div className="w-8 h-8 rounded-full border border-gray-800 bg-gray-900 flex items-center justify-center text-sm font-semibold text-gray-400">
+                    {userInitial}
                   </div>
-                );
-              })}
-              {stats.length === 0 && (
-                <div className="flex h-40 w-full items-center justify-center text-sm text-gray-500">
-                  No sessions recorded yet.
-                </div>
-              )}
-            </div>
-          </div>
-
-          <div className="rounded-2xl border border-gray-800 bg-gray-900/60 p-6">
-            <h2 className="text-lg font-semibold text-white">Energy map</h2>
-            <p className="text-xs text-gray-500">
-              Each block is a day; darker colors mean more focus minutes.
-            </p>
-            <div className="mt-6 grid grid-cols-7 gap-2">
-              {stats.map((day) => (
-                <div
-                  key={`heat-${day.date}`}
-                  className={`h-10 rounded-xl transition-all ${heatLevels(
-                    day.focus_minutes
-                  )}`}
-                  title={`${new Date(day.date).toLocaleDateString(undefined, {
-                    weekday: "long",
-                    day: "numeric",
-                    month: "short",
-                  })} • ${day.focus_minutes} focus minutes`}
-                />
-              ))}
-              {stats.length === 0 && (
-                <div className="col-span-7 flex h-32 items-center justify-center text-sm text-gray-500">
-                  Run a few cycles to generate your energy map.
-                </div>
-              )}
-            </div>
-          </div>
-        </section>
-
-        <section className="mt-10 rounded-2xl border border-gray-800 bg-gray-900/60 p-6">
-          <div className="flex items-center justify-between">
-            <div>
-              <h2 className="text-lg font-semibold text-white">
-                Detailed history
-              </h2>
-              <p className="text-xs text-gray-500">
-                Sessions recorded during the selected range.
-              </p>
-            </div>
-            {lastUpdated && (
-              <span className="text-xs text-gray-500">
-                Updated {new Date(lastUpdated).toLocaleTimeString()}
-              </span>
-            )}
-          </div>
-          <div className="mt-4 overflow-hidden rounded-xl border border-gray-800">
-            <table className="min-w-full divide-y divide-gray-800 text-sm text-gray-300">
-              <thead className="bg-gray-900/80">
-                <tr>
-                  <th className="px-4 py-3 text-left font-medium text-gray-400">
-                    Date
-                  </th>
-                  <th className="px-4 py-3 text-left font-medium text-gray-400">
-                    Focus minutes
-                  </th>
-                  <th className="px-4 py-3 text-left font-medium text-gray-400">
-                    Breaks
-                  </th>
-                  <th className="px-4 py-3 text-left font-medium text-gray-400">
-                    Sessions
-                  </th>
-                  <th className="px-4 py-3 text-left font-medium text-gray-400">
-                    Evasion attempts
-                  </th>
-                </tr>
-              </thead>
-              <tbody className="divide-y divide-gray-900">
-                {stats.map((day) => (
-                  <tr key={`row-${day.date}`} className="hover:bg-gray-900/70">
-                    <td className="px-4 py-3 font-medium text-white">
-                      {new Date(day.date).toLocaleDateString(undefined, {
-                        weekday: "short",
-                        day: "numeric",
-                        month: "short",
-                      })}
-                    </td>
-                    <td className="px-4 py-3">{day.focus_minutes} min</td>
-                    <td className="px-4 py-3">{day.breaks_completed}</td>
-                    <td className="px-4 py-3">{day.sessions_completed}</td>
-                    <td className="px-4 py-3">{day.evasion_attempts ?? 0}</td>
-                  </tr>
+                ) : (
+                  <img
+                    src={userInfo.picture}
+                    alt={userInfo.name}
+                    className="w-8 h-8 rounded-full border border-gray-800 object-cover"
+                    onError={() => setAvatarError(true)}
+                  />
                 ))}
-                {stats.length === 0 && (
-                  <tr>
-                    <td
-                      className="px-4 py-8 text-center text-sm text-gray-500"
-                      colSpan={5}
+            </div>
+          </header>
+
+          {/* Content */}
+          <div className="mx-auto w-full max-w-5xl px-6 py-4">
+            <header className="flex flex-col gap-4 md:flex-row md:items-center md:justify-between mb-8">
+              <div>
+                <h1 className="text-3xl font-semibold text-white">
+                  Statistics
+                </h1>
+                <p className="text-sm text-gray-400 mt-2">
+                  Track your progress and uncover personal focus patterns.
+                </p>
+              </div>
+
+              <div className="flex flex-wrap items-center gap-3">
+                <div className="flex rounded-full border border-gray-800 bg-gray-900/80 p-1">
+                  {RANGE_OPTIONS.map((option) => (
+                    <button
+                      key={option.value}
+                      onClick={() => handleRangeChange(option.value)}
+                      className={`px-4 py-2 text-sm font-medium rounded-full transition-colors ${
+                        range === option.value
+                          ? "bg-blue-600 text-white shadow-lg"
+                          : "text-gray-400 hover:text-white"
+                      }`}
                     >
-                      There are no records for this range yet.
-                    </td>
-                  </tr>
+                      {option.label}
+                    </button>
+                  ))}
+                </div>
+                <button
+                  onClick={() => setRange((prev) => prev)} // retrigger load
+                  disabled={isLoading}
+                  className="inline-flex items-center gap-2 rounded-xl border border-gray-800 bg-gray-900/60 px-4 py-2 text-sm text-gray-300 hover:text-white hover:bg-gray-900 transition-colors disabled:opacity-50"
+                >
+                  <RefreshCcw
+                    className={`h-4 w-4 ${isLoading ? "animate-spin" : ""}`}
+                  />
+                  Actualizar
+                </button>
+              </div>
+            </header>
+
+            <section className="mt-8 grid gap-4 md:grid-cols-2 xl:grid-cols-4">
+              <StatCard
+                icon={<TrendingUp className="h-5 w-5" />}
+                label="Total focus minutes"
+                value={`${aggregates.totalFocusMinutes} min`}
+                helper={`Daily average ${aggregates.averageFocus} min`}
+              />
+              <StatCard
+                icon={<Flame className="h-5 w-5" />}
+                label="Sessions completed"
+                value={aggregates.totalSessions.toString()}
+                helper={
+                  aggregates.focusTrend >= 0
+                    ? `▲ ${aggregates.focusTrend}% vs previous period`
+                    : `▼ ${Math.abs(aggregates.focusTrend)}% vs previous period`
+                }
+                helperTone={
+                  aggregates.focusTrend >= 0 ? "positive" : "negative"
+                }
+              />
+              <StatCard
+                icon={<Coffee className="h-5 w-5" />}
+                label="Breaks completed"
+                value={aggregates.totalBreaks.toString()}
+                helper="Includes short and long breaks"
+              />
+              <StatCard
+                icon={<BarChart className="h-5 w-5" />}
+                label="Best day"
+                value={
+                  aggregates.bestDay
+                    ? new Date(aggregates.bestDay.date).toLocaleDateString(
+                        undefined,
+                        {
+                          weekday: "short",
+                          day: "numeric",
+                          month: "short",
+                        }
+                      )
+                    : "No data"
+                }
+                helper={
+                  aggregates.bestDay
+                    ? `${aggregates.bestDay.focus_minutes} focus minutes`
+                    : "Start a session to populate this insight"
+                }
+              />
+            </section>
+
+            <section className="mt-10 grid gap-6 lg:grid-cols-3">
+              <div className="lg:col-span-2 rounded-2xl border border-gray-800 bg-gray-900/60 p-6">
+                <div className="flex items-center justify-between">
+                  <h2 className="text-lg font-semibold text-white">
+                    Focus pace (last {range} days)
+                  </h2>
+                  <span className="text-xs text-gray-500">
+                    Each bar represents the focus minutes for that day
+                  </span>
+                </div>
+                <div className="mt-6 flex items-end gap-3 overflow-x-auto pb-3">
+                  {stats.map((day) => {
+                    const barHeight = Math.max(
+                      6,
+                      Math.round((day.focus_minutes / maxFocusMinutes) * 180)
+                    );
+                    return (
+                      <div
+                        key={day.date}
+                        className="flex flex-col items-center text-xs text-gray-400"
+                      >
+                        <div
+                          className="w-8 rounded-t-lg bg-gradient-to-t from-blue-600 to-blue-400 shadow-lg shadow-blue-500/20 transition-all hover:to-blue-300"
+                          style={{ height: `${barHeight}px` }}
+                        />
+                        <span className="mt-2 font-medium text-gray-300">
+                          {formatDayLabel(day.date)}
+                        </span>
+                        <span>{day.focus_minutes}m</span>
+                      </div>
+                    );
+                  })}
+                  {stats.length === 0 && (
+                    <div className="flex h-40 w-full items-center justify-center text-sm text-gray-500">
+                      No sessions recorded yet.
+                    </div>
+                  )}
+                </div>
+              </div>
+
+              <div className="rounded-2xl border border-gray-800 bg-gray-900/60 p-6">
+                <h2 className="text-lg font-semibold text-white">Energy map</h2>
+                <p className="text-xs text-gray-500">
+                  Each block is a day; darker colors mean more focus minutes.
+                </p>
+                <div className="mt-6 grid grid-cols-7 gap-2">
+                  {stats.map((day) => (
+                    <div
+                      key={`heat-${day.date}`}
+                      className={`h-10 rounded-xl transition-all ${heatLevels(
+                        day.focus_minutes
+                      )}`}
+                      title={`${new Date(day.date).toLocaleDateString(
+                        undefined,
+                        {
+                          weekday: "long",
+                          day: "numeric",
+                          month: "short",
+                        }
+                      )} • ${day.focus_minutes} focus minutes`}
+                    />
+                  ))}
+                  {stats.length === 0 && (
+                    <div className="col-span-7 flex h-32 items-center justify-center text-sm text-gray-500">
+                      Run a few cycles to generate your energy map.
+                    </div>
+                  )}
+                </div>
+              </div>
+            </section>
+
+            <section className="mt-10 rounded-2xl border border-gray-800 bg-gray-900/60 p-6">
+              <div className="flex items-center justify-between">
+                <div>
+                  <h2 className="text-lg font-semibold text-white">
+                    Detailed history
+                  </h2>
+                  <p className="text-xs text-gray-500">
+                    Sessions recorded during the selected range.
+                  </p>
+                </div>
+                {lastUpdated && (
+                  <span className="text-xs text-gray-500">
+                    Updated {new Date(lastUpdated).toLocaleTimeString()}
+                  </span>
                 )}
-              </tbody>
-            </table>
+              </div>
+              <div className="mt-4 overflow-hidden rounded-xl border border-gray-800">
+                <table className="min-w-full divide-y divide-gray-800 text-sm text-gray-300">
+                  <thead className="bg-gray-900/80">
+                    <tr>
+                      <th className="px-4 py-3 text-left font-medium text-gray-400">
+                        Date
+                      </th>
+                      <th className="px-4 py-3 text-left font-medium text-gray-400">
+                        Focus minutes
+                      </th>
+                      <th className="px-4 py-3 text-left font-medium text-gray-400">
+                        Breaks
+                      </th>
+                      <th className="px-4 py-3 text-left font-medium text-gray-400">
+                        Sessions
+                      </th>
+                      <th className="px-4 py-3 text-left font-medium text-gray-400">
+                        Evasion attempts
+                      </th>
+                    </tr>
+                  </thead>
+                  <tbody className="divide-y divide-gray-900">
+                    {stats.map((day) => (
+                      <tr
+                        key={`row-${day.date}`}
+                        className="hover:bg-gray-900/70"
+                      >
+                        <td className="px-4 py-3 font-medium text-white">
+                          {new Date(day.date).toLocaleDateString(undefined, {
+                            weekday: "short",
+                            day: "numeric",
+                            month: "short",
+                          })}
+                        </td>
+                        <td className="px-4 py-3">{day.focus_minutes} min</td>
+                        <td className="px-4 py-3">{day.breaks_completed}</td>
+                        <td className="px-4 py-3">{day.sessions_completed}</td>
+                        <td className="px-4 py-3">
+                          {day.evasion_attempts ?? 0}
+                        </td>
+                      </tr>
+                    ))}
+                    {stats.length === 0 && (
+                      <tr>
+                        <td
+                          className="px-4 py-8 text-center text-sm text-gray-500"
+                          colSpan={5}
+                        >
+                          There are no records for this range yet.
+                        </td>
+                      </tr>
+                    )}
+                  </tbody>
+                </table>
+              </div>
+            </section>
           </div>
-        </section>
+        </main>
       </div>
     </div>
   );

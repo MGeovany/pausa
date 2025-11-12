@@ -100,10 +100,13 @@ export default function Dashboard() {
               P
             </div>
             <nav className="flex flex-col items-center gap-2">
-              <button className="p-2 rounded-lg hover:bg-gray-800" title="Home">
+              <button
+                onClick={() => navigate("/dashboard")}
+                className="p-2 rounded-lg bg-gray-800"
+                title="Home"
+              >
                 <Home className="w-5 h-5" />
               </button>
-
               <button
                 onClick={() => navigate("/stats")}
                 className="p-2 rounded-lg hover:bg-gray-800"
@@ -157,7 +160,7 @@ export default function Dashboard() {
           </header>
 
           {/* Content */}
-          <div className="px-6 md:px-8 py-6">
+          <div className="mx-auto w-full max-w-5xl px-6 py-4">
             <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
               {/* Quick Actions / Timer */}
               <section className="lg:col-span-2 bg-gray-900/40 border border-gray-800 rounded-xl p-5">
