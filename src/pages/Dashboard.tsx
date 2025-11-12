@@ -16,8 +16,9 @@ import {
 } from "lucide-react";
 import { invoke } from "@tauri-apps/api/core";
 import { useCycleManager } from "../lib/useCycleManager";
-import { useCycleState } from "../store";
+import { useCycleState, useAppStore } from "../store";
 import { tauriCommands } from "../lib/tauri";
+import { CycleManager } from "../lib/cycleCommands";
 import type { SessionStats } from "../types";
 
 interface UserInfo {
@@ -32,6 +33,7 @@ export default function Dashboard() {
   const [avatarError, setAvatarError] = useState(false);
   const [todayStats, setTodayStats] = useState<SessionStats | null>(null);
   const cycleState = useCycleState();
+  const { setCycleState } = useAppStore();
   const {
     startFocusSession,
     startBreakSession,
@@ -39,6 +41,20 @@ export default function Dashboard() {
     resumeCycle,
     endSession,
   } = useCycleManager();
+
+  // Sync cycle state when Dashboard mounts to ensure we have the latest state
+  useEffect(() => {
+    const syncCycleState = async () => {
+      try {
+        const state = await CycleManager.getState();
+        setCycleState(state);
+      } catch (error) {
+        console.error("Failed to sync cycle state:", error);
+      }
+    };
+
+    syncCycleState();
+  }, [setCycleState]);
 
   useEffect(() => {
     const fetchUserInfo = async () => {

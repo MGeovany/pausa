@@ -6,6 +6,7 @@ import Dashboard from "./pages/Dashboard";
 import OnboardingWizard from "./components/OnboardingWizard";
 import { ErrorBoundary } from "./components/ErrorBoundary";
 import { ToastContainer } from "./components/ToastContainer";
+import { CycleSync } from "./components/CycleSync";
 import { errorHandler } from "./lib/errorHandler";
 import Stats from "./pages/Stats";
 import Settings from "./pages/Settings";
@@ -89,6 +90,7 @@ export default function App() {
   // Show normal app flow
   return (
     <ErrorBoundary>
+      <CycleSync />
       <HashRouter>
         <Routes>
           <Route path="/" element={<Login />} />
