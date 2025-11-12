@@ -33,7 +33,7 @@ export default function Dashboard() {
   const [avatarError, setAvatarError] = useState(false);
   const [todayStats, setTodayStats] = useState<SessionStats | null>(null);
   const cycleState = useCycleState();
-  const { setCycleState } = useAppStore();
+  const { setCycleState, updateSettings } = useAppStore();
   const {
     startFocusSession,
     startBreakSession,
@@ -41,6 +41,33 @@ export default function Dashboard() {
     resumeCycle,
     endSession,
   } = useCycleManager();
+
+  // Load settings from database on mount
+  useEffect(() => {
+    const loadSettings = async () => {
+      try {
+        const settings = await tauriCommands.getSettings();
+        // Tauri automatically converts snake_case to camelCase
+        updateSettings({
+          focusDuration: settings.focusDuration,
+          shortBreakDuration: settings.shortBreakDuration,
+          longBreakDuration: settings.longBreakDuration,
+          cyclesPerLongBreak: settings.cyclesPerLongBreak,
+          preAlertSeconds: settings.preAlertSeconds,
+          strictMode: settings.strictMode,
+          pinHash: settings.pinHash,
+          emergencyKeyCombination: settings.emergencyKeyCombination,
+          blockedApps: settings.blockedApps || [],
+          blockedWebsites: settings.blockedWebsites || [],
+        });
+      } catch (error) {
+        console.error("Failed to load settings:", error);
+        // Continue with default settings if loading fails
+      }
+    };
+
+    loadSettings();
+  }, [updateSettings]);
 
   // Sync cycle state when Dashboard mounts to ensure we have the latest state
   useEffect(() => {
