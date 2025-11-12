@@ -10,10 +10,15 @@ import {
   Coffee,
   Pause,
   Square,
+  Target,
+  Clock,
+  TrendingUp,
 } from "lucide-react";
 import { invoke } from "@tauri-apps/api/core";
 import { useCycleManager } from "../lib/useCycleManager";
 import { useCycleState } from "../store";
+import { tauriCommands } from "../lib/tauri";
+import type { SessionStats } from "../types";
 
 interface UserInfo {
   name: string;
@@ -25,6 +30,7 @@ export default function Dashboard() {
   const navigate = useNavigate();
   const [userInfo, setUserInfo] = useState<UserInfo | null>(null);
   const [avatarError, setAvatarError] = useState(false);
+  const [todayStats, setTodayStats] = useState<SessionStats | null>(null);
   const cycleState = useCycleState();
   const {
     startFocusSession,
@@ -52,6 +58,24 @@ export default function Dashboard() {
   useEffect(() => {
     setAvatarError(false);
   }, [userInfo?.picture]);
+
+  useEffect(() => {
+    const loadTodayStats = async () => {
+      try {
+        const stats = await tauriCommands.getSessionStats(1);
+        const today = new Date().toISOString().split("T")[0];
+        const todayStat = stats.find((stat) => stat.date === today);
+        setTodayStats(todayStat || null);
+      } catch (error) {
+        console.error("Error loading today stats:", error);
+      }
+    };
+
+    loadTodayStats();
+    // Refresh every minute
+    const interval = setInterval(loadTodayStats, 60000);
+    return () => clearInterval(interval);
+  }, [cycleState?.cycle_count]);
 
   const handleLogout = async () => {
     try {
@@ -246,34 +270,91 @@ export default function Dashboard() {
                 </div>
               </section>
 
-              {/* Compact Stats */}
+              {/* Today's Progress */}
               <section className="bg-gray-900/40 border border-gray-800 rounded-xl p-5">
-                <h2 className="text-sm font-semibold text-gray-300 mb-4">
-                  Today
+                <h2 className="text-sm font-semibold text-gray-300 mb-4 flex items-center gap-2">
+                  <Target className="w-4 h-4" />
+                  Today's Progress
                 </h2>
-                <div className="grid grid-cols-3 gap-3">
-                  <div className="rounded-lg border border-gray-800 bg-gray-900/60 p-3">
-                    <div className="text-[10px] uppercase tracking-wide text-gray-500 mb-1">
-                      Phase
+                <div className="grid grid-cols-2 gap-3">
+                  <div className="rounded-lg border border-gray-800 bg-gray-900/60 p-4">
+                    <div className="flex items-center gap-2 mb-2">
+                      <Clock className="w-4 h-4 text-blue-400" />
+                      <div className="text-[10px] uppercase tracking-wide text-gray-500">
+                        Focus Time
+                      </div>
                     </div>
-                    <div className="text-sm">{phaseLabel}</div>
+                    <div className="text-2xl font-bold text-white">
+                      {todayStats?.focus_minutes || 0}
+                      <span className="text-sm font-normal text-gray-400 ml-1">
+                        min
+                      </span>
+                    </div>
+                    {cycleState && cycleState.phase === "focus" && (
+                      <div className="text-xs text-blue-400 mt-1">
+                        Session in progress
+                      </div>
+                    )}
+                    {cycleState &&
+                      cycleState.cycle_count > 0 &&
+                      cycleState.phase !== "focus" && (
+                        <div className="text-xs text-gray-500 mt-1">
+                          {cycleState.cycle_count} cycles today
+                        </div>
+                      )}
                   </div>
-                  <div className="rounded-lg border border-gray-800 bg-gray-900/60 p-3">
-                    <div className="text-[10px] uppercase tracking-wide text-gray-500 mb-1">
-                      Remaining
+                  <div className="rounded-lg border border-gray-800 bg-gray-900/60 p-4">
+                    <div className="flex items-center gap-2 mb-2">
+                      <Coffee className="w-4 h-4 text-green-400" />
+                      <div className="text-[10px] uppercase tracking-wide text-gray-500">
+                        Breaks Taken
+                      </div>
                     </div>
-                    <div className="text-sm">
-                      {cycleState && cycleState.phase !== "idle"
-                        ? formatTime(cycleState.remaining_seconds)
-                        : "--:--"}
+                    <div className="text-2xl font-bold text-white">
+                      {todayStats?.breaks_completed || 0}
                     </div>
+                    {cycleState &&
+                      cycleState.phase !== "idle" &&
+                      cycleState.phase !== "focus" && (
+                        <div className="text-xs text-green-400 mt-1">
+                          On break now
+                        </div>
+                      )}
                   </div>
-                  <div className="rounded-lg border border-gray-800 bg-gray-900/60 p-3">
-                    <div className="text-[10px] uppercase tracking-wide text-gray-500 mb-1">
-                      Cycles
+                  <div className="rounded-lg border border-gray-800 bg-gray-900/60 p-4">
+                    <div className="flex items-center gap-2 mb-2">
+                      <BarChart3 className="w-4 h-4 text-purple-400" />
+                      <div className="text-[10px] uppercase tracking-wide text-gray-500">
+                        Sessions
+                      </div>
                     </div>
-                    <div className="text-sm">
-                      {cycleState ? cycleState.cycle_count : 0}
+                    <div className="text-2xl font-bold text-white">
+                      {todayStats?.sessions_completed || 0}
+                    </div>
+                    {cycleState && cycleState.cycle_count > 0 && (
+                      <div className="text-xs text-purple-400 mt-1">
+                        {cycleState.cycle_count} cycles completed
+                      </div>
+                    )}
+                  </div>
+                  <div className="rounded-lg border border-gray-800 bg-gray-900/60 p-4">
+                    <div className="flex items-center gap-2 mb-2">
+                      <TrendingUp className="w-4 h-4 text-amber-400" />
+                      <div className="text-[10px] uppercase tracking-wide text-gray-500">
+                        Next Long Break
+                      </div>
+                    </div>
+                    <div className="text-2xl font-bold text-white">
+                      {cycleState && cycleState.cycle_count > 0
+                        ? Math.max(0, 4 - (cycleState.cycle_count % 4))
+                        : 4}
+                    </div>
+                    <div className="text-xs text-amber-400 mt-1">
+                      {cycleState && cycleState.cycle_count > 0
+                        ? cycleState.cycle_count % 4 === 0
+                          ? "Ready for long break!"
+                          : `${cycleState.cycle_count % 4}/4 cycles`
+                        : "Start your first cycle"}
                     </div>
                   </div>
                 </div>
