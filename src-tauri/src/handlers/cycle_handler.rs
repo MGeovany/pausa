@@ -1,6 +1,7 @@
 use crate::cycle_orchestrator::{CycleConfig, CycleOrchestrator, CyclePhase, CycleState};
-use crate::database::models::{UserSettings, WorkSchedule};
+use crate::database::models::{Session, SessionType, UserSettings, WorkSchedule};
 use crate::state::AppState;
+use chrono::Utc;
 use serde::{Deserialize, Serialize};
 use tauri::{AppHandle, Emitter, State};
 
@@ -145,6 +146,10 @@ pub async fn start_focus_session(
 
     // Create updated cycle config
     let config = CycleConfig::from_user_settings(user_settings.clone(), work_schedule);
+    
+    // Save values we need before moving config
+    let focus_duration = config.focus_duration;
+    let strict_mode = config.strict_mode;
 
     let mut cycle_orchestrator = state.cycle_orchestrator.lock().await;
 
@@ -165,6 +170,29 @@ pub async fn start_focus_session(
     }
 
     let current_state = orchestrator.get_state();
+
+    // Save session to database
+    if let Some(ref session_id) = current_state.session_id {
+        let session = Session {
+            id: session_id.clone(),
+            session_type: SessionType::Focus,
+            start_time: current_state.started_at.unwrap_or_else(Utc::now),
+            end_time: None,
+            planned_duration: focus_duration as i32,
+            actual_duration: None,
+            strict_mode,
+            completed: false,
+            notes: None,
+            created_at: Utc::now(),
+            within_work_hours: current_state.within_work_hours,
+            cycle_number: Some(current_state.cycle_count as i32),
+            is_long_break: false,
+        };
+
+        if let Err(e) = state.database.create_session(&session) {
+            eprintln!("Failed to save session to database: {}", e);
+        }
+    }
 
     // Send focus start notification
     let notification_service = state.notification_service.lock().await;
@@ -235,6 +263,11 @@ pub async fn start_break_session(
 
     // Create updated cycle config
     let config = CycleConfig::from_user_settings(user_settings.clone(), work_schedule);
+    
+    // Save values we need before moving config
+    let break_duration = config.break_duration;
+    let long_break_duration = config.long_break_duration;
+    let strict_mode = config.strict_mode;
 
     let mut cycle_orchestrator = state.cycle_orchestrator.lock().await;
 
@@ -253,6 +286,42 @@ pub async fn start_break_session(
     for event in events {
         if let Err(e) = app.emit("cycle-event", &event) {
             eprintln!("Failed to emit cycle event: {}", e);
+        }
+    }
+
+    // Save session to database
+    if let Some(ref session_id) = current_state.session_id {
+        let session_type = match current_state.phase {
+            CyclePhase::LongBreak => SessionType::LongBreak,
+            CyclePhase::ShortBreak => SessionType::ShortBreak,
+            _ => SessionType::ShortBreak, // fallback
+        };
+
+        let is_long_break = current_state.phase == CyclePhase::LongBreak;
+        let duration = if is_long_break {
+            long_break_duration
+        } else {
+            break_duration
+        };
+
+        let session = Session {
+            id: session_id.clone(),
+            session_type,
+            start_time: current_state.started_at.unwrap_or_else(Utc::now),
+            end_time: None,
+            planned_duration: duration as i32,
+            actual_duration: None,
+            strict_mode,
+            completed: false,
+            notes: None,
+            created_at: Utc::now(),
+            within_work_hours: current_state.within_work_hours,
+            cycle_number: Some(current_state.cycle_count as i32),
+            is_long_break,
+        };
+
+        if let Err(e) = state.database.create_session(&session) {
+            eprintln!("Failed to save break session to database: {}", e);
         }
     }
 
@@ -326,8 +395,12 @@ pub async fn end_cycle_session(
         .as_mut()
         .ok_or_else(|| "Cycle orchestrator not initialized".to_string())?;
 
-    // Get the phase before ending to send appropriate notification
-    let phase_before_end = orchestrator.get_state().phase.clone();
+    // Get the state before ending to save session info
+    let state_before_end = orchestrator.get_state();
+    let phase_before_end = state_before_end.phase.clone();
+    let session_id_before_end = state_before_end.session_id.clone();
+    let started_at_before_end = state_before_end.started_at;
+    let planned_duration_before_end = state_before_end.remaining_seconds;
 
     let events = orchestrator.end_session(completed)?;
 
@@ -339,6 +412,27 @@ pub async fn end_cycle_session(
     }
 
     let current_state = orchestrator.get_state();
+
+    // Update session in database if it was completed
+    if completed && session_id_before_end.is_some() {
+        let end_time = Utc::now();
+        let actual_duration = if let Some(started_at) = started_at_before_end {
+            Some((end_time - started_at).num_seconds() as i32)
+        } else {
+            Some(planned_duration_before_end as i32)
+        };
+
+        // Get existing session from database
+        if let Ok(Some(mut db_session)) = state.database.get_session(&session_id_before_end.unwrap()) {
+            db_session.end_time = Some(end_time);
+            db_session.actual_duration = actual_duration;
+            db_session.completed = true;
+
+            if let Err(e) = state.database.update_session(&db_session) {
+                eprintln!("Failed to update session in database: {}", e);
+            }
+        }
+    }
 
     // Send appropriate end notification if session was completed
     if completed {
@@ -360,7 +454,6 @@ pub async fn end_cycle_session(
 /// Get the current cycle state
 #[tauri::command]
 pub async fn get_cycle_state(state: State<'_, AppState>) -> Result<CycleState, String> {
-    println!("📊 [Rust] get_cycle_state called");
 
     let cycle_orchestrator = state.cycle_orchestrator.lock().await;
 
@@ -382,11 +475,125 @@ pub async fn cycle_tick(state: State<'_, AppState>, app: AppHandle) -> Result<Cy
         .as_mut()
         .ok_or_else(|| "Cycle orchestrator not initialized".to_string())?;
 
+    // Get state before tick to track session completion
+    let state_before_tick = orchestrator.get_state();
+    let session_id_before = state_before_tick.session_id.clone();
+    let started_at_before = state_before_tick.started_at;
+    let planned_duration_before = state_before_tick.remaining_seconds;
+
     let events = orchestrator.tick()?;
+
+    // Get current state after tick
+    let current_state = orchestrator.get_state();
+
+    // Handle PhaseEnded events to update sessions in database
+    for event in &events {
+        match event {
+            crate::cycle_orchestrator::CycleEvent::PhaseEnded { completed, phase } => {
+                println!("📥 [CycleHandler] PhaseEnded event received: phase={:?}, completed={}, session_id_before={:?}", 
+                    phase, completed, session_id_before);
+                
+                if *completed && session_id_before.is_some() {
+                    let end_time = Utc::now();
+                    let actual_duration = if let Some(started_at) = started_at_before {
+                        Some((end_time - started_at).num_seconds() as i32)
+                    } else {
+                        Some(planned_duration_before as i32)
+                    };
+
+                    println!("💾 [CycleHandler] Updating session {}: end_time={:?}, actual_duration={:?}", 
+                        session_id_before.as_ref().unwrap(), end_time, actual_duration);
+
+                    // Get existing session from database and update it
+                    match state.database.get_session(&session_id_before.as_ref().unwrap()) {
+                        Ok(Some(mut db_session)) => {
+                            println!("📝 [CycleHandler] Found session in DB: type={:?}, completed={}", 
+                                db_session.session_type, db_session.completed);
+                            
+                            db_session.end_time = Some(end_time);
+                            db_session.actual_duration = actual_duration;
+                            db_session.completed = true;
+
+                            if let Err(e) = state.database.update_session(&db_session) {
+                                eprintln!("❌ [CycleHandler] Failed to update completed session in database: {}", e);
+                            } else {
+                                println!("✅ [CycleHandler] Successfully updated session {} in database", session_id_before.as_ref().unwrap());
+                            }
+                        }
+                        Ok(None) => {
+                            eprintln!("⚠️ [CycleHandler] Session {} not found in database", session_id_before.as_ref().unwrap());
+                        }
+                        Err(e) => {
+                            eprintln!("❌ [CycleHandler] Error getting session from database: {}", e);
+                        }
+                    }
+                } else {
+                    println!("⏭️ [CycleHandler] Skipping session update: completed={}, has_session_id={}", 
+                        completed, session_id_before.is_some());
+                }
+            }
+            crate::cycle_orchestrator::CycleEvent::PhaseStarted { phase, duration, cycle_count } => {
+                println!("📥 [CycleHandler] PhaseStarted event received: phase={:?}, duration={}, cycle_count={}", 
+                    phase, duration, cycle_count);
+                
+                // Save new session when break starts automatically after focus
+                if let Some(ref session_id) = current_state.session_id {
+                    println!("🆔 [CycleHandler] Current session_id: {}, Previous session_id: {:?}", 
+                        session_id, session_id_before);
+                    
+                    // Check if this is a new session (not the one we had before)
+                    if session_id_before.as_ref() != Some(session_id) {
+                        println!("✨ [CycleHandler] New session detected, creating in database...");
+                        
+                        let session_type = match phase {
+                            CyclePhase::LongBreak => SessionType::LongBreak,
+                            CyclePhase::ShortBreak => SessionType::ShortBreak,
+                            CyclePhase::Focus => SessionType::Focus,
+                            _ => SessionType::ShortBreak,
+                        };
+
+                        let is_long_break = *phase == CyclePhase::LongBreak;
+
+                        println!("💾 [CycleHandler] Creating session: id={}, type={:?}, is_long_break={}, duration={}", 
+                            session_id, session_type, is_long_break, duration);
+
+                        let session = Session {
+                            id: session_id.clone(),
+                            session_type,
+                            start_time: current_state.started_at.unwrap_or_else(Utc::now),
+                            end_time: None,
+                            planned_duration: *duration as i32,
+                            actual_duration: None,
+                            strict_mode: false, // We don't have access to config here, but it's ok
+                            completed: false,
+                            notes: None,
+                            created_at: Utc::now(),
+                            within_work_hours: current_state.within_work_hours,
+                            cycle_number: Some(*cycle_count as i32),
+                            is_long_break,
+                        };
+
+                        match state.database.create_session(&session) {
+                            Ok(_) => {
+                                println!("✅ [CycleHandler] Successfully created session {} in database", session_id);
+                            }
+                            Err(e) => {
+                                eprintln!("❌ [CycleHandler] Failed to save auto-started session to database: {}", e);
+                            }
+                        }
+                    } else {
+                        println!("⏭️ [CycleHandler] Session {} already exists, skipping creation", session_id);
+                    }
+                } else {
+                    println!("⚠️ [CycleHandler] No session_id in current state");
+                }
+            }
+            _ => {}
+        }
+    }
 
     // Check for pre-alert events and send notifications
     let notification_service = state.notification_service.lock().await;
-    let current_state = orchestrator.get_state();
 
     for event in &events {
         match event {
@@ -409,8 +616,6 @@ pub async fn cycle_tick(state: State<'_, AppState>, app: AppHandle) -> Result<Cy
             eprintln!("Failed to emit cycle event: {}", e);
         }
     }
-
-    let current_state = orchestrator.get_state();
 
     Ok(current_state)
 }

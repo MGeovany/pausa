@@ -9,6 +9,25 @@ export const useCycleManager = () => {
   const { setCycleState } = useAppStore();
 
   return {
+    // Starts the full routine (focus → break → focus ...) leveraging the orchestrator's auto-transitions
+    startRoutine: async (options?: {
+      resetCount?: boolean;
+      overrideWorkHours?: boolean;
+    }) => {
+      try {
+        if (options?.resetCount) {
+          const stateAfterReset = await CycleManager.resetCycleCount();
+          setCycleState(stateAfterReset);
+        }
+        const state = await CycleManager.startFocusSession(
+          options?.overrideWorkHours
+        );
+        setCycleState(state);
+      } catch (error) {
+        console.error("Failed to start routine:", error);
+        throw error;
+      }
+    },
     startFocusSession: async (overrideWorkHours?: boolean) => {
       try {
         const state = await CycleManager.startFocusSession(overrideWorkHours);

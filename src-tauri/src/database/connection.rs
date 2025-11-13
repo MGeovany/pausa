@@ -1,5 +1,5 @@
 use crate::database::migrations::MigrationManager;
-use crate::database::models::{Session, SessionType, UserSettings};
+use crate::database::models::{Session, UserSettings};
 use crate::database::{DatabaseError, DatabaseResult};
 use chrono::{DateTime, Utc};
 use rusqlite::{params, Connection, OpenFlags};
@@ -303,25 +303,59 @@ impl DatabaseManager {
     /// Create a new session
     pub fn create_session(&self, session: &Session) -> DatabaseResult<()> {
         self.with_connection(|conn| {
-            conn.execute(
-                "INSERT INTO sessions 
-                 (id, session_type, start_time, end_time, planned_duration, 
-                  actual_duration, strict_mode, completed, notes, created_at)
-                 VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8, ?9, ?10)",
-                params![
-                    session.id,
-                    session.session_type.to_string(),
-                    session.start_time,
-                    session.end_time,
-                    session.planned_duration,
-                    session.actual_duration,
-                    session.strict_mode,
-                    session.completed,
-                    session.notes,
-                    session.created_at,
-                ],
-            )
-            .map_err(DatabaseError::Sqlite)?;
+            // Check if new columns exist
+            let has_new_columns = self.check_columns_exist(
+                conn,
+                "sessions",
+                &["within_work_hours", "cycle_number", "is_long_break"],
+            )?;
+
+            if has_new_columns {
+                conn.execute(
+                    "INSERT INTO sessions 
+                     (id, session_type, start_time, end_time, planned_duration, 
+                      actual_duration, strict_mode, completed, notes, created_at,
+                      within_work_hours, cycle_number, is_long_break)
+                     VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8, ?9, ?10, ?11, ?12, ?13)",
+                    params![
+                        session.id,
+                        session.session_type.to_string(),
+                        session.start_time,
+                        session.end_time,
+                        session.planned_duration,
+                        session.actual_duration,
+                        session.strict_mode,
+                        session.completed,
+                        session.notes,
+                        session.created_at,
+                        session.within_work_hours,
+                        session.cycle_number,
+                        session.is_long_break,
+                    ],
+                )
+                .map_err(DatabaseError::Sqlite)?;
+            } else {
+                // Fallback for older database schema
+                conn.execute(
+                    "INSERT INTO sessions 
+                     (id, session_type, start_time, end_time, planned_duration, 
+                      actual_duration, strict_mode, completed, notes, created_at)
+                     VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8, ?9, ?10)",
+                    params![
+                        session.id,
+                        session.session_type.to_string(),
+                        session.start_time,
+                        session.end_time,
+                        session.planned_duration,
+                        session.actual_duration,
+                        session.strict_mode,
+                        session.completed,
+                        session.notes,
+                        session.created_at,
+                    ],
+                )
+                .map_err(DatabaseError::Sqlite)?;
+            }
 
             Ok(())
         })
@@ -330,25 +364,59 @@ impl DatabaseManager {
     /// Update an existing session
     pub fn update_session(&self, session: &Session) -> DatabaseResult<()> {
         self.with_connection(|conn| {
-            conn.execute(
-                "UPDATE sessions 
-                 SET session_type = ?2, start_time = ?3, end_time = ?4, 
-                     planned_duration = ?5, actual_duration = ?6, strict_mode = ?7, 
-                     completed = ?8, notes = ?9
-                 WHERE id = ?1",
-                params![
-                    session.id,
-                    session.session_type.to_string(),
-                    session.start_time,
-                    session.end_time,
-                    session.planned_duration,
-                    session.actual_duration,
-                    session.strict_mode,
-                    session.completed,
-                    session.notes,
-                ],
-            )
-            .map_err(DatabaseError::Sqlite)?;
+            // Check if new columns exist
+            let has_new_columns = self.check_columns_exist(
+                conn,
+                "sessions",
+                &["within_work_hours", "cycle_number", "is_long_break"],
+            )?;
+
+            if has_new_columns {
+                conn.execute(
+                    "UPDATE sessions 
+                     SET session_type = ?2, start_time = ?3, end_time = ?4, 
+                         planned_duration = ?5, actual_duration = ?6, strict_mode = ?7, 
+                         completed = ?8, notes = ?9, within_work_hours = ?10,
+                         cycle_number = ?11, is_long_break = ?12
+                     WHERE id = ?1",
+                    params![
+                        session.id,
+                        session.session_type.to_string(),
+                        session.start_time,
+                        session.end_time,
+                        session.planned_duration,
+                        session.actual_duration,
+                        session.strict_mode,
+                        session.completed,
+                        session.notes,
+                        session.within_work_hours,
+                        session.cycle_number,
+                        session.is_long_break,
+                    ],
+                )
+                .map_err(DatabaseError::Sqlite)?;
+            } else {
+                // Fallback for older database schema
+                conn.execute(
+                    "UPDATE sessions 
+                     SET session_type = ?2, start_time = ?3, end_time = ?4, 
+                         planned_duration = ?5, actual_duration = ?6, strict_mode = ?7, 
+                         completed = ?8, notes = ?9
+                     WHERE id = ?1",
+                    params![
+                        session.id,
+                        session.session_type.to_string(),
+                        session.start_time,
+                        session.end_time,
+                        session.planned_duration,
+                        session.actual_duration,
+                        session.strict_mode,
+                        session.completed,
+                        session.notes,
+                    ],
+                )
+                .map_err(DatabaseError::Sqlite)?;
+            }
 
             Ok(())
         })
@@ -441,6 +509,39 @@ impl DatabaseManager {
             let end_date = Utc::now();
             let start_date = end_date - Duration::days(days as i64);
 
+            println!("📊 [Database] Querying stats from {} to {}", start_date, end_date);
+
+            // First, let's check what sessions exist
+            let mut check_stmt = conn.prepare(
+                "SELECT id, session_type, completed, actual_duration, start_time 
+                 FROM sessions 
+                 WHERE start_time >= ?1 AND start_time <= ?2
+                 ORDER BY start_time DESC"
+            ).map_err(DatabaseError::Sqlite)?;
+            
+            let session_check = check_stmt.query_map([start_date, end_date], |row| {
+                Ok((
+                    row.get::<_, String>(0)?,
+                    row.get::<_, String>(1)?,
+                    row.get::<_, bool>(2)?,
+                    row.get::<_, Option<i32>>(3)?,
+                    row.get::<_, String>(4)?,
+                ))
+            }).map_err(DatabaseError::Sqlite)?;
+            
+            let mut session_count = 0;
+            for session in session_check {
+                match session {
+                    Ok((id, session_type, completed, actual_duration, start_time)) => {
+                        session_count += 1;
+                        println!("📊 [Database] Session: id={}, type={}, completed={}, duration={:?}, start={}", 
+                            id, session_type, completed, actual_duration, start_time);
+                    }
+                    Err(e) => eprintln!("❌ [Database] Error reading session: {}", e),
+                }
+            }
+            println!("📊 [Database] Total sessions found: {}", session_count);
+
             let mut stmt = conn
                 .prepare(
                     "SELECT 
@@ -483,7 +584,10 @@ impl DatabaseManager {
 
             let mut stats = Vec::new();
             for stat in stats_iter {
-                stats.push(stat.map_err(DatabaseError::Sqlite)?);
+                let stat_result = stat.map_err(DatabaseError::Sqlite)?;
+                println!("📊 [Database] Calculated stat: date={}, focus_minutes={}, breaks={}, sessions={}", 
+                    stat_result.date, stat_result.focus_minutes, stat_result.breaks_completed, stat_result.sessions_completed);
+                stats.push(stat_result);
             }
 
             Ok(stats)

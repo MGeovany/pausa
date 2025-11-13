@@ -98,49 +98,37 @@ export default function Stats() {
   const aggregates = useMemo(() => {
     if (stats.length === 0) {
       return {
-        totalFocusMinutes: 0,
-        totalBreaks: 0,
         totalSessions: 0,
-        averageFocus: 0,
         bestDay: null as SessionStats | null,
         focusTrend: 0,
       };
     }
 
-    const totalFocusMinutes = stats.reduce(
-      (sum, day) => sum + day.focus_minutes,
-      0
-    );
-    const totalBreaks = stats.reduce(
-      (sum, day) => sum + day.breaks_completed,
-      0
-    );
     const totalSessions = stats.reduce(
-      (sum, day) => sum + day.sessions_completed,
+      (sum, day) => sum + (day.sessions_completed || 0),
       0
     );
-    const averageFocus = Math.round(totalFocusMinutes / stats.length);
-    const bestDay = stats.reduce((best, current) =>
-      !best || current.focus_minutes > best.focus_minutes ? current : best
-    );
+    
+    const bestDay = stats.reduce((best, current) => {
+      if (!best) return current;
+      if (!current) return best;
+      return (current.focus_minutes || 0) > (best.focus_minutes || 0) ? current : best;
+    }, null as SessionStats | null);
 
     const half = Math.ceil(stats.length / 2);
     const firstHalf = stats
       .slice(0, half)
-      .reduce((sum, day) => sum + day.focus_minutes, 0);
+      .reduce((sum, day) => sum + (day.sessions_completed || 0), 0);
     const secondHalf = stats
       .slice(half)
-      .reduce((sum, day) => sum + day.focus_minutes, 0);
+      .reduce((sum, day) => sum + (day.sessions_completed || 0), 0);
     const focusTrend =
       firstHalf === 0
-        ? secondHalf
+        ? (secondHalf > 0 ? 100 : 0)
         : Math.round(((secondHalf - firstHalf) / firstHalf) * 100);
 
     return {
-      totalFocusMinutes,
-      totalBreaks,
       totalSessions,
-      averageFocus,
       bestDay,
       focusTrend,
     };
@@ -275,37 +263,29 @@ export default function Stats() {
               </div>
             </header>
 
-            <section className="mt-8 grid gap-4 md:grid-cols-2 xl:grid-cols-4">
-              <StatCard
-                icon={<TrendingUp className="h-5 w-5" />}
-                label="Total focus minutes"
-                value={`${aggregates.totalFocusMinutes} min`}
-                helper={`Daily average ${aggregates.averageFocus} min`}
-              />
+            <section className="mt-8 grid gap-4 md:grid-cols-2">
               <StatCard
                 icon={<Flame className="h-5 w-5" />}
                 label="Sessions completed"
-                value={aggregates.totalSessions.toString()}
+                value={isNaN(aggregates.totalSessions) ? "0" : aggregates.totalSessions.toString()}
                 helper={
-                  aggregates.focusTrend >= 0
+                  aggregates.focusTrend >= 0 && !isNaN(aggregates.focusTrend)
                     ? `▲ ${aggregates.focusTrend}% vs previous period`
-                    : `▼ ${Math.abs(aggregates.focusTrend)}% vs previous period`
+                    : aggregates.focusTrend < 0 && !isNaN(aggregates.focusTrend)
+                    ? `▼ ${Math.abs(aggregates.focusTrend)}% vs previous period`
+                    : "No comparison available"
                 }
                 helperTone={
-                  aggregates.focusTrend >= 0 ? "positive" : "negative"
+                  aggregates.focusTrend >= 0 && !isNaN(aggregates.focusTrend) ? "positive" : 
+                  aggregates.focusTrend < 0 && !isNaN(aggregates.focusTrend) ? "negative" : 
+                  undefined
                 }
-              />
-              <StatCard
-                icon={<Coffee className="h-5 w-5" />}
-                label="Breaks completed"
-                value={aggregates.totalBreaks.toString()}
-                helper="Includes short and long breaks"
               />
               <StatCard
                 icon={<BarChart className="h-5 w-5" />}
                 label="Best day"
                 value={
-                  aggregates.bestDay
+                  aggregates.bestDay && aggregates.bestDay.focus_minutes > 0
                     ? new Date(aggregates.bestDay.date).toLocaleDateString(
                         undefined,
                         {
@@ -317,7 +297,7 @@ export default function Stats() {
                     : "No data"
                 }
                 helper={
-                  aggregates.bestDay
+                  aggregates.bestDay && aggregates.bestDay.focus_minutes > 0
                     ? `${aggregates.bestDay.focus_minutes} focus minutes`
                     : "Start a session to populate this insight"
                 }
@@ -365,33 +345,84 @@ export default function Stats() {
               </div>
 
               <div className="rounded-2xl border border-gray-800 bg-gray-900/60 p-6">
-                <h2 className="text-lg font-semibold text-white">Energy map</h2>
-                <p className="text-xs text-gray-500">
-                  Each block is a day; darker colors mean more focus minutes.
+                <h2 className="text-lg font-semibold text-white mb-1">Energy map</h2>
+                <p className="text-xs text-gray-500 mb-4">
+                  Contribution calendar style - darker colors mean more focus time.
                 </p>
-                <div className="mt-6 grid grid-cols-7 gap-2">
-                  {stats.map((day) => (
-                    <div
-                      key={`heat-${day.date}`}
-                      className={`h-10 rounded-xl transition-all ${heatLevels(
-                        day.focus_minutes
-                      )}`}
-                      title={`${new Date(day.date).toLocaleDateString(
-                        undefined,
-                        {
-                          weekday: "long",
-                          day: "numeric",
-                          month: "short",
-                        }
-                      )} • ${day.focus_minutes} focus minutes`}
-                    />
-                  ))}
-                  {stats.length === 0 && (
-                    <div className="col-span-7 flex h-32 items-center justify-center text-sm text-gray-500">
-                      Run a few cycles to generate your energy map.
+                {/* GitHub-style contribution calendar */}
+                <div className="mt-4 overflow-x-auto">
+                  <div className="inline-block min-w-full">
+                    {/* Weekday labels */}
+                    <div className="grid grid-cols-7 gap-2 mb-3">
+                      {['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'].map((day) => (
+                        <div key={day} className="text-xs text-gray-400 text-center font-medium">
+                          {day}
+                        </div>
+                      ))}
                     </div>
-                  )}
+                    {/* Calendar grid - show last 7 weeks (49 days) */}
+                    <div className="grid grid-cols-7 gap-2 auto-rows-fr">
+                      {(() => {
+                        const today = new Date();
+                        const days: Array<{ date: Date; minutes: number }> = [];
+                        
+                        // Generate last 49 days (7 weeks)
+                        for (let i = 48; i >= 0; i--) {
+                          const date = new Date(today);
+                          date.setDate(date.getDate() - i);
+                          const dateStr = date.toISOString().split('T')[0];
+                          const stat = stats.find(s => s.date === dateStr);
+                          days.push({
+                            date,
+                            minutes: stat?.focus_minutes || 0
+                          });
+                        }
+                        
+                        return days.map((day, idx) => {
+                          const intensity = day.minutes === 0 ? 0 :
+                            day.minutes < 15 ? 1 :
+                            day.minutes < 30 ? 2 :
+                            day.minutes < 60 ? 3 : 4;
+                          
+                          const bgColor = intensity === 0 ? 'bg-gray-800/60 border-gray-800' :
+                            intensity === 1 ? 'bg-green-900/80 border-green-800' :
+                            intensity === 2 ? 'bg-green-800/80 border-green-700' :
+                            intensity === 3 ? 'bg-green-600/90 border-green-600' :
+                            'bg-green-500 border-green-500';
+                          
+                          return (
+                            <div
+                              key={idx}
+                              className={`h-4 w-full rounded ${bgColor} border transition-all hover:border-gray-500 hover:scale-105 cursor-pointer`}
+                              title={`${day.date.toLocaleDateString(undefined, {
+                                weekday: "long",
+                                day: "numeric",
+                                month: "short",
+                              })} • ${day.minutes} focus minutes`}
+                            />
+                          );
+                        });
+                      })()}
+                    </div>
+                    {/* Legend */}
+                    <div className="flex items-center justify-end gap-2 mt-4 text-xs">
+                      <span className="text-gray-500">Less</span>
+                      <div className="flex gap-1">
+                        <div className="h-4 w-4 rounded bg-gray-800/60 border border-gray-800" />
+                        <div className="h-4 w-4 rounded bg-green-900/80 border border-green-800" />
+                        <div className="h-4 w-4 rounded bg-green-800/80 border border-green-700" />
+                        <div className="h-4 w-4 rounded bg-green-600/90 border border-green-600" />
+                        <div className="h-4 w-4 rounded bg-green-500 border border-green-500" />
+                      </div>
+                      <span className="text-gray-200">More</span>
+                    </div>
+                  </div>
                 </div>
+                {stats.length === 0 && (
+                  <div className="mt-6 flex h-32 items-center justify-center text-sm text-gray-500">
+                    Run a few cycles to generate your energy map.
+                  </div>
+                )}
               </div>
             </section>
 
@@ -419,40 +450,70 @@ export default function Stats() {
                         Date
                       </th>
                       <th className="px-4 py-3 text-left font-medium text-gray-400">
-                        Focus minutes
-                      </th>
-                      <th className="px-4 py-3 text-left font-medium text-gray-400">
-                        Breaks
+                        Focus Time
                       </th>
                       <th className="px-4 py-3 text-left font-medium text-gray-400">
                         Sessions
                       </th>
                       <th className="px-4 py-3 text-left font-medium text-gray-400">
-                        Evasion attempts
+                        Avg Session
+                      </th>
+                      <th className="px-4 py-3 text-left font-medium text-gray-400">
+                        Completion Rate
                       </th>
                     </tr>
                   </thead>
                   <tbody className="divide-y divide-gray-900">
-                    {stats.map((day) => (
-                      <tr
-                        key={`row-${day.date}`}
-                        className="hover:bg-gray-900/70"
-                      >
-                        <td className="px-4 py-3 font-medium text-white">
-                          {new Date(day.date).toLocaleDateString(undefined, {
-                            weekday: "short",
-                            day: "numeric",
-                            month: "short",
-                          })}
-                        </td>
-                        <td className="px-4 py-3">{day.focus_minutes} min</td>
-                        <td className="px-4 py-3">{day.breaks_completed}</td>
-                        <td className="px-4 py-3">{day.sessions_completed}</td>
-                        <td className="px-4 py-3">
-                          {day.evasion_attempts ?? 0}
-                        </td>
-                      </tr>
-                    ))}
+                    {stats.map((day) => {
+                      const avgSession = day.sessions_completed > 0 
+                        ? Math.round(day.focus_minutes / day.sessions_completed)
+                        : 0;
+                      const completionRate = day.sessions_completed > 0
+                        ? Math.round((day.sessions_completed / (day.sessions_completed + (day.evasion_attempts || 0))) * 100)
+                        : 100;
+                      
+                      return (
+                        <tr
+                          key={`row-${day.date}`}
+                          className="hover:bg-gray-900/70"
+                        >
+                          <td className="px-4 py-3 font-medium text-white">
+                            {new Date(day.date).toLocaleDateString(undefined, {
+                              weekday: "short",
+                              day: "numeric",
+                              month: "short",
+                            })}
+                          </td>
+                          <td className="px-4 py-3">
+                            <span className="font-semibold">{day.focus_minutes}</span>
+                            <span className="text-gray-500 ml-1">min</span>
+                          </td>
+                          <td className="px-4 py-3">
+                            <span className="font-semibold">{day.sessions_completed}</span>
+                            <span className="text-gray-500 ml-1">sessions</span>
+                          </td>
+                          <td className="px-4 py-3">
+                            {avgSession > 0 ? (
+                              <>
+                                <span className="font-semibold">{avgSession}</span>
+                                <span className="text-gray-500 ml-1">min/session</span>
+                              </>
+                            ) : (
+                              <span className="text-gray-500">-</span>
+                            )}
+                          </td>
+                          <td className="px-4 py-3">
+                            <span className={`font-semibold ${
+                              completionRate >= 90 ? 'text-green-400' :
+                              completionRate >= 70 ? 'text-yellow-400' :
+                              'text-red-400'
+                            }`}>
+                              {completionRate}%
+                            </span>
+                          </td>
+                        </tr>
+                      );
+                    })}
                     {stats.length === 0 && (
                       <tr>
                         <td
