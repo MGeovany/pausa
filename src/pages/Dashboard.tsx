@@ -480,15 +480,15 @@ export default function Dashboard() {
 
                             const NowIcon =
                               nowType === "focus" ? (
-                                <Target className="w-3 h-3" />
+                                <Target className="w-3 h-3 sm:w-3.5 sm:h-3.5" />
                               ) : (
-                                <Coffee className="w-3 h-3" />
+                                <Coffee className="w-3 h-3 sm:w-3.5 sm:h-3.5" />
                               );
                             const NextIcon =
                               nextType === "focus" ? (
-                                <Target className="w-3 h-3" />
+                                <Target className="w-3 h-3 sm:w-3.5 sm:h-3.5" />
                               ) : (
-                                <Coffee className="w-3 h-3" />
+                                <Coffee className="w-3 h-3 sm:w-3.5 sm:h-3.5" />
                               );
 
                             const stepDisplay = Math.min(
@@ -497,37 +497,44 @@ export default function Dashboard() {
                             );
 
                             return (
-                              <div className="flex flex-wrap items-center gap-2 mb-3">
-                                {nowType && (
-                                  <span
-                                    className={`inline-flex items-center gap-1.5 rounded-full border px-2.5 py-1 text-xs ${pillFor(
-                                      nowType
-                                    )}`}
-                                  >
-                                    {NowIcon}
-                                    Now: {labelFor(nowType)}
-                                  </span>
-                                )}
-                                <span className="text-gray-600 text-xs">→</span>
-                                {nextType ? (
-                                  <span
-                                    className={`inline-flex items-center gap-1.5 rounded-full border px-2.5 py-1 text-xs ${pillFor(
-                                      nextType
-                                    )}`}
-                                    title={`${minutesFor(nextType)} minutes`}
-                                  >
-                                    {NextIcon}
-                                    Next: {labelFor(nextType)}
-                                    <span className="ml-1 text-[11px] text-gray-400">
-                                      ({minutesFor(nextType)}m)
+                              <div className="flex flex-col sm:flex-row sm:flex-wrap items-start sm:items-center gap-2 sm:gap-2 mb-3">
+                                <div className="flex flex-wrap items-center gap-2">
+                                  {nowType && (
+                                    <span
+                                      className={`inline-flex items-center gap-1.5 rounded-full border px-2.5 py-1 text-xs sm:text-sm ${pillFor(
+                                        nowType
+                                      )}`}
+                                    >
+                                      {NowIcon}
+                                      <span className="hidden sm:inline">
+                                        Now:{" "}
+                                      </span>
+                                      {labelFor(nowType)}
                                     </span>
-                                  </span>
-                                ) : (
-                                  <span className="text-xs text-gray-500">
-                                    No more steps
-                                  </span>
-                                )}
-                                <span className="ml-auto text-[11px] text-gray-500">
+                                  )}
+                                  {nextType ? (
+                                    <span
+                                      className={`inline-flex items-center gap-1.5 rounded-full border px-2.5 py-1 text-xs sm:text-sm ${pillFor(
+                                        nextType
+                                      )}`}
+                                      title={`${minutesFor(nextType)} minutes`}
+                                    >
+                                      {NextIcon}
+                                      <span className="hidden sm:inline">
+                                        Next:{" "}
+                                      </span>
+                                      {labelFor(nextType)}
+                                      <span className="ml-1 text-[10px] sm:text-[11px] text-gray-400">
+                                        ({minutesFor(nextType)}m)
+                                      </span>
+                                    </span>
+                                  ) : (
+                                    <span className="text-xs sm:text-sm text-gray-500">
+                                      No more steps
+                                    </span>
+                                  )}
+                                </div>
+                                <span className="text-[10px] sm:text-[11px] text-gray-500 sm:ml-auto">
                                   Step {stepDisplay} of {steps.length}
                                 </span>
                               </div>
@@ -535,14 +542,14 @@ export default function Dashboard() {
                           })()}
 
                           <div className="mb-4">
-                            <div className="flex items-center justify-between mb-2">
-                              <span className="text-sm font-semibold text-white">
+                            <div className="flex items-center justify-between mb-2 flex-wrap gap-2">
+                              <span className="text-sm sm:text-base font-semibold text-white">
                                 Cycle {cycleInGroup} of {cyclesPerLongBreak}
                               </span>
                             </div>
 
                             {/* Visual steps progress */}
-                            <div className="overflow-x-auto -mx-2 px-2 pb-2">
+                            <div className="overflow-x-auto pb-1 [scrollbar-width:none] [-ms-overflow-style:none] [&::-webkit-scrollbar]:hidden">
                               <div className="flex items-center gap-1.5 mb-3 min-w-max">
                                 {steps.map((step, idx) => {
                                   const isCurrent = idx === currentStepIndex;
@@ -612,10 +619,12 @@ export default function Dashboard() {
                             </div>
 
                             {/* Current step label */}
-                            <div className="text-xs text-gray-400 text-center">
+                            <div className="text-xs sm:text-sm text-gray-400 text-center sm:text-left">
                               {currentStepIndex < steps.length ? (
                                 <>
-                                  Current:{" "}
+                                  <span className="hidden sm:inline">
+                                    Current:{" "}
+                                  </span>
                                   <span className="text-white font-semibold">
                                     {steps[currentStepIndex].type === "focus"
                                       ? "Focus Session"
@@ -627,15 +636,23 @@ export default function Dashboard() {
                                 </>
                               ) : (
                                 <span className="text-green-400 font-semibold">
-                                  Cycle Complete!
+                                  Día productivo finalizado
                                 </span>
                               )}
                             </div>
                           </div>
 
-                          {isReadyForLongBreak && (
+                          {isReadyForLongBreak && cycleState?.phase !== "idle" && (
                             <div className="mt-2 text-xs text-amber-400 font-semibold text-center">
                               ⭐ Ready for long break!
+                            </div>
+                          )}
+                          
+                          {cycleState?.phase === "idle" && 
+                           cyclesCompleted > 0 && 
+                           cyclesCompleted % cyclesPerLongBreak === 0 && (
+                            <div className="mt-2 text-xs sm:text-sm text-green-400 font-semibold text-center">
+                              🎉 Día productivo finalizado
                             </div>
                           )}
                         </>

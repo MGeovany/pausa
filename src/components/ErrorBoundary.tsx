@@ -73,28 +73,28 @@ export class ErrorBoundary extends Component<Props, State> {
 
       return (
         <div className="min-h-screen bg-gray-900 flex items-center justify-center p-4">
-          <div className="bg-gray-800 border border-red-500/30 rounded-xl p-8 max-w-2xl w-full animate-scale-in">
-            <div className="flex items-start space-x-4">
+          <div className="bg-gray-800 border border-red-500/30 rounded-xl p-4 sm:p-6 md:p-8 max-w-2xl w-full animate-scale-in">
+            <div className="flex flex-col sm:flex-row items-start gap-4">
               <div className="flex-shrink-0">
-                <AlertCircle className="w-8 h-8 text-red-400" />
+                <AlertCircle className="w-6 h-6 sm:w-8 sm:h-8 text-red-400" />
               </div>
-              <div className="flex-1">
-                <h2 className="text-2xl font-semibold text-white mb-2">
+              <div className="flex-1 min-w-0">
+                <h2 className="text-xl sm:text-2xl font-semibold text-white mb-2">
                   Something went wrong
                 </h2>
-                <p className="text-gray-300 mb-4">{strategy.userMessage}</p>
+                <p className="text-sm sm:text-base text-gray-300 mb-4">{strategy.userMessage}</p>
 
                 {/* Error details (collapsible) */}
-                <details className="mb-6">
-                  <summary className="cursor-pointer text-sm text-gray-400 hover:text-gray-300 mb-2">
+                <details className="mb-4 sm:mb-6">
+                  <summary className="cursor-pointer text-xs sm:text-sm text-gray-400 hover:text-gray-300 mb-2">
                     Technical Details
                   </summary>
-                  <div className="bg-gray-900 rounded-lg p-4 text-sm font-mono text-gray-400 overflow-auto max-h-48">
-                    <p className="mb-2">
+                  <div className="bg-gray-900 rounded-lg p-3 sm:p-4 text-xs sm:text-sm font-mono text-gray-400 overflow-auto max-h-48">
+                    <p className="mb-2 break-words">
                       <strong>Error:</strong> {this.state.error?.message}
                     </p>
                     {this.state.error?.stack && (
-                      <pre className="text-xs whitespace-pre-wrap">
+                      <pre className="text-[10px] sm:text-xs whitespace-pre-wrap break-words">
                         {this.state.error.stack}
                       </pre>
                     )}
@@ -103,24 +103,24 @@ export class ErrorBoundary extends Component<Props, State> {
 
                 {/* Suggested actions */}
                 {strategy.suggestedActions.length > 0 && (
-                  <div className="mb-6">
-                    <h3 className="text-sm font-semibold text-gray-300 mb-2">
+                  <div className="mb-4 sm:mb-6">
+                    <h3 className="text-xs sm:text-sm font-semibold text-gray-300 mb-2">
                       What you can do:
                     </h3>
-                    <ul className="list-disc list-inside space-y-1 text-sm text-gray-400">
+                    <ul className="list-disc list-inside space-y-1 text-xs sm:text-sm text-gray-400">
                       {strategy.suggestedActions.map((action, index) => (
-                        <li key={index}>{action}</li>
+                        <li key={index} className="break-words">{action}</li>
                       ))}
                     </ul>
                   </div>
                 )}
 
                 {/* Action buttons */}
-                <div className="flex space-x-3">
+                <div className="flex flex-col sm:flex-row gap-2 sm:gap-3 sm:space-x-3">
                   {strategy.canRecover && (
                     <button
                       onClick={this.handleReset}
-                      className="flex items-center space-x-2 px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white font-medium rounded-lg transition-colors"
+                      className="flex items-center justify-center space-x-2 px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white text-sm sm:text-base font-medium rounded-lg transition-colors w-full sm:w-auto"
                     >
                       <RefreshCw className="w-4 h-4" />
                       <span>Try Again</span>
@@ -128,7 +128,7 @@ export class ErrorBoundary extends Component<Props, State> {
                   )}
                   <button
                     onClick={this.handleReload}
-                    className="flex items-center space-x-2 px-4 py-2 bg-gray-700 hover:bg-gray-600 text-white font-medium rounded-lg transition-colors"
+                    className="flex items-center justify-center space-x-2 px-4 py-2 bg-gray-700 hover:bg-gray-600 text-white text-sm sm:text-base font-medium rounded-lg transition-colors w-full sm:w-auto"
                   >
                     <RefreshCw className="w-4 h-4" />
                     <span>Reload App</span>

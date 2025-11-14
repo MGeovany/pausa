@@ -55,7 +55,7 @@ export function Settings({ onClose }: SettingsProps) {
       if (event.repeat) return;
 
       const pressedKeys = pressedKeysRef.current;
-      
+
       // Add modifier keys to the set
       if (event.metaKey && !pressedKeys.has("⌘")) {
         pressedKeys.add("⌘");
@@ -394,7 +394,27 @@ export function Settings({ onClose }: SettingsProps) {
             <span className="toggle-thumb"></span>
           </button>
         </div>
-
+        {localSettings.strictMode && localSettings.emergencyKeyCombination && (
+          <div className="mt-6 rounded-xl border border-gray-800 bg-gray-950/60 p-4">
+            <h3 className="text-sm font-semibold text-white mb-2">
+              Emergency Key Combination
+            </h3>
+            <div className="flex items-center justify-between">
+              <p className="text-sm text-gray-300">
+                {localSettings.emergencyKeyCombination}
+              </p>
+              <button
+                onClick={() => {
+                  setEmergencyKey(localSettings.emergencyKeyCombination || "");
+                  setShowEmergencyKeyModal(true);
+                }}
+                className="text-xs text-blue-400 hover:text-blue-300 transition-colors"
+              >
+                Change
+              </button>
+            </div>
+          </div>
+        )}
         <div className="mt-6 rounded-xl border border-gray-800 bg-gray-950/60 p-4">
           <h3 className="text-sm font-semibold text-white">Pre-alert</h3>
           <p className="text-xs text-gray-500">
@@ -419,28 +439,6 @@ export function Settings({ onClose }: SettingsProps) {
             </span>
           </div>
         </div>
-
-        {localSettings.strictMode && localSettings.emergencyKeyCombination && (
-          <div className="mt-6 rounded-xl border border-gray-800 bg-gray-950/60 p-4">
-            <h3 className="text-sm font-semibold text-white mb-2">
-              Emergency Key Combination
-            </h3>
-            <div className="flex items-center justify-between">
-              <p className="text-sm text-gray-300">
-                {localSettings.emergencyKeyCombination}
-              </p>
-              <button
-                onClick={() => {
-                  setEmergencyKey(localSettings.emergencyKeyCombination || "");
-                  setShowEmergencyKeyModal(true);
-                }}
-                className="text-xs text-blue-400 hover:text-blue-300 transition-colors"
-              >
-                Change
-              </button>
-            </div>
-          </div>
-        )}
       </section>
 
       {/* Emergency Key Combination Modal */}
@@ -460,8 +458,9 @@ export function Settings({ onClose }: SettingsProps) {
             </div>
 
             <p className="text-gray-300 mb-6 text-sm">
-              Configure a key combination to exit strict mode in case of emergency.
-              This combination will be required to unlock the screen during focus sessions.
+              Configure a key combination to exit strict mode in case of
+              emergency. This combination will be required to unlock the screen
+              during focus sessions.
             </p>
 
             <div className="space-y-4">
@@ -521,7 +520,8 @@ export function Settings({ onClose }: SettingsProps) {
               {!emergencyKey && (
                 <div className="bg-red-900/20 border border-red-700/50 rounded-lg p-4">
                   <p className="text-red-200 text-sm">
-                    ⚠️ Emergency key combination is required when strict mode is enabled.
+                    ⚠️ Emergency key combination is required when strict mode is
+                    enabled.
                   </p>
                 </div>
               )}

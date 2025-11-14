@@ -38,6 +38,7 @@ export default function Stats() {
   const [lastUpdated, setLastUpdated] = useState<string | null>(null);
   const [userInfo, setUserInfo] = useState<UserInfo | null>(null);
   const [avatarError, setAvatarError] = useState(false);
+  const [useDemo, setUseDemo] = useState(false);
 
   useEffect(() => {
     const fetchUserInfo = async () => {
@@ -72,10 +73,41 @@ export default function Stats() {
     return userInfo.name.trim().charAt(0).toUpperCase();
   }, [userInfo?.name]);
 
+  // Generate deterministic demo data for the last `range` days
+  const makeDemoStats = (days: number): SessionStats[] => {
+    const today = new Date();
+    const demo: any[] = [];
+    for (let i = days - 1; i >= 0; i--) {
+      const d = new Date(today);
+      d.setDate(d.getDate() - i);
+      const dateStr = d.toISOString().split("T")[0];
+      // Pattern: higher mid‑week, lower weekends
+      const dow = d.getDay(); // 0 Sun ... 6 Sat
+      const base = [20, 35, 45, 55, 50, 30, 15][dow]; // minutes
+      const noise = (i * 7 + dow) % 8; // deterministic small variation
+      const focus = Math.max(0, base + noise);
+      const sessions = Math.max(1, Math.round(focus / 25));
+      const breaks = Math.max(1, sessions); // 1 break per session
+      demo.push({
+        date: dateStr,
+        focus_minutes: focus,
+        breaks_completed: breaks,
+        sessions_completed: sessions,
+        evasion_attempts: 0,
+      });
+    }
+    return demo as unknown as SessionStats[];
+  };
+
   useEffect(() => {
     const loadStats = async () => {
       setIsLoading(true);
       try {
+        if (useDemo) {
+          setStats(makeDemoStats(range));
+          setLastUpdated(new Date().toISOString());
+          return;
+        }
         const data = await tauriCommands.getSessionStats(range);
         setStats(data);
         setLastUpdated(new Date().toISOString());
@@ -93,7 +125,7 @@ export default function Stats() {
     };
 
     loadStats();
-  }, [range]);
+  }, [range, useDemo]);
 
   const aggregates = useMemo(() => {
     if (stats.length === 0) {
@@ -108,11 +140,13 @@ export default function Stats() {
       (sum, day) => sum + (day.sessions_completed || 0),
       0
     );
-    
+
     const bestDay = stats.reduce((best, current) => {
       if (!best) return current;
       if (!current) return best;
-      return (current.focus_minutes || 0) > (best.focus_minutes || 0) ? current : best;
+      return (current.focus_minutes || 0) > (best.focus_minutes || 0)
+        ? current
+        : best;
     }, null as SessionStats | null);
 
     const half = Math.ceil(stats.length / 2);
@@ -124,7 +158,9 @@ export default function Stats() {
       .reduce((sum, day) => sum + (day.sessions_completed || 0), 0);
     const focusTrend =
       firstHalf === 0
-        ? (secondHalf > 0 ? 100 : 0)
+        ? secondHalf > 0
+          ? 100
+          : 0
         : Math.round(((secondHalf - firstHalf) / firstHalf) * 100);
 
     return {
@@ -134,10 +170,29 @@ export default function Stats() {
     };
   }, [stats]);
 
-  const maxFocusMinutes = useMemo(
-    () => Math.max(...stats.map((day) => day.focus_minutes), 1),
-    [stats]
-  );
+  // Build a continuous time series for the last `range` days,
+  // filling missing days with 0 minutes so the chart always shows all days.
+  const daysSeries = useMemo(() => {
+    const today = new Date();
+    const out: Array<{ date: string; focus_minutes: number }> = [];
+    for (let i = range - 1; i >= 0; i--) {
+      const d = new Date(today);
+      d.setDate(d.getDate() - i);
+      const dateStr = d.toISOString().split("T")[0];
+      const stat = stats.find((s) => s.date === dateStr);
+      out.push({
+        date: dateStr,
+        focus_minutes: stat?.focus_minutes ?? 0,
+      });
+    }
+    return out;
+  }, [stats, range]);
+
+  const maxFocusMinutes = useMemo(() => {
+    const values = daysSeries.map((d) => d.focus_minutes);
+    const max = values.length > 0 ? Math.max(...values) : 0;
+    return Math.max(max, 1);
+  }, [daysSeries]);
 
   const heatLevels = (minutes: number) => {
     if (minutes === 0) return "bg-gray-800/40 border border-gray-800";
@@ -251,6 +306,18 @@ export default function Stats() {
                   ))}
                 </div>
                 <button
+                  onClick={() => setUseDemo((prev) => !prev)}
+                  disabled={isLoading}
+                  className={`inline-flex items-center gap-2 rounded-xl border px-4 py-2 text-sm transition-colors ${
+                    useDemo
+                      ? "border-amber-500/40 bg-amber-500/10 text-amber-300 hover:bg-amber-500/20"
+                      : "border-gray-800 bg-gray-900/60 text-gray-300 hover:text-white hover:bg-gray-900"
+                  } disabled:opacity-50`}
+                  title={useDemo ? "Using demo data" : "Load demo data"}
+                >
+                  {useDemo ? "Demo on" : "Demo data"}
+                </button>
+                <button
                   onClick={() => setRange((prev) => prev)} // retrigger load
                   disabled={isLoading}
                   className="inline-flex items-center gap-2 rounded-xl border border-gray-800 bg-gray-900/60 px-4 py-2 text-sm text-gray-300 hover:text-white hover:bg-gray-900 transition-colors disabled:opacity-50"
@@ -267,7 +334,11 @@ export default function Stats() {
               <StatCard
                 icon={<Flame className="h-5 w-5" />}
                 label="Sessions completed"
-                value={isNaN(aggregates.totalSessions) ? "0" : aggregates.totalSessions.toString()}
+                value={
+                  isNaN(aggregates.totalSessions)
+                    ? "0"
+                    : aggregates.totalSessions.toString()
+                }
                 helper={
                   aggregates.focusTrend >= 0 && !isNaN(aggregates.focusTrend)
                     ? `▲ ${aggregates.focusTrend}% vs previous period`
@@ -276,9 +347,11 @@ export default function Stats() {
                     : "No comparison available"
                 }
                 helperTone={
-                  aggregates.focusTrend >= 0 && !isNaN(aggregates.focusTrend) ? "positive" : 
-                  aggregates.focusTrend < 0 && !isNaN(aggregates.focusTrend) ? "negative" : 
-                  undefined
+                  aggregates.focusTrend >= 0 && !isNaN(aggregates.focusTrend)
+                    ? "positive"
+                    : aggregates.focusTrend < 0 && !isNaN(aggregates.focusTrend)
+                    ? "negative"
+                    : undefined
                 }
               />
               <StatCard
@@ -304,8 +377,8 @@ export default function Stats() {
               />
             </section>
 
-            <section className="mt-10 grid gap-6 lg:grid-cols-3">
-              <div className="lg:col-span-2 rounded-2xl border border-gray-800 bg-gray-900/60 p-6">
+            <section className="mt-10 grid gap-6 lg:grid-cols-3 min-w-0">
+              <div className="lg:col-span-2 rounded-2xl border border-gray-800 bg-gray-900/60 p-6 min-w-0">
                 <div className="flex items-center justify-between">
                   <h2 className="text-lg font-semibold text-white">
                     Focus pace (last {range} days)
@@ -315,7 +388,7 @@ export default function Stats() {
                   </span>
                 </div>
                 <div className="mt-6 flex items-end gap-3 overflow-x-auto pb-3">
-                  {stats.map((day) => {
+                  {daysSeries.map((day) => {
                     const barHeight = Math.max(
                       6,
                       Math.round((day.focus_minutes / maxFocusMinutes) * 180)
@@ -336,7 +409,7 @@ export default function Stats() {
                       </div>
                     );
                   })}
-                  {stats.length === 0 && (
+                  {daysSeries.every((d) => d.focus_minutes === 0) && (
                     <div className="flex h-40 w-full items-center justify-center text-sm text-gray-500">
                       No sessions recorded yet.
                     </div>
@@ -344,85 +417,155 @@ export default function Stats() {
                 </div>
               </div>
 
-              <div className="rounded-2xl border border-gray-800 bg-gray-900/60 p-6">
-                <h2 className="text-lg font-semibold text-white mb-1">Energy map</h2>
+              <div className="rounded-2xl border border-gray-800 bg-gray-900/60 p-6 min-w-0">
+                <h2 className="text-lg font-semibold text-white mb-1">
+                  Energy map
+                </h2>
                 <p className="text-xs text-gray-500 mb-4">
-                  Contribution calendar style - darker colors mean more focus time.
+                  GitHub-style monthly calendar — darker colors mean more focus
+                  time.
                 </p>
-                {/* GitHub-style contribution calendar */}
-                <div className="mt-4 overflow-x-auto">
-                  <div className="inline-block min-w-full">
-                    {/* Weekday labels */}
-                    <div className="grid grid-cols-7 gap-2 mb-3">
-                      {['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'].map((day) => (
-                        <div key={day} className="text-xs text-gray-400 text-center font-medium">
-                          {day}
+                {/* GitHub-style monthly contribution calendar (last 12 months) */}
+                <div className="mt-4 overflow-x-auto w-full [scrollbar-width:thin] [scrollbar-color:rgb(75,85,99)_rgb(31,41,55)] [-ms-overflow-style:none] [&::-webkit-scrollbar]:h-2 [&::-webkit-scrollbar-track]:bg-gray-800/50 [&::-webkit-scrollbar-track]:rounded-full [&::-webkit-scrollbar-thumb]:bg-gray-600 [&::-webkit-scrollbar-thumb]:rounded-full [&::-webkit-scrollbar-thumb]:hover:bg-gray-500">
+                  {(() => {
+                    // Build continuous day series for last 365 days using energyStats (or demo)
+                    const end = new Date();
+                    const start = new Date(end);
+                    start.setDate(end.getDate() - 364);
+                    // align start to Sunday to begin weeks properly
+                    while (start.getDay() !== 0) {
+                      start.setDate(start.getDate() - 1);
+                    }
+                    const dayMs = 24 * 60 * 60 * 1000;
+                    const days: Array<{ date: Date; minutes: number }> = [];
+                    const lookup = new Map<string, number>();
+                    stats.forEach((s) =>
+                      lookup.set(s.date, s.focus_minutes || 0)
+                    );
+
+                    for (
+                      let t = start.getTime();
+                      t <= end.getTime();
+                      t += dayMs
+                    ) {
+                      const d = new Date(t);
+                      const dateStr = d.toISOString().split("T")[0];
+                      const minutes = lookup.get(dateStr) ?? 0;
+                      days.push({ date: d, minutes });
+                    }
+
+                    // Group into weeks (columns)
+                    const weeks: Array<Array<{ date: Date; minutes: number }>> =
+                      [];
+                    for (let i = 0; i < days.length; i += 7) {
+                      weeks.push(days.slice(i, i + 7));
+                    }
+
+                    const monthLabel = (d: Date) =>
+                      d.toLocaleString(undefined, { month: "short" });
+
+                    const cellFor = (minutes: number) => {
+                      const intensity =
+                        minutes === 0
+                          ? 0
+                          : minutes < 15
+                          ? 1
+                          : minutes < 30
+                          ? 2
+                          : minutes < 60
+                          ? 3
+                          : 4;
+                      const bgColor =
+                        intensity === 0
+                          ? "bg-gray-800/60 border-gray-800"
+                          : intensity === 1
+                          ? "bg-green-900/80 border-green-800"
+                          : intensity === 2
+                          ? "bg-green-800/80 border-green-700"
+                          : intensity === 3
+                          ? "bg-green-600/90 border-green-600"
+                          : "bg-green-500 border-green-500";
+                      return bgColor;
+                    };
+
+                    return (
+                      <div className="inline-block min-w-max">
+                        {/* Month labels */}
+                        <div className="flex items-center gap-1 ml-6 mb-2">
+                          {weeks.map((week, idx) => {
+                            const first = week[0]?.date;
+                            const prev = weeks[idx - 1]?.[0]?.date;
+                            const show =
+                              idx === 0 ||
+                              (prev &&
+                                first &&
+                                first.getMonth() !== prev.getMonth());
+                            return (
+                              <div
+                                key={`m-${idx}`}
+                                className="w-3 text-[10px] text-gray-500"
+                              >
+                                {show && first ? monthLabel(first) : ""}
+                              </div>
+                            );
+                          })}
                         </div>
-                      ))}
-                    </div>
-                    {/* Calendar grid - show last 7 weeks (49 days) */}
-                    <div className="grid grid-cols-7 gap-2 auto-rows-fr">
-                      {(() => {
-                        const today = new Date();
-                        const days: Array<{ date: Date; minutes: number }> = [];
-                        
-                        // Generate last 49 days (7 weeks)
-                        for (let i = 48; i >= 0; i--) {
-                          const date = new Date(today);
-                          date.setDate(date.getDate() - i);
-                          const dateStr = date.toISOString().split('T')[0];
-                          const stat = stats.find(s => s.date === dateStr);
-                          days.push({
-                            date,
-                            minutes: stat?.focus_minutes || 0
-                          });
-                        }
-                        
-                        return days.map((day, idx) => {
-                          const intensity = day.minutes === 0 ? 0 :
-                            day.minutes < 15 ? 1 :
-                            day.minutes < 30 ? 2 :
-                            day.minutes < 60 ? 3 : 4;
-                          
-                          const bgColor = intensity === 0 ? 'bg-gray-800/60 border-gray-800' :
-                            intensity === 1 ? 'bg-green-900/80 border-green-800' :
-                            intensity === 2 ? 'bg-green-800/80 border-green-700' :
-                            intensity === 3 ? 'bg-green-600/90 border-green-600' :
-                            'bg-green-500 border-green-500';
-                          
-                          return (
-                            <div
-                              key={idx}
-                              className={`h-4 w-full rounded ${bgColor} border transition-all hover:border-gray-500 hover:scale-105 cursor-pointer`}
-                              title={`${day.date.toLocaleDateString(undefined, {
-                                weekday: "long",
-                                day: "numeric",
-                                month: "short",
-                              })} • ${day.minutes} focus minutes`}
-                            />
-                          );
-                        });
-                      })()}
-                    </div>
-                    {/* Legend */}
-                    <div className="flex items-center justify-end gap-2 mt-4 text-xs">
-                      <span className="text-gray-500">Less</span>
-                      <div className="flex gap-1">
-                        <div className="h-4 w-4 rounded bg-gray-800/60 border border-gray-800" />
-                        <div className="h-4 w-4 rounded bg-green-900/80 border border-green-800" />
-                        <div className="h-4 w-4 rounded bg-green-800/80 border border-green-700" />
-                        <div className="h-4 w-4 rounded bg-green-600/90 border border-green-600" />
-                        <div className="h-4 w-4 rounded bg-green-500 border border-green-500" />
+                        {/* Weekday labels + grid */}
+                        <div className="flex gap-1">
+                          {/* Weekday labels */}
+                          <div className="flex flex-col justify-between mr-2">
+                            {["Sun", "Tue", "Thu"].map((d) => (
+                              <div
+                                key={d}
+                                className="h-3 text-[10px] text-gray-500"
+                              >
+                                {d}
+                              </div>
+                            ))}
+                          </div>
+                          {/* Weeks */}
+                          <div className="flex gap-1">
+                            {weeks.map((week, wIdx) => (
+                              <div
+                                key={`w-${wIdx}`}
+                                className="flex flex-col gap-1"
+                              >
+                                {week.map((day, dIdx) => (
+                                  <div
+                                    key={`d-${wIdx}-${dIdx}`}
+                                    className={`h-3 w-3 rounded-sm border ${cellFor(
+                                      day.minutes
+                                    )} transition-all hover:scale-110`}
+                                    title={`${day.date.toLocaleDateString(
+                                      undefined,
+                                      {
+                                        weekday: "long",
+                                        day: "numeric",
+                                        month: "short",
+                                      }
+                                    )} • ${day.minutes} min`}
+                                  />
+                                ))}
+                              </div>
+                            ))}
+                          </div>
+                        </div>
+                        {/* Legend */}
+                        <div className="flex items-center justify-end gap-2 mt-4 text-xs">
+                          <span className="text-gray-500">Less</span>
+                          <div className="flex gap-1">
+                            <div className="h-3 w-3 rounded-sm bg-gray-800/60 border border-gray-800" />
+                            <div className="h-3 w-3 rounded-sm bg-green-900/80 border border-green-800" />
+                            <div className="h-3 w-3 rounded-sm bg-green-800/80 border border-green-700" />
+                            <div className="h-3 w-3 rounded-sm bg-green-600/90 border border-green-600" />
+                            <div className="h-3 w-3 rounded-sm bg-green-500 border border-green-500" />
+                          </div>
+                          <span className="text-gray-200">More</span>
+                        </div>
                       </div>
-                      <span className="text-gray-200">More</span>
-                    </div>
-                  </div>
+                    );
+                  })()}
                 </div>
-                {stats.length === 0 && (
-                  <div className="mt-6 flex h-32 items-center justify-center text-sm text-gray-500">
-                    Run a few cycles to generate your energy map.
-                  </div>
-                )}
               </div>
             </section>
 
@@ -465,13 +608,22 @@ export default function Stats() {
                   </thead>
                   <tbody className="divide-y divide-gray-900">
                     {stats.map((day) => {
-                      const avgSession = day.sessions_completed > 0 
-                        ? Math.round(day.focus_minutes / day.sessions_completed)
-                        : 0;
-                      const completionRate = day.sessions_completed > 0
-                        ? Math.round((day.sessions_completed / (day.sessions_completed + (day.evasion_attempts || 0))) * 100)
-                        : 100;
-                      
+                      const avgSession =
+                        day.sessions_completed > 0
+                          ? Math.round(
+                              day.focus_minutes / day.sessions_completed
+                            )
+                          : 0;
+                      const completionRate =
+                        day.sessions_completed > 0
+                          ? Math.round(
+                              (day.sessions_completed /
+                                (day.sessions_completed +
+                                  (day.evasion_attempts || 0))) *
+                                100
+                            )
+                          : 100;
+
                       return (
                         <tr
                           key={`row-${day.date}`}
@@ -485,29 +637,41 @@ export default function Stats() {
                             })}
                           </td>
                           <td className="px-4 py-3">
-                            <span className="font-semibold">{day.focus_minutes}</span>
+                            <span className="font-semibold">
+                              {day.focus_minutes}
+                            </span>
                             <span className="text-gray-500 ml-1">min</span>
                           </td>
                           <td className="px-4 py-3">
-                            <span className="font-semibold">{day.sessions_completed}</span>
+                            <span className="font-semibold">
+                              {day.sessions_completed}
+                            </span>
                             <span className="text-gray-500 ml-1">sessions</span>
                           </td>
                           <td className="px-4 py-3">
                             {avgSession > 0 ? (
                               <>
-                                <span className="font-semibold">{avgSession}</span>
-                                <span className="text-gray-500 ml-1">min/session</span>
+                                <span className="font-semibold">
+                                  {avgSession}
+                                </span>
+                                <span className="text-gray-500 ml-1">
+                                  min/session
+                                </span>
                               </>
                             ) : (
                               <span className="text-gray-500">-</span>
                             )}
                           </td>
                           <td className="px-4 py-3">
-                            <span className={`font-semibold ${
-                              completionRate >= 90 ? 'text-green-400' :
-                              completionRate >= 70 ? 'text-yellow-400' :
-                              'text-red-400'
-                            }`}>
+                            <span
+                              className={`font-semibold ${
+                                completionRate >= 90
+                                  ? "text-green-400"
+                                  : completionRate >= 70
+                                  ? "text-yellow-400"
+                                  : "text-red-400"
+                              }`}
+                            >
                               {completionRate}%
                             </span>
                           </td>
