@@ -395,25 +395,51 @@ export function Settings({ onClose }: SettingsProps) {
           </button>
         </div>
         {localSettings.strictMode && localSettings.emergencyKeyCombination && (
-          <div className="mt-6 rounded-xl border border-gray-800 bg-gray-950/60 p-4">
-            <h3 className="text-sm font-semibold text-white mb-2">
-              Emergency Key Combination
-            </h3>
-            <div className="flex items-center justify-between">
-              <p className="text-sm text-gray-300">
-                {localSettings.emergencyKeyCombination}
-              </p>
-              <button
-                onClick={() => {
-                  setEmergencyKey(localSettings.emergencyKeyCombination || "");
-                  setShowEmergencyKeyModal(true);
-                }}
-                className="text-xs text-blue-400 hover:text-blue-300 transition-colors"
-              >
-                Change
-              </button>
+          <>
+            <div className="mt-6 rounded-xl border border-gray-800 bg-gray-950/60 p-4">
+              <h3 className="text-sm font-semibold text-white mb-2">
+                Emergency Key Combination
+              </h3>
+              <div className="flex items-center justify-between">
+                <p className="text-sm text-gray-300">
+                  {localSettings.emergencyKeyCombination}
+                </p>
+                <button
+                  onClick={() => {
+                    setEmergencyKey(localSettings.emergencyKeyCombination || "");
+                    setShowEmergencyKeyModal(true);
+                  }}
+                  className="text-xs text-blue-400 hover:text-blue-300 transition-colors"
+                >
+                  Change
+                </button>
+              </div>
             </div>
-          </div>
+            <div className="mt-6 rounded-xl border border-gray-800 bg-gray-950/60 p-4">
+              <h3 className="text-sm font-semibold text-white">Break Transition</h3>
+              <p className="text-xs text-gray-500">
+                Countdown duration before break starts (gives you time to prepare)
+              </p>
+              <div className="mt-3 flex items-center gap-3">
+                <input
+                  type="range"
+                  min={5}
+                  max={30}
+                  step={5}
+                  value={localSettings.breakTransitionSeconds}
+                  onChange={(event) =>
+                    updateLocalSettings({
+                      breakTransitionSeconds: Number(event.target.value),
+                    })
+                  }
+                  className="flex-1"
+                />
+                <span className="w-20 rounded-lg border border-gray-800 bg-gray-900/70 px-2 py-1 text-center text-sm text-white">
+                  {localSettings.breakTransitionSeconds}s
+                </span>
+              </div>
+            </div>
+          </>
         )}
         <div className="mt-6 rounded-xl border border-gray-800 bg-gray-950/60 p-4">
           <h3 className="text-sm font-semibold text-white">Pre-alert</h3>

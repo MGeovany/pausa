@@ -15,6 +15,7 @@ pub struct UserSettings {
     pub pin_hash: Option<String>,
     pub user_name: Option<String>,
     pub emergency_key_combination: Option<String>,
+    pub break_transition_seconds: i32,
     pub created_at: DateTime<Utc>,
     pub updated_at: DateTime<Utc>,
 }
@@ -34,6 +35,7 @@ impl Default for UserSettings {
             pin_hash: None,
             user_name: None,
             emergency_key_combination: None,
+            break_transition_seconds: 10, // 10 seconds default
             created_at: now,
             updated_at: now,
         }
@@ -226,6 +228,7 @@ impl UserSettings {
             pin_hash: row.get("pin_hash")?,
             user_name: row.get("user_name").ok(),
             emergency_key_combination: row.get("emergency_key_combination").ok(),
+            break_transition_seconds: row.get("break_transition_seconds").unwrap_or(10),
             created_at: row.get("created_at")?,
             updated_at: row.get("updated_at")?,
         })

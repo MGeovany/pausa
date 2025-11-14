@@ -10,6 +10,7 @@ const DEFAULT_SETTINGS: UserSettings = {
   cyclesPerLongBreak: 4,
   preAlertSeconds: 120, // 2 minutes
   strictMode: false,
+  breakTransitionSeconds: 10, // 10 seconds countdown before break starts
   blockedApps: [],
   blockedWebsites: [],
   emergencyKeyCombination: undefined,

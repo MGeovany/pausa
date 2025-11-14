@@ -102,6 +102,10 @@ impl MigrationManager {
                 // Version 8: Add within_work_hours and cycle_number to sessions table
                 Self::migrate_to_v8(conn)
             }
+            9 => {
+                // Version 9: Add break_transition_seconds to user_settings for strict mode
+                Self::migrate_to_v9(conn)
+            }
             _ => Err(DatabaseError::Migration(format!(
                 "Unknown migration version: {}",
                 version
@@ -414,6 +418,27 @@ impl MigrationManager {
             .map_err(DatabaseError::Sqlite)?;
 
         println!("Migration to version 8 completed successfully");
+        Ok(())
+    }
+
+    /// Migration to version 9: Add break_transition_seconds to user_settings for strict mode
+    fn migrate_to_v9(conn: &Connection) -> DatabaseResult<()> {
+        println!(
+            "Applying migration to version 9: Adding break_transition_seconds to user_settings"
+        );
+
+        // Add break_transition_seconds column to user_settings table
+        conn.execute(
+            "ALTER TABLE user_settings ADD COLUMN break_transition_seconds INTEGER NOT NULL DEFAULT 10",
+            [],
+        )
+        .map_err(DatabaseError::Sqlite)?;
+
+        // Update schema version
+        conn.execute("INSERT INTO schema_version (version) VALUES (9)", [])
+            .map_err(DatabaseError::Sqlite)?;
+
+        println!("Migration to version 9 completed successfully");
         Ok(())
     }
 }

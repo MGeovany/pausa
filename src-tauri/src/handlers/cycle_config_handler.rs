@@ -160,7 +160,7 @@ pub async fn get_user_settings(state: State<'_, AppState>) -> Result<UserSetting
                 SELECT id, focus_duration, short_break_duration, long_break_duration,
                        cycles_per_long_break, cycles_per_long_break_v2, pre_alert_seconds,
                        strict_mode, pin_hash, user_name, emergency_key_combination,
-                       created_at, updated_at
+                       break_transition_seconds, created_at, updated_at
                 FROM user_settings 
                 WHERE id = 1
                 "#,
@@ -388,7 +388,7 @@ pub async fn get_pre_alert_config(state: State<'_, AppState>) -> Result<PreAlert
     }
 }
 
-/// Get all user settings 
+/// Get all user settings
 #[tauri::command]
 pub async fn get_settings(state: State<'_, AppState>) -> Result<ApiUserSettings, String> {
     println!("📖 [Rust] get_settings called");
@@ -407,8 +407,6 @@ pub async fn get_settings(state: State<'_, AppState>) -> Result<ApiUserSettings,
         }
     };
 
-   
-
     // Convert to API model
     let api_settings = ApiUserSettings {
         focus_duration: (db_settings.focus_duration / 60) as u32,
@@ -419,6 +417,7 @@ pub async fn get_settings(state: State<'_, AppState>) -> Result<ApiUserSettings,
         strict_mode: db_settings.strict_mode,
         pin_hash: db_settings.pin_hash,
         emergency_key_combination: db_settings.emergency_key_combination,
+        break_transition_seconds: db_settings.break_transition_seconds as u32,
     };
 
     println!("✅ [Rust] Settings retrieved successfully");
@@ -436,7 +435,9 @@ pub async fn update_settings(
     let now = Utc::now();
 
     // Get existing settings to preserve user_name, emergency_key_combination, and created_at
-    let existing_settings = state.database.get_user_settings()
+    let existing_settings = state
+        .database
+        .get_user_settings()
         .map_err(|e| format!("Failed to get existing settings: {}", e))?;
 
     // Convert API settings to database model
@@ -452,9 +453,18 @@ pub async fn update_settings(
         pin_hash: settings.pin_hash,
         user_name: existing_settings.as_ref().and_then(|s| s.user_name.clone()),
         emergency_key_combination: settings.emergency_key_combination.or_else(|| {
-            existing_settings.as_ref().and_then(|s| s.emergency_key_combination.clone())
+            existing_settings
+                .as_ref()
+                .and_then(|s| s.emergency_key_combination.clone())
         }),
-        created_at: existing_settings.as_ref().map(|s| s.created_at).unwrap_or(now),
+        break_transition_seconds: existing_settings
+            .as_ref()
+            .map(|s| s.break_transition_seconds)
+            .unwrap_or(10),
+        created_at: existing_settings
+            .as_ref()
+            .map(|s| s.created_at)
+            .unwrap_or(now),
         updated_at: now,
     };
 

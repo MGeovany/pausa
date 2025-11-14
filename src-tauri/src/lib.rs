@@ -15,6 +15,7 @@ mod onboarding;
 mod pkce;
 mod services;
 mod state;
+mod strict_mode;
 
 use app::run;
 

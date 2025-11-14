@@ -19,6 +19,7 @@ pub struct UserSettings {
     pub strict_mode: bool,
     pub pin_hash: Option<String>,
     pub emergency_key_combination: Option<String>,
+    pub break_transition_seconds: u32, // seconds
 }
 
 impl Default for UserSettings {
@@ -32,6 +33,7 @@ impl Default for UserSettings {
             strict_mode: false,
             pin_hash: None,
             emergency_key_combination: None,
+            break_transition_seconds: 10, // 10 seconds
         }
     }
 }
@@ -113,6 +115,7 @@ impl From<DbUserSettings> for UserSettings {
             strict_mode: db_settings.strict_mode,
             pin_hash: db_settings.pin_hash,
             emergency_key_combination: db_settings.emergency_key_combination,
+            break_transition_seconds: db_settings.break_transition_seconds as u32,
         }
     }
 }
@@ -131,7 +134,8 @@ impl From<UserSettings> for DbUserSettings {
             strict_mode: api_settings.strict_mode,
             pin_hash: api_settings.pin_hash,
             user_name: None, // Not exposed in API model
-            emergency_key_combination: None, // Not exposed in API model
+            emergency_key_combination: api_settings.emergency_key_combination,
+            break_transition_seconds: api_settings.break_transition_seconds as i32,
             created_at: now,
             updated_at: now,
         }
@@ -210,8 +214,8 @@ impl FocusSession {
             notes: None,
             created_at: self.start_time,
             within_work_hours: false, // Default value, should be set by orchestrator
-            cycle_number: None, // Default value, should be set by orchestrator
-            is_long_break: false, // Focus sessions are not breaks
+            cycle_number: None,       // Default value, should be set by orchestrator
+            is_long_break: false,     // Focus sessions are not breaks
         }
     }
 }
@@ -273,7 +277,7 @@ impl BreakSession {
             notes: None,
             created_at: start_time,
             within_work_hours: false, // Default value, should be set by orchestrator
-            cycle_number: None, // Default value, should be set by orchestrator
+            cycle_number: None,       // Default value, should be set by orchestrator
             is_long_break: matches!(self.break_type, BreakType::Long),
         }
     }
@@ -290,4 +294,3 @@ impl From<DbSessionStats> for SessionStats {
         }
     }
 }
-

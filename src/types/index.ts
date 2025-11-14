@@ -9,6 +9,7 @@ export interface UserSettings {
   strictMode: boolean;
   pinHash?: string;
   emergencyKeyCombination?: string;
+  breakTransitionSeconds: number; // seconds before break starts
   blockedApps: string[];
   blockedWebsites: string[];
 }
@@ -62,7 +63,10 @@ export type WindowType =
   | "focus-widget"
   | "break-overlay"
   | "settings"
-  | "onboarding";
+  | "onboarding"
+  | "menu-bar-popover"
+  | "break-transition"
+  | "fullscreen-break-overlay";
 
 // State management types for Zustand
 export interface AppState {
@@ -186,3 +190,22 @@ export interface WindowConfig {
   clickThrough?: boolean;
   fullscreen?: boolean;
 }
+
+// Strict Mode types
+export interface StrictModeConfig {
+  enabled: boolean;
+  emergencyKeyCombination?: string;
+  transitionCountdownSeconds: number;
+}
+
+export interface StrictModeState {
+  isActive: boolean;
+  isLocked: boolean;
+  currentWindowType?: StrictModeWindowType;
+}
+
+export type StrictModeWindowType =
+  | "menu_bar_icon"
+  | "menu_bar_popover"
+  | "break_transition"
+  | "fullscreen_break_overlay";

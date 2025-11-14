@@ -1,7 +1,7 @@
 /// Database schema definitions for Pausa application
 /// Based on the design document specifications
 
-pub const SCHEMA_VERSION: i32 = 8;
+pub const SCHEMA_VERSION: i32 = 9;
 
 /// Initial database schema - creates all tables
 pub const INITIAL_SCHEMA: &str = r#"
@@ -18,6 +18,7 @@ CREATE TABLE user_settings (
     pin_hash TEXT,
     user_name TEXT, -- User's name for personalized notifications
     emergency_key_combination TEXT, -- Emergency key combination for strict mode
+    break_transition_seconds INTEGER NOT NULL DEFAULT 10, -- Countdown before break starts
     created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
     updated_at DATETIME DEFAULT CURRENT_TIMESTAMP
 );
@@ -128,6 +129,7 @@ CREATE TABLE user_settings (
     pin_hash TEXT,
     user_name TEXT,
     emergency_key_combination TEXT,
+    break_transition_seconds INTEGER NOT NULL DEFAULT 10,
     created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
     updated_at DATETIME DEFAULT CURRENT_TIMESTAMP
 )
