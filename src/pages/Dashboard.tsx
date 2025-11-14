@@ -248,7 +248,7 @@ export default function Dashboard() {
           <div className="mx-auto w-full max-w-5xl px-6 py-4">
             <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
               {/* Quick Actions / Timer */}
-              <section className="lg:col-span-2 bg-gray-900/40 border border-gray-800 rounded-xl p-5">
+              <section className="lg:col-span-2 bg-gray-900/40 border border-gray-800 rounded-xl p-6 md:p-8">
                 <div className="flex items-center justify-between mb-4">
                   <h2 className="text-sm font-semibold text-gray-300">
                     Session
@@ -258,16 +258,16 @@ export default function Dashboard() {
                   </div>
                 </div>
 
-                <div className="flex items-center justify-between">
-                  <div>
-                    <div className="text-4xl font-mono font-semibold">
+                <div className="flex flex-col items-center justify-center gap-4 py-6">
+                  <div className="text-center">
+                    <div className="text-5xl sm:text-6xl md:text-7xl font-mono font-semibold">
                       {cycleState
                         ? cycleState.phase === "idle"
                           ? "--:--"
                           : formatTime(cycleState.remaining_seconds)
                         : "--:--"}
                     </div>
-                    <div className="text-xs text-gray-500 mt-1">
+                    <div className="text-xs text-gray-500 mt-2">
                       {cycleState
                         ? cycleState.is_running
                           ? "Running"
@@ -278,25 +278,16 @@ export default function Dashboard() {
                     </div>
                   </div>
 
-                  <div className="flex items-center gap-2">
+                  <div className="flex items-center justify-center gap-2 flex-wrap">
                     {cycleState?.phase === "idle" && (
-                      <>
-                        <button
-                          onClick={() => startRoutine()}
-                          disabled={!cycleState?.can_start}
-                          className="inline-flex items-center gap-2 bg-gray-800 hover:bg-gray-700 text-gray-100 border border-gray-800 rounded-lg px-3 py-2 text-sm font-medium disabled:opacity-50 disabled:cursor-not-allowed"
-                        >
-                          <Play className="w-4 h-4" />
-                          Start Focus
-                        </button>
-                        <button
-                          onClick={() => startBreakSession(false)}
-                          className="inline-flex items-center gap-2 bg-gray-900 hover:bg-gray-800 border border-gray-800 rounded-lg px-3 py-2 text-sm"
-                        >
-                          <Coffee className="w-4 h-4" />
-                          Start Break
-                        </button>
-                      </>
+                      <button
+                        onClick={() => startRoutine()}
+                        disabled={!cycleState?.can_start}
+                        className="inline-flex items-center gap-2 bg-gray-800 hover:bg-gray-700 text-gray-100 border border-gray-800 rounded-lg px-4 py-2 text-sm font-medium disabled:opacity-50 disabled:cursor-not-allowed"
+                      >
+                        <Play className="w-4 h-4" />
+                        Start Focus
+                      </button>
                     )}
 
                     {cycleState && cycleState.phase !== "idle" && (
@@ -304,7 +295,7 @@ export default function Dashboard() {
                         {!cycleState.is_running ? (
                           <button
                             onClick={() => resumeCycle()}
-                            className="inline-flex items-center gap-2 bg-gray-800 hover:bg-gray-700 text-gray-100 border border-gray-800 rounded-lg px-3 py-2 text-sm font-medium"
+                            className="inline-flex items-center gap-2 bg-gray-800 hover:bg-gray-700 text-gray-100 border border-gray-800 rounded-lg px-4 py-2 text-sm font-medium"
                           >
                             <Play className="w-4 h-4" />
                             Resume
@@ -312,7 +303,7 @@ export default function Dashboard() {
                         ) : (
                           <button
                             onClick={() => pauseCycle()}
-                            className="inline-flex items-center gap-2 bg-gray-900 hover:bg-gray-800 border border-gray-800 rounded-lg px-3 py-2 text-sm"
+                            className="inline-flex items-center gap-2 bg-gray-900 hover:bg-gray-800 border border-gray-800 rounded-lg px-4 py-2 text-sm"
                           >
                             <Pause className="w-4 h-4" />
                             Pause
@@ -320,7 +311,7 @@ export default function Dashboard() {
                         )}
                         <button
                           onClick={() => endSession(false)}
-                          className="inline-flex items-center gap-2 bg-gray-900 hover:bg-gray-800 border border-gray-700 rounded-lg px-3 py-2 text-sm text-red-300 hover:text-red-200"
+                          className="inline-flex items-center gap-2 bg-gray-900 hover:bg-gray-800 border border-gray-700 rounded-lg px-4 py-2 text-sm text-red-300 hover:text-red-200"
                         >
                           <Square className="w-4 h-4" />
                           End
@@ -338,7 +329,7 @@ export default function Dashboard() {
                   Today's Progress
                 </h2>
                 <div className="grid grid-cols-2 gap-3 auto-rows-fr">
-                  <div className="rounded-lg border border-gray-800 bg-gray-900/60 p-4 col-span-2">
+                  <div className="rounded-lg border border-gray-800 bg-gray-900/60 p-4 sm:p-5 md:p-6 col-span-2">
                     <div className="flex items-center justify-between mb-4">
                       <div className="flex items-center gap-2">
                         <TrendingUp className="w-4 h-4 text-amber-400" />
@@ -412,17 +403,137 @@ export default function Dashboard() {
                       } else if (cycleState?.phase === "long_break") {
                         currentStepIndex = steps.length - 1;
                       } else {
-                        // idle: show next focus position
-                        currentStepIndex = Math.min(
-                          cyclesCompleted * 2,
-                          steps.length - 1
-                        );
+                        // idle: if we've completed a full group (long break done), show "Cycle Complete!"
+                        if (
+                          cyclesCompleted > 0 &&
+                          cyclesCompleted % cyclesPerLongBreak === 0
+                        ) {
+                          currentStepIndex = steps.length; // sentinel to trigger "Cycle Complete!"
+                        } else {
+                          // otherwise show next focus position
+                          currentStepIndex = Math.min(
+                            cyclesCompleted * 2,
+                            steps.length - 1
+                          );
+                        }
                       }
                       const isReadyForLongBreak =
                         cycleInGroup === cyclesPerLongBreak;
 
                       return (
                         <>
+                          {/* Status row: Now / Next / Step */}
+                          {(() => {
+                            const nowPhase = cycleState?.phase || "idle";
+                            const nowType =
+                              nowPhase === "focus"
+                                ? "focus"
+                                : nowPhase === "short_break"
+                                ? "break"
+                                : nowPhase === "long_break"
+                                ? "long_break"
+                                : null;
+                            let nextType:
+                              | "focus"
+                              | "break"
+                              | "long_break"
+                              | null = null;
+                            if (nowPhase === "focus") {
+                              nextType =
+                                (cyclesCompleted + 1) % cyclesPerLongBreak === 0
+                                  ? "long_break"
+                                  : "break";
+                            } else if (nowPhase === "short_break") {
+                              nextType = "focus";
+                            } else if (nowPhase === "idle") {
+                              nextType =
+                                cyclesCompleted > 0 &&
+                                cyclesCompleted % cyclesPerLongBreak === 0
+                                  ? null
+                                  : "focus";
+                            }
+
+                            const labelFor = (
+                              t: "focus" | "break" | "long_break"
+                            ) =>
+                              t === "focus"
+                                ? "Focus"
+                                : t === "long_break"
+                                ? "Long Break"
+                                : "Short Break";
+                            const minutesFor = (
+                              t: "focus" | "break" | "long_break"
+                            ) =>
+                              t === "focus"
+                                ? settings.focusDuration
+                                : t === "long_break"
+                                ? settings.longBreakDuration
+                                : settings.shortBreakDuration;
+                            const pillFor = (
+                              t: "focus" | "break" | "long_break"
+                            ) =>
+                              t === "focus"
+                                ? "bg-blue-500/10 text-blue-300 border-blue-400"
+                                : t === "long_break"
+                                ? "bg-amber-500/10 text-amber-300 border-amber-400"
+                                : "bg-green-500/10 text-green-300 border-green-400";
+
+                            const NowIcon =
+                              nowType === "focus" ? (
+                                <Target className="w-3 h-3" />
+                              ) : (
+                                <Coffee className="w-3 h-3" />
+                              );
+                            const NextIcon =
+                              nextType === "focus" ? (
+                                <Target className="w-3 h-3" />
+                              ) : (
+                                <Coffee className="w-3 h-3" />
+                              );
+
+                            const stepDisplay = Math.min(
+                              currentStepIndex + 1,
+                              steps.length
+                            );
+
+                            return (
+                              <div className="flex flex-wrap items-center gap-2 mb-3">
+                                {nowType && (
+                                  <span
+                                    className={`inline-flex items-center gap-1.5 rounded-full border px-2.5 py-1 text-xs ${pillFor(
+                                      nowType
+                                    )}`}
+                                  >
+                                    {NowIcon}
+                                    Now: {labelFor(nowType)}
+                                  </span>
+                                )}
+                                <span className="text-gray-600 text-xs">→</span>
+                                {nextType ? (
+                                  <span
+                                    className={`inline-flex items-center gap-1.5 rounded-full border px-2.5 py-1 text-xs ${pillFor(
+                                      nextType
+                                    )}`}
+                                    title={`${minutesFor(nextType)} minutes`}
+                                  >
+                                    {NextIcon}
+                                    Next: {labelFor(nextType)}
+                                    <span className="ml-1 text-[11px] text-gray-400">
+                                      ({minutesFor(nextType)}m)
+                                    </span>
+                                  </span>
+                                ) : (
+                                  <span className="text-xs text-gray-500">
+                                    No more steps
+                                  </span>
+                                )}
+                                <span className="ml-auto text-[11px] text-gray-500">
+                                  Step {stepDisplay} of {steps.length}
+                                </span>
+                              </div>
+                            );
+                          })()}
+
                           <div className="mb-4">
                             <div className="flex items-center justify-between mb-2">
                               <span className="text-sm font-semibold text-white">
@@ -431,71 +542,73 @@ export default function Dashboard() {
                             </div>
 
                             {/* Visual steps progress */}
-                            <div className="flex items-center gap-1.5 mb-3">
-                              {steps.map((step, idx) => {
-                                const isCurrent = idx === currentStepIndex;
-                                const isPast = idx < currentStepIndex;
+                            <div className="overflow-x-auto -mx-2 px-2 pb-2">
+                              <div className="flex items-center gap-1.5 mb-3 min-w-max">
+                                {steps.map((step, idx) => {
+                                  const isCurrent = idx === currentStepIndex;
+                                  const isPast = idx < currentStepIndex;
 
-                                let bgColor = "bg-gray-800";
-                                let borderColor = "border-gray-700";
-                                let icon = null;
+                                  let bgColor = "bg-gray-800";
+                                  let borderColor = "border-gray-700";
+                                  let icon = null;
 
-                                if (step.type === "focus") {
-                                  bgColor = isPast
-                                    ? "bg-blue-600"
-                                    : isCurrent
-                                    ? "bg-blue-500"
-                                    : "bg-gray-800";
-                                  borderColor = isCurrent
-                                    ? "border-blue-400"
-                                    : "border-gray-700";
-                                  icon = <Target className="w-3 h-3" />;
-                                } else if (step.type === "long_break") {
-                                  bgColor = isPast
-                                    ? "bg-amber-600"
-                                    : isCurrent
-                                    ? "bg-amber-500"
-                                    : "bg-gray-800";
-                                  borderColor = isCurrent
-                                    ? "border-amber-400"
-                                    : "border-gray-700";
-                                  icon = <Coffee className="w-3 h-3" />;
-                                } else {
-                                  bgColor = isPast
-                                    ? "bg-green-600"
-                                    : isCurrent
-                                    ? "bg-green-500"
-                                    : "bg-gray-800";
-                                  borderColor = isCurrent
-                                    ? "border-green-400"
-                                    : "border-gray-700";
-                                  icon = <Coffee className="w-3 h-3" />;
-                                }
+                                  if (step.type === "focus") {
+                                    bgColor = isPast
+                                      ? "bg-blue-600"
+                                      : isCurrent
+                                      ? "bg-blue-500"
+                                      : "bg-gray-800";
+                                    borderColor = isCurrent
+                                      ? "border-blue-400"
+                                      : "border-gray-700";
+                                    icon = <Target className="w-3 h-3" />;
+                                  } else if (step.type === "long_break") {
+                                    bgColor = isPast
+                                      ? "bg-amber-600"
+                                      : isCurrent
+                                      ? "bg-amber-500"
+                                      : "bg-gray-800";
+                                    borderColor = isCurrent
+                                      ? "border-amber-400"
+                                      : "border-gray-700";
+                                    icon = <Coffee className="w-3 h-3" />;
+                                  } else {
+                                    bgColor = isPast
+                                      ? "bg-green-600"
+                                      : isCurrent
+                                      ? "bg-green-500"
+                                      : "bg-gray-800";
+                                    borderColor = isCurrent
+                                      ? "border-green-400"
+                                      : "border-gray-700";
+                                    icon = <Coffee className="w-3 h-3" />;
+                                  }
 
-                                return (
-                                  <div
-                                    key={idx}
-                                    className="flex items-center gap-1.5"
-                                  >
+                                  return (
                                     <div
-                                      className={`w-8 h-8 rounded-lg ${bgColor} border-2 ${borderColor} flex items-center justify-center text-white transition-all ${
-                                        isCurrent ? "scale-110 shadow-lg" : ""
-                                      }`}
+                                      key={idx}
+                                      className="flex items-center gap-1.5"
                                     >
-                                      {icon}
-                                    </div>
-                                    {idx < steps.length - 1 && (
                                       <div
-                                        className={`w-4 h-0.5 ${
-                                          isPast
-                                            ? "bg-green-500"
-                                            : "bg-gray-700"
+                                        className={`w-7 h-7 sm:w-8 sm:h-8 rounded-lg ${bgColor} border-2 ${borderColor} flex items-center justify-center text-white transition-all ${
+                                          isCurrent ? "scale-110 shadow-lg" : ""
                                         }`}
-                                      />
-                                    )}
-                                  </div>
-                                );
-                              })}
+                                      >
+                                        {icon}
+                                      </div>
+                                      {idx < steps.length - 1 && (
+                                        <div
+                                          className={`w-3 sm:w-4 h-0.5 ${
+                                            isPast
+                                              ? "bg-green-500"
+                                              : "bg-gray-700"
+                                          }`}
+                                        />
+                                      )}
+                                    </div>
+                                  );
+                                })}
+                              </div>
                             </div>
 
                             {/* Current step label */}
@@ -520,31 +633,6 @@ export default function Dashboard() {
                             </div>
                           </div>
 
-                          {/* Cycle details */}
-                          <div className="grid grid-cols-2 gap-2 text-xs pt-2 border-t border-gray-800">
-                            <div className="flex items-center gap-1.5">
-                              <div className="w-2 h-2 rounded-full bg-blue-400" />
-                              <span className="text-gray-400">Focus:</span>
-                              <span className="text-white font-semibold">
-                                {cyclesCompleted}
-                              </span>
-                            </div>
-                            <div className="flex items-center gap-1.5">
-                              <div className="w-2 h-2 rounded-full bg-green-400" />
-                              <span className="text-gray-400">Breaks:</span>
-                              <span className="text-white font-semibold">
-                                {(() => {
-                                  // Each completed focus session is followed by a break
-                                  // If we're currently in a break, count it too (it's in progress)
-                                  const isCurrentlyInBreak =
-                                    cycleState?.phase === "short_break" ||
-                                    cycleState?.phase === "long_break";
-                                  return cyclesCompleted;
-                                })()}
-                              </span>
-                            </div>
-                          </div>
-
                           {isReadyForLongBreak && (
                             <div className="mt-2 text-xs text-amber-400 font-semibold text-center">
                               ⭐ Ready for long break!
@@ -560,12 +648,6 @@ export default function Dashboard() {
 
             {/* Secondary grid */}
             <div className="mt-6 grid grid-cols-1 lg:grid-cols-3 gap-6">
-              <section className="bg-gray-900/40 border border-gray-800 rounded-xl p-5 lg:col-span-2">
-                <h2 className="text-sm font-semibold text-gray-300 mb-3">
-                  Activity
-                </h2>
-                <div className="text-sm text-gray-500">No activity yet.</div>
-              </section>
               <section className="bg-gray-900/40 border border-gray-800 rounded-xl p-5">
                 <h2 className="text-sm font-semibold text-gray-300 mb-3">
                   Shortcuts
