@@ -13,6 +13,7 @@ pub enum WindowType {
     BreakOverlay,
     Settings,
     MenuBarPopover,
+    BreakTransition,
 }
 
 impl WindowType {
@@ -23,6 +24,7 @@ impl WindowType {
             WindowType::BreakOverlay => "break-overlay",
             WindowType::Settings => "settings",
             WindowType::MenuBarPopover => "menu-bar-popover",
+            WindowType::BreakTransition => "break-transition",
         }
     }
 }
@@ -265,6 +267,36 @@ impl WindowManager {
         Ok(())
     }
 
+    /// Show the break transition window
+    pub fn show_break_transition(&self) -> Result<(), Box<dyn std::error::Error>> {
+        let window = self.get_or_create_window(WindowType::BreakTransition)?;
+
+        // Center the window on the current monitor
+        self.center_window(&window)?;
+        window.show()?;
+        window.set_focus()?;
+
+        self.update_window_state(WindowType::BreakTransition, |state| {
+            state.is_visible = true;
+        });
+
+        Ok(())
+    }
+
+    /// Hide the break transition window
+    pub fn hide_break_transition(&self) -> Result<(), Box<dyn std::error::Error>> {
+        if let Some(window) = self
+            .app_handle
+            .get_webview_window(WindowType::BreakTransition.label())
+        {
+            window.hide()?;
+            self.update_window_state(WindowType::BreakTransition, |state| {
+                state.is_visible = false;
+            });
+        }
+        Ok(())
+    }
+
     /// Hide a specific window type
     pub fn hide_window(&self, window_type: WindowType) -> Result<(), Box<dyn std::error::Error>> {
         match window_type {
@@ -273,6 +305,7 @@ impl WindowManager {
             WindowType::BreakOverlay => self.hide_break_overlay(),
             WindowType::Settings => self.hide_settings(),
             WindowType::MenuBarPopover => self.hide_menu_bar_popover(),
+            WindowType::BreakTransition => self.hide_break_transition(),
         }
     }
 
@@ -376,6 +409,22 @@ impl WindowManager {
             .focused(true)
             .visible(false)
             .build()?,
+            WindowType::BreakTransition => WebviewWindowBuilder::new(
+                &self.app_handle,
+                label,
+                WebviewUrl::App("index.html".into()),
+            )
+            .title("Pausa Break Transition")
+            .inner_size(400.0, 300.0)
+            .resizable(false)
+            .decorations(false)
+            .always_on_top(true)
+            .skip_taskbar(true)
+            .center()
+            .shadow(true)
+            .focused(true)
+            .visible(false)
+            .build()?,
         };
         Ok(window)
     }
@@ -449,6 +498,7 @@ impl WindowManager {
             WindowType::BreakOverlay,
             WindowType::Settings,
             WindowType::MenuBarPopover,
+            WindowType::BreakTransition,
         ] {
             self.hide_window(window_type)?;
         }
@@ -650,6 +700,7 @@ pub async fn is_window_visible(
         "break-overlay" => WindowType::BreakOverlay,
         "settings" => WindowType::Settings,
         "menu-bar-popover" => WindowType::MenuBarPopover,
+        "break-transition" => WindowType::BreakTransition,
         _ => return Err("Invalid window type".to_string()),
     };
 
@@ -678,4 +729,28 @@ pub async fn restore_from_menu_bar(
     manager
         .restore_from_menu_bar()
         .map_err(|e| format!("Failed to restore from menu bar: {}", e))
+}
+
+#[tauri::command]
+pub async fn show_break_transition(
+    window_manager: tauri::State<'_, Arc<Mutex<WindowManager>>>,
+) -> Result<(), String> {
+    let manager = window_manager
+        .lock()
+        .map_err(|e| format!("Failed to lock window manager: {}", e))?;
+    manager
+        .show_break_transition()
+        .map_err(|e| format!("Failed to show break transition: {}", e))
+}
+
+#[tauri::command]
+pub async fn hide_break_transition(
+    window_manager: tauri::State<'_, Arc<Mutex<WindowManager>>>,
+) -> Result<(), String> {
+    let manager = window_manager
+        .lock()
+        .map_err(|e| format!("Failed to lock window manager: {}", e))?;
+    manager
+        .hide_break_transition()
+        .map_err(|e| format!("Failed to hide break transition: {}", e))
 }

@@ -9,6 +9,7 @@ import { ErrorBoundary } from "./components/ErrorBoundary";
 import { ToastContainer } from "./components/ToastContainer";
 import { CycleSync } from "./components/CycleSync";
 import { MenuBarPopover } from "./components/MenuBarPopover";
+import { BreakTransitionWindow } from "./components/BreakTransitionWindow";
 import { errorHandler } from "./lib/errorHandler";
 import Stats from "./pages/Stats";
 import Settings from "./pages/Settings";
@@ -26,8 +27,8 @@ export default function App() {
         const label = currentWindow.label;
         setWindowLabel(label);
 
-        // If this is a special window (menu-bar-popover, etc.), skip onboarding check
-        if (label === "menu-bar-popover") {
+        // If this is a special window (menu-bar-popover, break-transition, etc.), skip onboarding check
+        if (label === "menu-bar-popover" || label === "break-transition") {
           setIsLoading(false);
           return;
         }
@@ -106,6 +107,17 @@ export default function App() {
               }
             }}
           />
+        </div>
+      </ErrorBoundary>
+    );
+  }
+
+  // Render BreakTransitionWindow for break-transition window
+  if (windowLabel === "break-transition") {
+    return (
+      <ErrorBoundary>
+        <div className="min-h-screen bg-zinc-900 flex items-center justify-center">
+          <BreakTransitionWindow />
         </div>
       </ErrorBoundary>
     );

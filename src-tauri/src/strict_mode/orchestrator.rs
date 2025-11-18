@@ -102,7 +102,17 @@ impl StrictModeOrchestrator {
         &mut self,
         event: &CycleEvent,
     ) -> Result<Vec<StrictModeEvent>, String> {
+        println!(
+            "🔔 [StrictModeOrchestrator::handle_cycle_event] Received event: {:?}",
+            event
+        );
+        println!(
+            "🔔 [StrictModeOrchestrator::handle_cycle_event] Is active: {}",
+            self.state.is_active
+        );
+
         if !self.state.is_active {
+            println!("⚠️ [StrictModeOrchestrator::handle_cycle_event] Strict mode is NOT active, ignoring event");
             return Ok(vec![]);
         }
 
@@ -131,9 +141,13 @@ impl StrictModeOrchestrator {
                             .lock()
                             .map_err(|e| format!("Failed to lock window manager: {}", e))?;
 
+                        println!("📍 [StrictModeOrchestrator] Got window manager lock, calling minimize_to_menu_bar()");
+
                         window_manager
                             .minimize_to_menu_bar()
                             .map_err(|e| format!("Failed to minimize to menu bar: {}", e))?;
+
+                        println!("✅ [StrictModeOrchestrator] Successfully minimized to menu bar");
 
                         events.push(StrictModeEvent::MinimizeToMenuBar);
                         self.state.current_window_type = Some(StrictModeWindowType::MenuBarIcon);
@@ -141,12 +155,20 @@ impl StrictModeOrchestrator {
                     crate::cycle_orchestrator::CyclePhase::ShortBreak
                     | crate::cycle_orchestrator::CyclePhase::LongBreak => {
                         // When break starts, show transition window
-                        println!("☕ [StrictModeOrchestrator] Break starting - should show transition window");
+                        println!("☕ [StrictModeOrchestrator] Break starting - showing transition window");
+
+                        self.show_break_transition()?;
+
+                        println!("✅ [StrictModeOrchestrator] Break transition window shown");
+
                         events.push(StrictModeEvent::ShowBreakTransition);
-                        self.state.current_window_type =
-                            Some(StrictModeWindowType::BreakTransition);
                     }
-                    _ => {}
+                    _ => {
+                        println!(
+                            "ℹ️ [StrictModeOrchestrator] Phase {:?} - no action needed",
+                            phase
+                        );
+                    }
                 }
             }
             CycleEvent::PhaseEnded { phase, completed } => {
@@ -181,14 +203,44 @@ impl StrictModeOrchestrator {
     /// Show the break transition window
     pub fn show_break_transition(&mut self) -> Result<(), String> {
         println!("🪟 [StrictModeOrchestrator] Showing break transition window");
+
+        let window_manager = self
+            .window_manager
+            .lock()
+            .map_err(|e| format!("Failed to lock window manager: {}", e))?;
+
+        window_manager
+            .show_break_transition()
+            .map_err(|e| format!("Failed to show break transition: {}", e))?;
+
         self.state.current_window_type = Some(StrictModeWindowType::BreakTransition);
-        // Window creation will be handled by WindowManager in future tasks
+        Ok(())
+    }
+
+    /// Hide the break transition window
+    pub fn hide_break_transition(&mut self) -> Result<(), String> {
+        println!("🪟 [StrictModeOrchestrator] Hiding break transition window");
+
+        let window_manager = self
+            .window_manager
+            .lock()
+            .map_err(|e| format!("Failed to lock window manager: {}", e))?;
+
+        window_manager
+            .hide_break_transition()
+            .map_err(|e| format!("Failed to hide break transition: {}", e))?;
+
         Ok(())
     }
 
     /// Start break from transition (after countdown or manual trigger)
     pub fn start_break_from_transition(&mut self) -> Result<(), String> {
         println!("🪟 [StrictModeOrchestrator] Starting break from transition");
+
+        // Hide the break transition window first
+        self.hide_break_transition()?;
+
+        // Then show the fullscreen break overlay
         self.show_fullscreen_break_overlay()?;
         Ok(())
     }

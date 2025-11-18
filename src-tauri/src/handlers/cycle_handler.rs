@@ -81,12 +81,17 @@ pub async fn initialize_cycle_orchestrator(
     notification_service.set_user_name(user_settings.user_name.clone());
 
     // Initialize StrictModeOrchestrator if strict mode is enabled
+    println!(
+        "🔒 [initialize_cycle_orchestrator] Checking strict mode setting: {}",
+        user_settings.strict_mode
+    );
+
     if user_settings.strict_mode {
         use crate::strict_mode::{StrictModeConfig, StrictModeOrchestrator};
         use crate::window_manager::WindowManager;
         use std::sync::{Arc, Mutex as StdMutex};
 
-        println!("🔒 [Rust] Initializing StrictModeOrchestrator (strict mode enabled)");
+        println!("🔒 [initialize_cycle_orchestrator] Strict mode is ENABLED, initializing StrictModeOrchestrator");
 
         let strict_config = StrictModeConfig {
             enabled: user_settings.strict_mode,
@@ -94,16 +99,32 @@ pub async fn initialize_cycle_orchestrator(
             transition_countdown_seconds: user_settings.break_transition_seconds as u32,
         };
 
+        println!("🔒 [initialize_cycle_orchestrator] StrictModeConfig: enabled={}, emergency_key={:?}, transition_seconds={}", 
+            strict_config.enabled, strict_config.emergency_key_combination, strict_config.transition_countdown_seconds);
+
         // Create window manager (will be properly initialized in future tasks)
         let window_manager = Arc::new(StdMutex::new(WindowManager::new(state.app_handle.clone())));
 
-        let strict_orchestrator =
+        let mut strict_orchestrator =
             StrictModeOrchestrator::new(strict_config, state.app_handle.clone(), window_manager);
+
+        // IMPORTANT: Activate strict mode immediately after creation
+        println!("🔒 [initialize_cycle_orchestrator] Activating strict mode...");
+        if let Err(e) = strict_orchestrator.activate() {
+            eprintln!(
+                "❌ [initialize_cycle_orchestrator] Failed to activate strict mode: {}",
+                e
+            );
+        } else {
+            println!("✅ [initialize_cycle_orchestrator] Strict mode activated successfully");
+        }
 
         let mut strict_mode_orchestrator = state.strict_mode_orchestrator.lock().await;
         *strict_mode_orchestrator = Some(strict_orchestrator);
 
-        println!("✅ [Rust] StrictModeOrchestrator initialized");
+        println!("✅ [initialize_cycle_orchestrator] StrictModeOrchestrator initialized and stored in state");
+    } else {
+        println!("ℹ️ [initialize_cycle_orchestrator] Strict mode is DISABLED, skipping StrictModeOrchestrator initialization");
     }
 
     println!("✅ [Rust] Cycle orchestrator initialized");
@@ -194,15 +215,46 @@ pub async fn start_focus_session(
     drop(cycle_orchestrator);
 
     // Handle strict mode events if strict mode is active
+    println!(
+        "🔒 [start_focus_session] Checking strict mode - strict_mode flag: {}",
+        strict_mode
+    );
+
     let mut strict_mode_orchestrator = state.strict_mode_orchestrator.lock().await;
+
     if let Some(strict_orchestrator) = strict_mode_orchestrator.as_mut() {
+        println!("🔒 [start_focus_session] StrictModeOrchestrator exists");
+        println!(
+            "🔒 [start_focus_session] Is strict mode active? {}",
+            strict_orchestrator.is_active()
+        );
+
         if strict_orchestrator.is_active() {
+            println!(
+                "🔒 [start_focus_session] Processing {} cycle events for strict mode",
+                events.len()
+            );
             for event in &events {
+                println!("🔒 [start_focus_session] Handling event: {:?}", event);
                 if let Err(e) = strict_orchestrator.handle_cycle_event(event) {
-                    eprintln!("Failed to handle strict mode event: {}", e);
+                    eprintln!(
+                        "❌ [start_focus_session] Failed to handle strict mode event: {}",
+                        e
+                    );
+                } else {
+                    println!("✅ [start_focus_session] Successfully handled strict mode event");
                 }
             }
+        } else {
+            println!("⚠️ [start_focus_session] Strict mode orchestrator exists but is NOT active");
+            println!("💡 [start_focus_session] Hint: You may need to activate strict mode first");
         }
+    } else {
+        println!("⚠️ [start_focus_session] StrictModeOrchestrator is None (not initialized)");
+        println!(
+            "💡 [start_focus_session] Strict mode in settings: {}",
+            strict_mode
+        );
     }
     drop(strict_mode_orchestrator);
 
