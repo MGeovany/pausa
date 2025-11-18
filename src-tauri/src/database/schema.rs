@@ -1,7 +1,7 @@
 /// Database schema definitions for Pausa application
 /// Based on the design document specifications
 
-pub const SCHEMA_VERSION: i32 = 9;
+pub const SCHEMA_VERSION: i32 = 10;
 
 /// Initial database schema - creates all tables
 pub const INITIAL_SCHEMA: &str = r#"
@@ -89,6 +89,15 @@ CREATE TABLE onboarding_completion (
     config_snapshot TEXT -- JSON of final configuration
 );
 
+-- Strict mode runtime state (for persistence across app restarts)
+CREATE TABLE strict_mode_state (
+    id INTEGER PRIMARY KEY,
+    is_active BOOLEAN NOT NULL DEFAULT FALSE,
+    is_locked BOOLEAN NOT NULL DEFAULT FALSE,
+    current_window_type TEXT, -- 'menu_bar_icon', 'menu_bar_popover', 'break_transition', 'fullscreen_break_overlay'
+    updated_at DATETIME DEFAULT CURRENT_TIMESTAMP
+);
+
 -- Schema version tracking
 CREATE TABLE schema_version (
     version INTEGER PRIMARY KEY,
@@ -113,6 +122,9 @@ INSERT INTO user_settings (id) VALUES (1);
 
 -- Insert default work schedule
 INSERT INTO work_schedule (id, user_id) VALUES (1, 1);
+
+-- Insert default strict mode state
+INSERT INTO strict_mode_state (id) VALUES (1);
 "#;
 
 /// SQL statements for creating individual tables (used in migrations)

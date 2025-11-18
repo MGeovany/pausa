@@ -108,15 +108,32 @@ pub async fn initialize_cycle_orchestrator(
         let mut strict_orchestrator =
             StrictModeOrchestrator::new(strict_config, state.app_handle.clone(), window_manager);
 
-        // IMPORTANT: Activate strict mode immediately after creation
-        println!("🔒 [initialize_cycle_orchestrator] Activating strict mode...");
-        if let Err(e) = strict_orchestrator.activate() {
+        // Restore state from database (in case app was closed during strict mode)
+        println!("📂 [initialize_cycle_orchestrator] Restoring strict mode state from database...");
+        if let Err(e) = strict_orchestrator.restore_state_from_database() {
             eprintln!(
-                "❌ [initialize_cycle_orchestrator] Failed to activate strict mode: {}",
+                "⚠️ [initialize_cycle_orchestrator] Failed to restore strict mode state: {}",
                 e
             );
         } else {
-            println!("✅ [initialize_cycle_orchestrator] Strict mode activated successfully");
+            println!("✅ [initialize_cycle_orchestrator] Strict mode state restored successfully");
+        }
+
+        // IMPORTANT: Activate strict mode immediately after creation (if not already active from restored state)
+        if !strict_orchestrator.is_active() {
+            println!("🔒 [initialize_cycle_orchestrator] Activating strict mode...");
+            if let Err(e) = strict_orchestrator.activate() {
+                eprintln!(
+                    "❌ [initialize_cycle_orchestrator] Failed to activate strict mode: {}",
+                    e
+                );
+            } else {
+                println!("✅ [initialize_cycle_orchestrator] Strict mode activated successfully");
+            }
+        } else {
+            println!(
+                "ℹ️ [initialize_cycle_orchestrator] Strict mode already active from restored state"
+            );
         }
 
         let mut strict_mode_orchestrator = state.strict_mode_orchestrator.lock().await;

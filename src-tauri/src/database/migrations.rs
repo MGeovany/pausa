@@ -106,6 +106,10 @@ impl MigrationManager {
                 // Version 9: Add break_transition_seconds to user_settings for strict mode
                 Self::migrate_to_v9(conn)
             }
+            10 => {
+                // Version 10: Add strict_mode_state table for runtime state persistence
+                Self::migrate_to_v10(conn)
+            }
             _ => Err(DatabaseError::Migration(format!(
                 "Unknown migration version: {}",
                 version
@@ -234,6 +238,7 @@ impl MigrationManager {
             "onboarding_completion",
             "notification_history",
             "bypass_attempts",
+            "strict_mode_state",
             "schema_version",
         ];
 
@@ -439,6 +444,37 @@ impl MigrationManager {
             .map_err(DatabaseError::Sqlite)?;
 
         println!("Migration to version 9 completed successfully");
+        Ok(())
+    }
+
+    /// Migration to version 10: Add strict_mode_state table for runtime state persistence
+    fn migrate_to_v10(conn: &Connection) -> DatabaseResult<()> {
+        println!("Applying migration to version 10: Adding strict_mode_state table");
+
+        // Create strict_mode_state table
+        conn.execute(
+            r#"
+            CREATE TABLE strict_mode_state (
+                id INTEGER PRIMARY KEY,
+                is_active BOOLEAN NOT NULL DEFAULT FALSE,
+                is_locked BOOLEAN NOT NULL DEFAULT FALSE,
+                current_window_type TEXT,
+                updated_at DATETIME DEFAULT CURRENT_TIMESTAMP
+            )
+            "#,
+            [],
+        )
+        .map_err(DatabaseError::Sqlite)?;
+
+        // Insert default strict mode state
+        conn.execute("INSERT INTO strict_mode_state (id) VALUES (1)", [])
+            .map_err(DatabaseError::Sqlite)?;
+
+        // Update schema version
+        conn.execute("INSERT INTO schema_version (version) VALUES (10)", [])
+            .map_err(DatabaseError::Sqlite)?;
+
+        println!("Migration to version 10 completed successfully");
         Ok(())
     }
 }

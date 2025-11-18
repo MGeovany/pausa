@@ -42,6 +42,9 @@ impl StrictModeOrchestrator {
 
         self.state.is_active = true;
 
+        // Save state to database
+        self.save_state_to_database()?;
+
         println!("✅ [StrictModeOrchestrator] Strict mode activated");
 
         Ok(())
@@ -63,6 +66,9 @@ impl StrictModeOrchestrator {
 
         self.state.is_active = false;
         self.state.current_window_type = None;
+
+        // Save state to database
+        self.save_state_to_database()?;
 
         println!("✅ [StrictModeOrchestrator] Strict mode deactivated");
 
@@ -106,6 +112,10 @@ impl StrictModeOrchestrator {
             .map_err(|e| format!("Failed to unlock system: {}", e))?;
 
         self.state.is_locked = false;
+
+        // Save state to database
+        self.save_state_to_database()?;
+
         println!("✅ [StrictModeOrchestrator] System unlocked");
         Ok(())
     }
@@ -177,6 +187,14 @@ impl StrictModeOrchestrator {
                             "📍 [StrictModeOrchestrator] Focus started - minimizing to menu bar"
                         );
 
+                        // First, hide any break overlay if it's showing
+                        if self.state.current_window_type
+                            == Some(StrictModeWindowType::FullscreenBreakOverlay)
+                        {
+                            println!("🪟 [StrictModeOrchestrator] Hiding break overlay before starting focus");
+                            self.hide_fullscreen_break_overlay()?;
+                        }
+
                         let window_manager = self
                             .window_manager
                             .lock()
@@ -192,6 +210,7 @@ impl StrictModeOrchestrator {
 
                         events.push(StrictModeEvent::MinimizeToMenuBar);
                         self.state.current_window_type = Some(StrictModeWindowType::MenuBarIcon);
+                        let _ = self.save_state_to_database();
                     }
                     crate::cycle_orchestrator::CyclePhase::ShortBreak
                     | crate::cycle_orchestrator::CyclePhase::LongBreak => {
@@ -220,15 +239,38 @@ impl StrictModeOrchestrator {
 
                 match phase {
                     crate::cycle_orchestrator::CyclePhase::Focus => {
-                        // Focus ended, prepare for break transition
-                        println!("📍 [StrictModeOrchestrator] Focus ended - preparing for break");
+                        // Focus ended, break transition will be shown when break PhaseStarted event fires
+                        println!("📍 [StrictModeOrchestrator] Focus ended - break transition will show on break start");
                     }
-                    crate::cycle_orchestrator::CyclePhase::ShortBreak
-                    | crate::cycle_orchestrator::CyclePhase::LongBreak => {
-                        // Break ended, return to menu bar
-                        println!("☕ [StrictModeOrchestrator] Break ended - returning to menu bar");
+                    crate::cycle_orchestrator::CyclePhase::ShortBreak => {
+                        // Short break ended, hide overlay and return to menu bar
+                        // Next focus will auto-start (handled by CycleOrchestrator)
+                        println!("☕ [StrictModeOrchestrator] Short break ended - hiding overlay, next focus will auto-start");
+
+                        if self.state.current_window_type
+                            == Some(StrictModeWindowType::FullscreenBreakOverlay)
+                        {
+                            self.hide_fullscreen_break_overlay()?;
+                        }
+
                         events.push(StrictModeEvent::ReturnToMenuBar);
                         self.state.current_window_type = Some(StrictModeWindowType::MenuBarIcon);
+                        let _ = self.save_state_to_database();
+                    }
+                    crate::cycle_orchestrator::CyclePhase::LongBreak => {
+                        // Long break ended, hide overlay and return to menu bar
+                        // Stay in idle (no auto-start of next focus)
+                        println!("☕ [StrictModeOrchestrator] Long break ended - hiding overlay, staying in idle");
+
+                        if self.state.current_window_type
+                            == Some(StrictModeWindowType::FullscreenBreakOverlay)
+                        {
+                            self.hide_fullscreen_break_overlay()?;
+                        }
+
+                        events.push(StrictModeEvent::ReturnToMenuBar);
+                        self.state.current_window_type = Some(StrictModeWindowType::MenuBarIcon);
+                        let _ = self.save_state_to_database();
                     }
                     _ => {}
                 }
@@ -255,6 +297,7 @@ impl StrictModeOrchestrator {
             .map_err(|e| format!("Failed to show break transition: {}", e))?;
 
         self.state.current_window_type = Some(StrictModeWindowType::BreakTransition);
+        self.save_state_to_database()?;
         Ok(())
     }
 
@@ -319,6 +362,9 @@ impl StrictModeOrchestrator {
         self.state.current_window_type = Some(StrictModeWindowType::FullscreenBreakOverlay);
         self.state.is_locked = true;
 
+        // Save state to database
+        self.save_state_to_database()?;
+
         println!("✅ [StrictModeOrchestrator] Fullscreen break overlay shown and system locked");
         Ok(())
     }
@@ -343,6 +389,9 @@ impl StrictModeOrchestrator {
             .map_err(|e| format!("Failed to hide break overlay: {}", e))?;
 
         self.state.current_window_type = Some(StrictModeWindowType::MenuBarIcon);
+
+        // Save state to database
+        self.save_state_to_database()?;
 
         println!("✅ [StrictModeOrchestrator] Fullscreen break overlay hidden and system unlocked");
         Ok(())
@@ -492,6 +541,112 @@ impl StrictModeOrchestrator {
     /// Get the system lock manager (for external access if needed)
     pub fn get_system_lock_manager(&self) -> Arc<Mutex<SystemLockManager>> {
         self.system_lock_manager.clone()
+    }
+
+    /// Save the current strict mode state to the database
+    pub fn save_state_to_database(&self) -> Result<(), String> {
+        println!("💾 [StrictModeOrchestrator] Saving state to database");
+
+        // Get database connection from app handle
+        let app_state = self
+            .app_handle
+            .try_state::<crate::state::AppState>()
+            .ok_or_else(|| "Failed to get app state".to_string())?;
+
+        // Convert window type to string
+        let window_type_str = self.state.current_window_type.as_ref().map(|wt| match wt {
+            StrictModeWindowType::MenuBarIcon => "menu_bar_icon",
+            StrictModeWindowType::MenuBarPopover => "menu_bar_popover",
+            StrictModeWindowType::BreakTransition => "break_transition",
+            StrictModeWindowType::FullscreenBreakOverlay => "fullscreen_break_overlay",
+        });
+
+        let is_active = self.state.is_active;
+        let is_locked = self.state.is_locked;
+
+        // Update the strict mode state in the database
+        app_state
+            .database
+            .with_connection(|conn| {
+                conn.execute(
+                    "UPDATE strict_mode_state SET is_active = ?, is_locked = ?, current_window_type = ?, updated_at = CURRENT_TIMESTAMP WHERE id = 1",
+                    rusqlite::params![is_active, is_locked, window_type_str],
+                )
+                .map_err(crate::database::DatabaseError::Sqlite)
+            })
+            .map_err(|e| format!("Failed to save strict mode state: {}", e))?;
+
+        println!("✅ [StrictModeOrchestrator] State saved to database");
+        Ok(())
+    }
+
+    /// Restore strict mode state from the database
+    pub fn restore_state_from_database(&mut self) -> Result<(), String> {
+        println!("📂 [StrictModeOrchestrator] Restoring state from database");
+
+        // Get database connection from app handle
+        let app_state = self
+            .app_handle
+            .try_state::<crate::state::AppState>()
+            .ok_or_else(|| "Failed to get app state".to_string())?;
+
+        // Query the strict mode state from the database
+        let (is_active, is_locked, window_type_str): (bool, bool, Option<String>) = app_state
+            .database
+            .with_connection(|conn| {
+                conn.query_row(
+                    "SELECT is_active, is_locked, current_window_type FROM strict_mode_state WHERE id = 1",
+                    [],
+                    |row| Ok((row.get(0)?, row.get(1)?, row.get(2)?)),
+                )
+                .map_err(crate::database::DatabaseError::Sqlite)
+            })
+            .map_err(|e| format!("Failed to restore strict mode state: {}", e))?;
+
+        // Convert string to window type
+        let window_type = window_type_str.and_then(|s| match s.as_str() {
+            "menu_bar_icon" => Some(StrictModeWindowType::MenuBarIcon),
+            "menu_bar_popover" => Some(StrictModeWindowType::MenuBarPopover),
+            "break_transition" => Some(StrictModeWindowType::BreakTransition),
+            "fullscreen_break_overlay" => Some(StrictModeWindowType::FullscreenBreakOverlay),
+            _ => None,
+        });
+
+        // Update the orchestrator state
+        self.state.is_active = is_active;
+        self.state.is_locked = is_locked;
+        self.state.current_window_type = window_type.clone();
+
+        println!(
+            "✅ [StrictModeOrchestrator] State restored: is_active={}, is_locked={}, window_type={:?}",
+            is_active, is_locked, window_type
+        );
+
+        // If strict mode was active and locked when the app closed, we need to handle recovery
+        if is_active && is_locked {
+            println!("⚠️ [StrictModeOrchestrator] App was closed during locked state - performing recovery");
+
+            // Unlock the system
+            if let Err(e) = self.unlock_system() {
+                eprintln!("Failed to unlock system during recovery: {}", e);
+            }
+
+            // Hide any strict mode windows
+            if let Err(e) = self.hide_all_strict_windows() {
+                eprintln!("Failed to hide strict mode windows during recovery: {}", e);
+            }
+
+            // Reset to menu bar icon state
+            self.state.is_locked = false;
+            self.state.current_window_type = Some(StrictModeWindowType::MenuBarIcon);
+
+            // Save the recovered state
+            if let Err(e) = self.save_state_to_database() {
+                eprintln!("Failed to save recovered state: {}", e);
+            }
+        }
+
+        Ok(())
     }
 }
 
