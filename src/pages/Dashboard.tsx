@@ -178,6 +178,7 @@ export default function Dashboard() {
   const handleStartRoutine = async () => {
     try {
       // If strict mode is enabled in settings, activate the orchestrator
+      console.log(settings,'SSSS')
       if (settings.strictMode) {
         console.log("🔒 [Dashboard] Strict mode enabled, activating orchestrator");
         await activateStrictMode();
@@ -310,17 +311,13 @@ export default function Dashboard() {
                           disabled={!cycleState?.can_start}
                           className={`inline-flex items-center gap-2 text-gray-100 border rounded-lg px-4 py-2 text-sm font-medium disabled:opacity-50 disabled:cursor-not-allowed transition-all ${
                             settings.strictMode
-                              ? 'bg-amber-600 hover:bg-amber-700 border-amber-500 shadow-lg shadow-amber-500/20'
+                              ? 'bg-amber-600 hover:bg-amber-400 border-amber-500 shadow-lg shadow-amber-500/70'
                               : 'bg-gray-800 hover:bg-gray-700 border-gray-800'
                           }`}
                         >
                           <Play className="w-4 h-4" />
                           Start Focus
-                          {settings.strictMode && (
-                            <span className="ml-1 inline-flex items-center gap-1 text-xs text-amber-200 bg-amber-700/30 rounded px-1.5 py-0.5">
-                              🔒
-                            </span>
-                          )}
+                          
                         </button>
                         {settings.strictMode && (
                           <div className="flex items-center justify-center gap-1.5 text-xs text-amber-300 w-full text-center mt-2 animate-pulse">
