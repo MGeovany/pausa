@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useMemo, useCallback } from 'react';
 import { EmergencyOverride } from './EmergencyOverride';
 import { activityCompletionTracker, breakActivityManager } from '../lib/breakActivities';
 import type { BreakSession, BreakActivity, CycleState } from '../types';
@@ -375,6 +375,12 @@ function StrictModeBreakUI({
 
   return (
     <div className="flex flex-col items-center justify-center text-center">
+      {/* Lock status indicator */}
+      <div className="mb-8 inline-flex items-center gap-2 px-4 py-2 bg-amber-500/10 border border-amber-500/20 rounded-full animate-pulse-glow">
+        <span className="w-2 h-2 bg-amber-400 rounded-full animate-pulse"></span>
+        <span className="text-sm text-amber-300 font-medium">🔒 Sistema bloqueado</span>
+      </div>
+
       {/* Prominent "Pausa" title */}
       <h1 className="text-[96px] font-bold text-white mb-12 tracking-tight">
         Pausa
@@ -417,9 +423,12 @@ export function BreakOverlay({
   // Use provided cycleState or fall back to store
   const currentCycleState = cycleState || storeCycleState;
 
-  // Get appropriate activity based on break type
-  const activity = breakSession.activity || 
-    breakActivityManager.getActivityForBreak(breakSession.type, breakSession.duration);
+  // Memoize activity to avoid recalculation
+  const activity = useMemo(() => 
+    breakSession.activity || 
+    breakActivityManager.getActivityForBreak(breakSession.type, breakSession.duration),
+    [breakSession.activity, breakSession.type, breakSession.duration]
+  );
 
   // Fade in animation on mount
   useEffect(() => {
@@ -646,7 +655,7 @@ export function BreakOverlay({
     return () => document.removeEventListener('keydown', handleKeyDown);
   }, [breakSession.allowEmergency, breakSession.id, isStrictMode]);
 
-  const handleEmergencyOverride = async (pin: string): Promise<boolean> => {
+  const handleEmergencyOverride = useCallback(async (pin: string): Promise<boolean> => {
     const success = await onEmergencyOverride(pin);
     if (success) {
       setShowEmergencyModal(false);
@@ -655,9 +664,9 @@ export function BreakOverlay({
       logBypassAttempt('emergency_override_failed');
     }
     return success;
-  };
+  }, [onEmergencyOverride]);
 
-  const handleChecklistUpdate = (completedItems: boolean[]) => {
+  const handleChecklistUpdate = useCallback((completedItems: boolean[]) => {
     setChecklistCompleted(completedItems);
     
     // Record completion progress for analytics
@@ -666,20 +675,33 @@ export function BreakOverlay({
       completedItems,
       breakSession.id
     );
-  };
+  }, [activity.title, breakSession.id]);
 
-  const canCompleteBreak = breakSession.remaining <= 0 || 
-    (checklistCompleted.length > 0 && checklistCompleted.every(item => item));
+  // Memoize computed values
+  const canCompleteBreak = useMemo(() => 
+    breakSession.remaining <= 0 || 
+    (checklistCompleted.length > 0 && checklistCompleted.every(item => item)),
+    [breakSession.remaining, checklistCompleted]
+  );
   
-  const showCompletionInterface = breakSession.remaining <= 0;
+  const showCompletionInterface = useMemo(() => 
+    breakSession.remaining <= 0,
+    [breakSession.remaining]
+  );
   
-  const accentColor = breakSession.type === 'long' ? 'amber' : 'blue';
+  const accentColor = useMemo(() => 
+    breakSession.type === 'long' ? 'amber' : 'blue',
+    [breakSession.type]
+  );
 
   // Determine background color based on mode and break type
   const strictModeBg = '#0a0a0a'; // Solid dark background for strict mode
-  const normalModeBg = breakSession.type === 'long' 
-    ? 'bg-gradient-to-br from-amber-900/40 via-gray-900 to-gray-900' 
-    : 'bg-gray-900';
+  const normalModeBg = useMemo(() => 
+    breakSession.type === 'long' 
+      ? 'bg-gradient-to-br from-amber-900/40 via-gray-900 to-gray-900' 
+      : 'bg-gray-900',
+    [breakSession.type]
+  );
 
   return (
     <div 
@@ -698,13 +720,14 @@ export function BreakOverlay({
         left: 0,
         right: 0,
         bottom: 0,
-        backgroundColor: isStrictMode ? strictModeBg : undefined
+        backgroundColor: isStrictMode ? strictModeBg : undefined,
+        transition: 'background-color 0.7s ease-out'
       }}
     >
       {/* Main break content */}
       <div className={`
         flex flex-col items-center justify-center min-h-screen p-8 w-full
-        transition-all duration-500 ease-out
+        transition-all duration-700 ease-out
         ${isVisible ? 'scale-100 opacity-100' : 'scale-95 opacity-0'}
       `}>
         {isStrictMode && !showCompletionInterface ? (

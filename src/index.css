@@ -106,11 +106,13 @@
   .break-overlay {
     @apply fixed inset-0 bg-gray-950/95 backdrop-blur-sm;
     @apply flex items-center justify-center z-50;
+    will-change: opacity;
   }
 
   .break-content {
     @apply bg-surface-dark/90 backdrop-blur-xl border border-gray-700/50 rounded-2xl shadow-raycast;
     @apply p-8 max-w-md w-full mx-4 text-center;
+    will-change: transform, opacity;
   }
 
   /* Settings Panel Styles */
@@ -131,6 +133,7 @@
   .menu-bar-popover {
     @apply bg-gray-900/95 backdrop-blur-xl border border-gray-700/50 rounded-xl shadow-2xl;
     @apply p-5 w-[280px];
+    will-change: transform, opacity;
   }
 
   .menu-bar-popover .cycle-info {
@@ -138,11 +141,7 @@
   }
 
   .menu-bar-popover .cycle-count {
-    @apply text-xs text-gray-400 mb-2;
-  }
-
-  .menu-bar-popover .phase-name {
-    @apply text-sm text-white font-semibold mb-4;
+    @apply text-xs text-gray-400 mb-3;
   }
 
   .menu-bar-popover .timer {
@@ -364,13 +363,22 @@
   /* Strict Mode Break Overlay - Minimalist Pulse Animation */
   @keyframes strictPulse {
     0%, 100% {
-      transform: scale(1);
+      transform: scale(1) translateZ(0);
       opacity: 0.6;
     }
     50% {
-      transform: scale(1.2);
+      transform: scale(1.2) translateZ(0);
       opacity: 0.3;
     }
+  }
+
+  /* Performance optimization for animations */
+  .animate-strict-pulse,
+  .animate-pulse,
+  .animate-pulse-glow {
+    will-change: transform, opacity;
+    backface-visibility: hidden;
+    perspective: 1000px;
   }
 
   /* Animation utility classes */
@@ -440,5 +448,23 @@
 
   .transition-spring {
     transition: all 0.6s cubic-bezier(0.175, 0.885, 0.32, 1.275);
+  }
+
+  /* Performance optimizations */
+  .gpu-accelerated {
+    transform: translateZ(0);
+    backface-visibility: hidden;
+    perspective: 1000px;
+  }
+
+  /* Reduce motion for users who prefer it */
+  @media (prefers-reduced-motion: reduce) {
+    *,
+    *::before,
+    *::after {
+      animation-duration: 0.01ms !important;
+      animation-iteration-count: 1 !important;
+      transition-duration: 0.01ms !important;
+    }
   }
 }

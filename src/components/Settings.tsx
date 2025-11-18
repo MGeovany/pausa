@@ -1,6 +1,6 @@
 import { useState, useEffect, useRef } from "react";
-import { Plus, Trash2, Save, X } from "lucide-react";
-import { useSettings, useAppStore } from "../store";
+import { Plus, Trash2, Save, X, AlertTriangle } from "lucide-react";
+import { useSettings, useAppStore, useCycleState } from "../store";
 import { tauriCommands } from "../lib/tauri";
 import type { UserSettings } from "../types";
 
@@ -11,6 +11,7 @@ interface SettingsProps {
 export function Settings({ onClose }: SettingsProps) {
   const initialSettings = useSettings();
   const { updateSettings } = useAppStore();
+  const cycleState = useCycleState();
 
   // Local state for all settings
   const [localSettings, setLocalSettings] =
@@ -30,6 +31,7 @@ export function Settings({ onClose }: SettingsProps) {
     text: string;
   } | null>(null);
   const [showEmergencyKeyModal, setShowEmergencyKeyModal] = useState(false);
+  const [showDeactivationWarning, setShowDeactivationWarning] = useState(false);
   const [emergencyKey, setEmergencyKey] = useState("");
   const [isCapturingKey, setIsCapturingKey] = useState(false);
   const pressedKeysRef = useRef<Set<string>>(new Set());
@@ -156,9 +158,42 @@ export function Settings({ onClose }: SettingsProps) {
       // If enabling strict mode and no emergency key is set, show modal
       setShowEmergencyKeyModal(true);
       setEmergencyKey("");
+    } else if (!enabled && cycleState && cycleState.phase !== "idle") {
+      // If disabling strict mode during an active session, show warning
+      setShowDeactivationWarning(true);
     } else {
       updateLocalSettings({ strictMode: enabled });
+      
+      // Show feedback message
+      if (enabled) {
+        setSaveMessage({ 
+          type: "success", 
+          text: "🔒 Strict mode enabled! Your focus sessions will be locked." 
+        });
+      } else {
+        setSaveMessage({ 
+          type: "success", 
+          text: "Strict mode disabled. Normal mode restored." 
+        });
+      }
+      
+      // Clear message after 3 seconds
+      setTimeout(() => setSaveMessage(null), 3000);
     }
+  };
+
+  const confirmDeactivation = () => {
+    updateLocalSettings({ strictMode: false });
+    setShowDeactivationWarning(false);
+    setSaveMessage({ 
+      type: "success", 
+      text: "Strict mode disabled. Current session will continue in normal mode." 
+    });
+    setTimeout(() => setSaveMessage(null), 3000);
+  };
+
+  const cancelDeactivation = () => {
+    setShowDeactivationWarning(false);
   };
 
   const startKeyCapture = () => {
@@ -308,7 +343,7 @@ export function Settings({ onClose }: SettingsProps) {
           )}
           {saveMessage && (
             <div
-              className={`rounded-xl px-4 py-2 text-sm ${
+              className={`rounded-xl px-4 py-2 text-sm animate-slide-in-right ${
                 saveMessage.type === "success"
                   ? "bg-green-500/20 text-green-200 border border-green-500/40"
                   : "bg-red-500/20 text-red-200 border border-red-500/40"
@@ -433,7 +468,17 @@ export function Settings({ onClose }: SettingsProps) {
       </section>
 
       <section className="rounded-2xl border border-gray-800 bg-gray-900/60 p-6">
-        <h2 className="text-xl font-semibold text-white">Strict mode</h2>
+        <div className="flex items-center justify-between mb-2">
+          <h2 className="text-xl font-semibold text-white flex items-center gap-2">
+            Strict mode
+            {localSettings.strictMode && (
+              <span className="inline-flex items-center gap-1.5 px-2.5 py-1 bg-amber-500/20 border border-amber-500/30 rounded-full text-xs font-medium text-amber-300 animate-pulse-glow">
+                <span className="w-1.5 h-1.5 bg-amber-400 rounded-full animate-pulse"></span>
+                Active
+              </span>
+            )}
+          </h2>
+        </div>
         <p className="text-sm text-gray-500">
           Keep distractions out of reach while you are in focus mode.
         </p>
@@ -528,10 +573,52 @@ export function Settings({ onClose }: SettingsProps) {
         </div>
       </section>
 
+      {/* Deactivation Warning Modal */}
+      {showDeactivationWarning && (
+        <div className="fixed inset-0 z-50 bg-black/70 flex items-center justify-center p-4 animate-fade-in">
+          <div className="bg-gray-800 rounded-2xl p-6 max-w-md w-full border border-amber-500/30 animate-scale-in">
+            <div className="flex items-center gap-3 mb-4">
+              <div className="w-12 h-12 rounded-full bg-amber-500/20 flex items-center justify-center">
+                <AlertTriangle className="w-6 h-6 text-amber-400" />
+              </div>
+              <h3 className="text-xl font-semibold text-white">
+                Deactivate Strict Mode?
+              </h3>
+            </div>
+
+            <p className="text-gray-300 mb-6 text-sm leading-relaxed">
+              You have an active {cycleState?.phase === "focus" ? "focus session" : "break"} running. 
+              Deactivating strict mode will allow you to exit the current session, but your progress will be maintained.
+            </p>
+
+            <div className="bg-amber-900/20 border border-amber-700/50 rounded-lg p-4 mb-6">
+              <p className="text-amber-200 text-sm">
+                ⚠️ Your current session will continue in normal mode without system locks.
+              </p>
+            </div>
+
+            <div className="flex justify-end gap-3">
+              <button
+                onClick={cancelDeactivation}
+                className="px-4 py-2 rounded-lg font-medium bg-gray-700 text-gray-300 hover:bg-gray-600 transition-all"
+              >
+                Cancel
+              </button>
+              <button
+                onClick={confirmDeactivation}
+                className="px-4 py-2 rounded-lg font-medium bg-amber-600 text-white hover:bg-amber-700 transition-all"
+              >
+                Deactivate Anyway
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
       {/* Emergency Key Combination Modal */}
       {showEmergencyKeyModal && (
-        <div className="fixed inset-0 z-50 bg-black/70 flex items-center justify-center p-4">
-          <div className="bg-gray-800 rounded-2xl p-6 max-w-md w-full border border-gray-700">
+        <div className="fixed inset-0 z-50 bg-black/70 flex items-center justify-center p-4 animate-fade-in">
+          <div className="bg-gray-800 rounded-2xl p-6 max-w-md w-full border border-gray-700 animate-scale-in">
             <div className="flex items-center justify-between mb-6">
               <h3 className="text-xl font-semibold text-white">
                 Emergency Key Combination

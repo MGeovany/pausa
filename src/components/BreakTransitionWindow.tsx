@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useCallback } from 'react';
 import { invoke } from '@tauri-apps/api/core';
 
 interface BreakTransitionWindowProps {
@@ -10,12 +10,20 @@ export const BreakTransitionWindow: React.FC<BreakTransitionWindowProps> = ({
 }) => {
   const [countdown, setCountdown] = useState(initialCountdown);
   const [isStopped, setIsStopped] = useState(false);
+  const [isVisible, setIsVisible] = useState(false);
+
+  // Fade in animation on mount
+  useEffect(() => {
+    const timer = setTimeout(() => setIsVisible(true), 10);
+    return () => clearTimeout(timer);
+  }, []);
 
   useEffect(() => {
     if (isStopped) return;
 
     if (countdown === 0) {
-      handleStartBreak();
+      setIsVisible(false);
+      setTimeout(() => handleStartBreak(), 300); // Wait for fade out
       return;
     }
 
@@ -26,35 +34,41 @@ export const BreakTransitionWindow: React.FC<BreakTransitionWindowProps> = ({
     return () => clearTimeout(timer);
   }, [countdown, isStopped]);
 
-  const handleStopCountdown = async () => {
+  const handleStopCountdown = useCallback(async () => {
     setIsStopped(true);
     try {
       await invoke('stop_break_transition_countdown');
     } catch (error) {
       console.error('Failed to stop break transition countdown:', error);
     }
-  };
+  }, []);
 
-  const handleStartBreak = async () => {
+  const handleStartBreak = useCallback(async () => {
     try {
       await invoke('start_break_from_transition');
     } catch (error) {
       console.error('Failed to start break from transition:', error);
     }
-  };
+  }, []);
 
   return (
-    <div className="break-transition-window">
-      <h2>Guarda tus cambios</h2>
-      <p>Tu break empieza en</p>
-      <div className="countdown">{countdown}</div>
+    <div 
+      className={`break-transition-window transition-all duration-500 ease-out ${
+        isVisible ? 'opacity-100 scale-100' : 'opacity-0 scale-95'
+      }`}
+    >
+      <h2 className="transition-all duration-300">Guarda tus cambios</h2>
+      <p className="transition-all duration-300">Tu break empieza en</p>
+      <div className={`countdown transition-all duration-300 ${countdown <= 3 ? 'text-red-500 animate-pulse' : ''}`}>
+        {countdown}
+      </div>
 
       {!isStopped ? (
         <button onClick={handleStopCountdown} className="transition-button">
           Detener contador
         </button>
       ) : (
-        <button onClick={handleStartBreak} className="transition-button">
+        <button onClick={handleStartBreak} className="transition-button animate-pulse-glow">
           Iniciar break
         </button>
       )}
