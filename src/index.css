@@ -127,6 +127,38 @@
     @apply flex items-center justify-between py-3;
   }
 
+  /* Menu Bar Popover Styles */
+  .menu-bar-popover {
+    @apply bg-gray-900/95 backdrop-blur-xl border border-gray-700/50 rounded-xl shadow-2xl;
+    @apply p-5 w-[280px];
+  }
+
+  .menu-bar-popover .cycle-info {
+    @apply text-center mb-4;
+  }
+
+  .menu-bar-popover .cycle-count {
+    @apply text-xs text-gray-400 mb-2;
+  }
+
+  .menu-bar-popover .phase-name {
+    @apply text-sm text-white font-semibold mb-4;
+  }
+
+  .menu-bar-popover .timer {
+    @apply text-5xl font-bold text-white font-mono mb-4;
+  }
+
+  .menu-bar-popover .controls {
+    @apply flex flex-col gap-2;
+  }
+
+  .menu-bar-popover .control-button {
+    @apply w-full py-3 px-4 bg-blue-600 hover:bg-blue-700 text-white font-semibold rounded-lg;
+    @apply transition-colors duration-150 flex items-center justify-center gap-2;
+    @apply disabled:opacity-50 disabled:cursor-not-allowed;
+  }
+
   /* Toggle Switch */
   .toggle {
     @apply relative inline-flex h-6 w-11 items-center rounded-full transition-colors;

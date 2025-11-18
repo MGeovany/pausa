@@ -188,14 +188,30 @@ pub async fn start_focus_session(
 
     let events = orchestrator.start_focus_session_with_override(override_flag)?;
 
+    let current_state = orchestrator.get_state();
+
+    // Release the cycle orchestrator lock before handling strict mode
+    drop(cycle_orchestrator);
+
+    // Handle strict mode events if strict mode is active
+    let mut strict_mode_orchestrator = state.strict_mode_orchestrator.lock().await;
+    if let Some(strict_orchestrator) = strict_mode_orchestrator.as_mut() {
+        if strict_orchestrator.is_active() {
+            for event in &events {
+                if let Err(e) = strict_orchestrator.handle_cycle_event(event) {
+                    eprintln!("Failed to handle strict mode event: {}", e);
+                }
+            }
+        }
+    }
+    drop(strict_mode_orchestrator);
+
     // Emit events to frontend
     for event in events {
         if let Err(e) = app.emit("cycle-event", &event) {
             eprintln!("Failed to emit cycle event: {}", e);
         }
     }
-
-    let current_state = orchestrator.get_state();
 
     // Save session to database
     if let Some(ref session_id) = current_state.session_id {
@@ -662,6 +678,19 @@ pub async fn cycle_tick(state: State<'_, AppState>, app: AppHandle) -> Result<Cy
             _ => {}
         }
     }
+
+    // Handle strict mode events if strict mode is active
+    let mut strict_mode_orchestrator = state.strict_mode_orchestrator.lock().await;
+    if let Some(orchestrator) = strict_mode_orchestrator.as_mut() {
+        if orchestrator.is_active() {
+            for event in &events {
+                if let Err(e) = orchestrator.handle_cycle_event(event) {
+                    eprintln!("Failed to handle strict mode event: {}", e);
+                }
+            }
+        }
+    }
+    drop(strict_mode_orchestrator); // Release lock before emitting events
 
     // Emit events to frontend
     for event in events {

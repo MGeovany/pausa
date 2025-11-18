@@ -3,7 +3,7 @@ use std::sync::{Arc, Mutex};
 use tauri::AppHandle;
 
 use super::models::{StrictModeConfig, StrictModeState, StrictModeWindowType};
-use crate::cycle_orchestrator::{CycleEvent, CycleOrchestrator};
+use crate::cycle_orchestrator::CycleEvent;
 use crate::window_manager::WindowManager;
 
 /// Orchestrates strict mode functionality, managing window transitions and system locks
@@ -122,7 +122,19 @@ impl StrictModeOrchestrator {
                 match phase {
                     crate::cycle_orchestrator::CyclePhase::Focus => {
                         // When focus starts in strict mode, minimize to menu bar
-                        println!("📍 [StrictModeOrchestrator] Focus started - should minimize to menu bar");
+                        println!(
+                            "📍 [StrictModeOrchestrator] Focus started - minimizing to menu bar"
+                        );
+
+                        let window_manager = self
+                            .window_manager
+                            .lock()
+                            .map_err(|e| format!("Failed to lock window manager: {}", e))?;
+
+                        window_manager
+                            .minimize_to_menu_bar()
+                            .map_err(|e| format!("Failed to minimize to menu bar: {}", e))?;
+
                         events.push(StrictModeEvent::MinimizeToMenuBar);
                         self.state.current_window_type = Some(StrictModeWindowType::MenuBarIcon);
                     }
@@ -202,16 +214,34 @@ impl StrictModeOrchestrator {
     /// Show menu bar popover
     pub fn show_menu_bar_popover(&mut self) -> Result<(), String> {
         println!("🪟 [StrictModeOrchestrator] Showing menu bar popover");
+
+        let window_manager = self
+            .window_manager
+            .lock()
+            .map_err(|e| format!("Failed to lock window manager: {}", e))?;
+
+        window_manager
+            .show_menu_bar_popover()
+            .map_err(|e| format!("Failed to show menu bar popover: {}", e))?;
+
         self.state.current_window_type = Some(StrictModeWindowType::MenuBarPopover);
-        // Window creation will be handled by WindowManager in future tasks
         Ok(())
     }
 
     /// Hide menu bar popover
     pub fn hide_menu_bar_popover(&mut self) -> Result<(), String> {
         println!("🪟 [StrictModeOrchestrator] Hiding menu bar popover");
+
+        let window_manager = self
+            .window_manager
+            .lock()
+            .map_err(|e| format!("Failed to lock window manager: {}", e))?;
+
+        window_manager
+            .hide_menu_bar_popover()
+            .map_err(|e| format!("Failed to hide menu bar popover: {}", e))?;
+
         self.state.current_window_type = Some(StrictModeWindowType::MenuBarIcon);
-        // Window hiding will be handled by WindowManager in future tasks
         Ok(())
     }
 
@@ -227,12 +257,55 @@ impl StrictModeOrchestrator {
         // Hide all strict mode windows
         self.hide_all_strict_windows()?;
 
+        // Restore main window
+        let window_manager = self
+            .window_manager
+            .lock()
+            .map_err(|e| format!("Failed to lock window manager: {}", e))?;
+        window_manager
+            .restore_from_menu_bar()
+            .map_err(|e| format!("Failed to restore main window: {}", e))?;
+
         // Deactivate strict mode
         self.state.is_active = false;
         self.state.current_window_type = None;
 
         println!("✅ [StrictModeOrchestrator] Emergency exit completed");
 
+        Ok(())
+    }
+
+    /// Minimize main window to menu bar
+    pub fn minimize_to_menu_bar(&mut self) -> Result<(), String> {
+        println!("📍 [StrictModeOrchestrator] Minimizing to menu bar");
+
+        let window_manager = self
+            .window_manager
+            .lock()
+            .map_err(|e| format!("Failed to lock window manager: {}", e))?;
+
+        window_manager
+            .minimize_to_menu_bar()
+            .map_err(|e| format!("Failed to minimize to menu bar: {}", e))?;
+
+        self.state.current_window_type = Some(StrictModeWindowType::MenuBarIcon);
+        Ok(())
+    }
+
+    /// Restore main window from menu bar
+    pub fn restore_from_menu_bar(&mut self) -> Result<(), String> {
+        println!("📍 [StrictModeOrchestrator] Restoring from menu bar");
+
+        let window_manager = self
+            .window_manager
+            .lock()
+            .map_err(|e| format!("Failed to lock window manager: {}", e))?;
+
+        window_manager
+            .restore_from_menu_bar()
+            .map_err(|e| format!("Failed to restore from menu bar: {}", e))?;
+
+        self.state.current_window_type = None;
         Ok(())
     }
 }

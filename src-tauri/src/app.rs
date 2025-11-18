@@ -23,6 +23,29 @@ pub fn run() -> Result<(), String> {
             let onboarding_manager = OnboardingManager::new();
             app.manage(Mutex::new(onboarding_manager));
 
+            // Setup tray icon click handler
+            if let Some(tray) = app.tray_by_id("main-tray") {
+                tray.on_tray_icon_event(|tray, event| {
+                    if let tauri::tray::TrayIconEvent::Click { .. } = event {
+                        // Get the app handle
+                        let app_handle = tray.app_handle();
+
+                        // Try to show menu bar popover
+                        if let Some(window_manager) =
+                            app_handle.try_state::<std::sync::Arc<
+                                std::sync::Mutex<crate::window_manager::WindowManager>,
+                            >>()
+                        {
+                            if let Ok(manager) = window_manager.lock() {
+                                if let Err(e) = manager.show_menu_bar_popover() {
+                                    eprintln!("Failed to show menu bar popover: {}", e);
+                                }
+                            }
+                        }
+                    }
+                });
+            }
+
             Ok(())
         })
         .invoke_handler(tauri::generate_handler![

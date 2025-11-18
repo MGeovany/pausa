@@ -12,6 +12,7 @@ pub enum WindowType {
     FocusWidget,
     BreakOverlay,
     Settings,
+    MenuBarPopover,
 }
 
 impl WindowType {
@@ -21,6 +22,7 @@ impl WindowType {
             WindowType::FocusWidget => "focus-widget",
             WindowType::BreakOverlay => "break-overlay",
             WindowType::Settings => "settings",
+            WindowType::MenuBarPopover => "menu-bar-popover",
         }
     }
 }
@@ -214,6 +216,55 @@ impl WindowManager {
         Ok(())
     }
 
+    /// Minimize the main window to menu bar (hide it)
+    pub fn minimize_to_menu_bar(&self) -> Result<(), Box<dyn std::error::Error>> {
+        if let Some(window) = self.app_handle.get_webview_window("main") {
+            window.hide()?;
+            println!("📍 [WindowManager] Main window minimized to menu bar");
+        }
+        Ok(())
+    }
+
+    /// Restore the main window from menu bar
+    pub fn restore_from_menu_bar(&self) -> Result<(), Box<dyn std::error::Error>> {
+        if let Some(window) = self.app_handle.get_webview_window("main") {
+            window.show()?;
+            window.set_focus()?;
+            println!("📍 [WindowManager] Main window restored from menu bar");
+        }
+        Ok(())
+    }
+
+    /// Show the menu bar popover
+    pub fn show_menu_bar_popover(&self) -> Result<(), Box<dyn std::error::Error>> {
+        let window = self.get_or_create_window(WindowType::MenuBarPopover)?;
+
+        // Position near the menu bar icon (top-right area)
+        self.position_near_menu_bar(&window)?;
+        window.show()?;
+        window.set_focus()?;
+
+        self.update_window_state(WindowType::MenuBarPopover, |state| {
+            state.is_visible = true;
+        });
+
+        Ok(())
+    }
+
+    /// Hide the menu bar popover
+    pub fn hide_menu_bar_popover(&self) -> Result<(), Box<dyn std::error::Error>> {
+        if let Some(window) = self
+            .app_handle
+            .get_webview_window(WindowType::MenuBarPopover.label())
+        {
+            window.hide()?;
+            self.update_window_state(WindowType::MenuBarPopover, |state| {
+                state.is_visible = false;
+            });
+        }
+        Ok(())
+    }
+
     /// Hide a specific window type
     pub fn hide_window(&self, window_type: WindowType) -> Result<(), Box<dyn std::error::Error>> {
         match window_type {
@@ -221,6 +272,7 @@ impl WindowManager {
             WindowType::FocusWidget => self.hide_focus_widget(),
             WindowType::BreakOverlay => self.hide_break_overlay(),
             WindowType::Settings => self.hide_settings(),
+            WindowType::MenuBarPopover => self.hide_menu_bar_popover(),
         }
     }
 
@@ -309,6 +361,21 @@ impl WindowManager {
             .shadow(true)
             .visible(false)
             .build()?,
+            WindowType::MenuBarPopover => WebviewWindowBuilder::new(
+                &self.app_handle,
+                label,
+                WebviewUrl::App("index.html".into()),
+            )
+            .title("Pausa Menu Bar")
+            .inner_size(280.0, 200.0)
+            .resizable(false)
+            .decorations(false)
+            .always_on_top(true)
+            .skip_taskbar(true)
+            .shadow(true)
+            .focused(true)
+            .visible(false)
+            .build()?,
         };
         Ok(window)
     }
@@ -381,6 +448,7 @@ impl WindowManager {
             WindowType::FocusWidget,
             WindowType::BreakOverlay,
             WindowType::Settings,
+            WindowType::MenuBarPopover,
         ] {
             self.hide_window(window_type)?;
         }
@@ -412,6 +480,27 @@ impl WindowManager {
 
             let x = monitor_size.width as i32 - window_size.width as i32 - 20; // 20px margin from right
             let y = 60; // 60px margin from top
+
+            window.set_position(Position::Logical(LogicalPosition {
+                x: x as f64,
+                y: y as f64,
+            }))?;
+        }
+        Ok(())
+    }
+
+    /// Position a window near the menu bar icon (top-right area)
+    fn position_near_menu_bar(
+        &self,
+        window: &WebviewWindow,
+    ) -> Result<(), Box<dyn std::error::Error>> {
+        if let Some(monitor) = window.current_monitor()? {
+            let monitor_size = monitor.size();
+            let window_size = window.outer_size()?;
+
+            // Position in top-right corner, below the menu bar
+            let x = monitor_size.width as i32 - window_size.width as i32 - 10; // 10px margin from right
+            let y = 30; // 30px from top (below menu bar)
 
             window.set_position(Position::Logical(LogicalPosition {
                 x: x as f64,
@@ -560,8 +649,33 @@ pub async fn is_window_visible(
         "focus-widget" => WindowType::FocusWidget,
         "break-overlay" => WindowType::BreakOverlay,
         "settings" => WindowType::Settings,
+        "menu-bar-popover" => WindowType::MenuBarPopover,
         _ => return Err("Invalid window type".to_string()),
     };
 
     Ok(manager.is_window_visible(window_type))
+}
+
+#[tauri::command]
+pub async fn minimize_to_menu_bar(
+    window_manager: tauri::State<'_, Arc<Mutex<WindowManager>>>,
+) -> Result<(), String> {
+    let manager = window_manager
+        .lock()
+        .map_err(|e| format!("Failed to lock window manager: {}", e))?;
+    manager
+        .minimize_to_menu_bar()
+        .map_err(|e| format!("Failed to minimize to menu bar: {}", e))
+}
+
+#[tauri::command]
+pub async fn restore_from_menu_bar(
+    window_manager: tauri::State<'_, Arc<Mutex<WindowManager>>>,
+) -> Result<(), String> {
+    let manager = window_manager
+        .lock()
+        .map_err(|e| format!("Failed to lock window manager: {}", e))?;
+    manager
+        .restore_from_menu_bar()
+        .map_err(|e| format!("Failed to restore from menu bar: {}", e))
 }

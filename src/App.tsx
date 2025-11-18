@@ -1,12 +1,14 @@
 import { HashRouter, Routes, Route } from "react-router-dom";
 import { useState, useEffect } from "react";
 import { invoke } from "@tauri-apps/api/core";
+import { getCurrentWindow } from "@tauri-apps/api/window";
 import Login from "./pages/Login";
 import Dashboard from "./pages/Dashboard";
 import OnboardingWizard from "./components/OnboardingWizard";
 import { ErrorBoundary } from "./components/ErrorBoundary";
 import { ToastContainer } from "./components/ToastContainer";
 import { CycleSync } from "./components/CycleSync";
+import { MenuBarPopover } from "./components/MenuBarPopover";
 import { errorHandler } from "./lib/errorHandler";
 import Stats from "./pages/Stats";
 import Settings from "./pages/Settings";
@@ -14,10 +16,22 @@ import Settings from "./pages/Settings";
 export default function App() {
   const [needsOnboarding, setNeedsOnboarding] = useState<boolean | null>(null);
   const [isLoading, setIsLoading] = useState(true);
+  const [windowLabel, setWindowLabel] = useState<string>("");
 
   useEffect(() => {
     const checkAppState = async () => {
       try {
+        // Get current window label
+        const currentWindow = getCurrentWindow();
+        const label = currentWindow.label;
+        setWindowLabel(label);
+
+        // If this is a special window (menu-bar-popover, etc.), skip onboarding check
+        if (label === "menu-bar-popover") {
+          setIsLoading(false);
+          return;
+        }
+
         // Check if onboarding is needed (first launch or onboarding not complete)
         const firstLaunch = await invoke<boolean>("is_first_launch");
         const onboardingComplete = await invoke<boolean>(
@@ -74,6 +88,26 @@ export default function App() {
       <div className="min-h-screen bg-gradient-to-br from-zinc-900 via-zinc-800 to-zinc-900 flex items-center justify-center">
         <div className="text-white text-lg">Loading...</div>
       </div>
+    );
+  }
+
+  // Render MenuBarPopover for menu-bar-popover window
+  if (windowLabel === "menu-bar-popover") {
+    return (
+      <ErrorBoundary>
+        <CycleSync />
+        <div className="min-h-screen bg-transparent flex items-start justify-center pt-2">
+          <MenuBarPopover
+            onClose={async () => {
+              try {
+                await invoke("hide_menu_bar_popover");
+              } catch (error) {
+                console.error("Failed to hide menu bar popover:", error);
+              }
+            }}
+          />
+        </div>
+      </ErrorBoundary>
     );
   }
 
