@@ -1,8 +1,9 @@
 use serde::{Deserialize, Serialize};
 use std::sync::{Arc, Mutex};
-use tauri::AppHandle;
+use tauri::{AppHandle, Manager};
 
 use super::models::{StrictModeConfig, StrictModeState, StrictModeWindowType};
+use super::system_lock_manager::SystemLockManager;
 use crate::cycle_orchestrator::CycleEvent;
 use crate::window_manager::WindowManager;
 
@@ -12,6 +13,7 @@ pub struct StrictModeOrchestrator {
     state: StrictModeState,
     app_handle: AppHandle,
     window_manager: Arc<Mutex<WindowManager>>,
+    system_lock_manager: Arc<Mutex<SystemLockManager>>,
 }
 
 impl StrictModeOrchestrator {
@@ -21,11 +23,14 @@ impl StrictModeOrchestrator {
         app_handle: AppHandle,
         window_manager: Arc<Mutex<WindowManager>>,
     ) -> Self {
+        let system_lock_manager = Arc::new(Mutex::new(SystemLockManager::new(app_handle.clone())));
+
         Self {
             config,
             state: StrictModeState::default(),
             app_handle,
             window_manager,
+            system_lock_manager,
         }
     }
 
@@ -84,10 +89,24 @@ impl StrictModeOrchestrator {
         self.state.is_active
     }
 
-    /// Unlock the system (placeholder for future implementation)
+    /// Unlock the system
     fn unlock_system(&mut self) -> Result<(), String> {
+        println!("🔓 [StrictModeOrchestrator] Unlocking system");
+
+        let mut lock_manager = self
+            .system_lock_manager
+            .lock()
+            .map_err(|e| format!("Failed to lock system lock manager: {}", e))?;
+
+        // Get the break overlay window if it exists
+        let window = self.app_handle.get_webview_window("break-overlay");
+
+        lock_manager
+            .unlock_system(window.as_ref())
+            .map_err(|e| format!("Failed to unlock system: {}", e))?;
+
         self.state.is_locked = false;
-        println!("🔓 [StrictModeOrchestrator] System unlocked");
+        println!("✅ [StrictModeOrchestrator] System unlocked");
         Ok(())
     }
 
@@ -248,9 +267,37 @@ impl StrictModeOrchestrator {
     /// Show the fullscreen break overlay with system lock
     pub fn show_fullscreen_break_overlay(&mut self) -> Result<(), String> {
         println!("🪟 [StrictModeOrchestrator] Showing fullscreen break overlay");
+
+        // Show the break overlay window
+        let window_manager = self
+            .window_manager
+            .lock()
+            .map_err(|e| format!("Failed to lock window manager: {}", e))?;
+
+        window_manager
+            .show_break_overlay()
+            .map_err(|e| format!("Failed to show break overlay: {}", e))?;
+
+        // Get the break overlay window
+        let window = self
+            .app_handle
+            .get_webview_window("break-overlay")
+            .ok_or_else(|| "Break overlay window not found".to_string())?;
+
+        // Lock the system
+        let mut lock_manager = self
+            .system_lock_manager
+            .lock()
+            .map_err(|e| format!("Failed to lock system lock manager: {}", e))?;
+
+        lock_manager
+            .lock_system(&window)
+            .map_err(|e| format!("Failed to lock system: {}", e))?;
+
         self.state.current_window_type = Some(StrictModeWindowType::FullscreenBreakOverlay);
         self.state.is_locked = true;
-        // Window creation and system lock will be handled in future tasks
+
+        println!("✅ [StrictModeOrchestrator] Fullscreen break overlay shown and system locked");
         Ok(())
     }
 
@@ -359,6 +406,54 @@ impl StrictModeOrchestrator {
 
         self.state.current_window_type = None;
         Ok(())
+    }
+
+    /// Register an emergency hotkey combination
+    pub fn register_emergency_hotkey(&mut self, combination: String) -> Result<(), String> {
+        println!(
+            "🔑 [StrictModeOrchestrator] Registering emergency hotkey: {}",
+            combination
+        );
+
+        let mut lock_manager = self
+            .system_lock_manager
+            .lock()
+            .map_err(|e| format!("Failed to lock system lock manager: {}", e))?;
+
+        lock_manager
+            .register_emergency_hotkey(combination.clone())
+            .map_err(|e| format!("Failed to register emergency hotkey: {}", e))?;
+
+        // Update config
+        self.config.emergency_key_combination = Some(combination);
+
+        println!("✅ [StrictModeOrchestrator] Emergency hotkey registered");
+        Ok(())
+    }
+
+    /// Unregister the emergency hotkey
+    pub fn unregister_emergency_hotkey(&mut self) -> Result<(), String> {
+        println!("🔑 [StrictModeOrchestrator] Unregistering emergency hotkey");
+
+        let mut lock_manager = self
+            .system_lock_manager
+            .lock()
+            .map_err(|e| format!("Failed to lock system lock manager: {}", e))?;
+
+        lock_manager
+            .unregister_emergency_hotkey()
+            .map_err(|e| format!("Failed to unregister emergency hotkey: {}", e))?;
+
+        // Update config
+        self.config.emergency_key_combination = None;
+
+        println!("✅ [StrictModeOrchestrator] Emergency hotkey unregistered");
+        Ok(())
+    }
+
+    /// Get the system lock manager (for external access if needed)
+    pub fn get_system_lock_manager(&self) -> Arc<Mutex<SystemLockManager>> {
+        self.system_lock_manager.clone()
     }
 }
 

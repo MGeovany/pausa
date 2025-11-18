@@ -11,6 +11,8 @@ interface BreakOverlayProps {
   onEmergencyOverride: (pin: string) => Promise<boolean>;
   cycleState?: CycleState | null;
   userName?: string;
+  isStrictMode?: boolean;
+  emergencyKeyCombination?: string;
 }
 
 interface BreakActivityChecklistProps {
@@ -368,7 +370,9 @@ export function BreakOverlay({
   onCompleteBreak, 
   onEmergencyOverride,
   cycleState,
-  userName 
+  userName,
+  isStrictMode = false,
+  emergencyKeyCombination 
 }: BreakOverlayProps) {
   const [checklistCompleted, setChecklistCompleted] = useState<boolean[]>([]);
   const [showEmergencyModal, setShowEmergencyModal] = useState(false);
@@ -389,6 +393,93 @@ export function BreakOverlay({
     setIsVisible(true);
   }, []);
 
+  // Strict mode keyboard blocking
+  useEffect(() => {
+    if (!isStrictMode) return;
+
+    const blockKeyboardInput = (e: KeyboardEvent) => {
+      // Check if this is the emergency key combination
+      if (emergencyKeyCombination) {
+        const keys = emergencyKeyCombination.split('+').map(k => k.trim());
+        const hasCmd = keys.includes('Cmd') && (e.metaKey || e.key === 'Meta');
+        const hasCtrl = keys.includes('Ctrl') && (e.ctrlKey || e.key === 'Control');
+        const hasAlt = keys.includes('Alt') && (e.altKey || e.key === 'Alt');
+        const hasShift = keys.includes('Shift') && (e.shiftKey || e.key === 'Shift');
+        const mainKey = keys.find(k => !['Cmd', 'Ctrl', 'Alt', 'Shift'].includes(k));
+        const hasMainKey = mainKey && e.key.toUpperCase() === mainKey.toUpperCase();
+
+        // If all parts of the emergency combination are pressed, allow it
+        const isEmergencyKey = 
+          (keys.includes('Cmd') ? hasCmd : true) &&
+          (keys.includes('Ctrl') ? hasCtrl : true) &&
+          (keys.includes('Alt') ? hasAlt : true) &&
+          (keys.includes('Shift') ? hasShift : true) &&
+          hasMainKey;
+
+        if (isEmergencyKey) {
+          console.log('🚨 [BreakOverlay] Emergency key combination detected');
+          return; // Allow emergency key through
+        }
+      }
+
+      // Block all other keyboard inputs
+      e.preventDefault();
+      e.stopPropagation();
+      e.stopImmediatePropagation();
+      
+      // Log blocked attempt
+      console.log('🔒 [BreakOverlay] Blocked keyboard input:', e.key);
+      logBypassAttempt(`keyboard_blocked_${e.key}`);
+    };
+
+    // Block all keyboard events
+    window.addEventListener('keydown', blockKeyboardInput, true);
+    window.addEventListener('keyup', blockKeyboardInput, true);
+    window.addEventListener('keypress', blockKeyboardInput, true);
+
+    return () => {
+      window.removeEventListener('keydown', blockKeyboardInput, true);
+      window.removeEventListener('keyup', blockKeyboardInput, true);
+      window.removeEventListener('keypress', blockKeyboardInput, true);
+    };
+  }, [isStrictMode, emergencyKeyCombination]);
+
+  // Strict mode mouse blocking
+  useEffect(() => {
+    if (!isStrictMode) return;
+
+    const blockMouseInput = (e: MouseEvent) => {
+      // Allow mouse movement (cursor can move)
+      if (e.type === 'mousemove') {
+        return;
+      }
+
+      // Block all click events
+      e.preventDefault();
+      e.stopPropagation();
+      e.stopImmediatePropagation();
+      
+      // Log blocked attempt
+      console.log('🔒 [BreakOverlay] Blocked mouse input:', e.type);
+      logBypassAttempt(`mouse_blocked_${e.type}`);
+    };
+
+    // Block mouse click events but allow movement
+    window.addEventListener('click', blockMouseInput, true);
+    window.addEventListener('mousedown', blockMouseInput, true);
+    window.addEventListener('mouseup', blockMouseInput, true);
+    window.addEventListener('dblclick', blockMouseInput, true);
+    window.addEventListener('contextmenu', blockMouseInput, true);
+
+    return () => {
+      window.removeEventListener('click', blockMouseInput, true);
+      window.removeEventListener('mousedown', blockMouseInput, true);
+      window.removeEventListener('mouseup', blockMouseInput, true);
+      window.removeEventListener('dblclick', blockMouseInput, true);
+      window.removeEventListener('contextmenu', blockMouseInput, true);
+    };
+  }, [isStrictMode]);
+
   // Log bypass attempts
   const logBypassAttempt = async (method: string) => {
     const timestamp = new Date().toISOString();
@@ -407,8 +498,11 @@ export function BreakOverlay({
     }
   };
 
-  // Handle escape key to show emergency override (only if allowed)
+  // Handle escape key to show emergency override (only if allowed and not in strict mode)
   useEffect(() => {
+    // Skip this handler if strict mode is active (handled by strict mode keyboard blocker)
+    if (isStrictMode) return;
+
     const handleKeyDown = (event: KeyboardEvent) => {
       // Log any attempt to use keyboard shortcuts during strict mode
       if (event.key === 'Escape') {
@@ -435,7 +529,7 @@ export function BreakOverlay({
 
     document.addEventListener('keydown', handleKeyDown);
     return () => document.removeEventListener('keydown', handleKeyDown);
-  }, [breakSession.allowEmergency, breakSession.id]);
+  }, [breakSession.allowEmergency, breakSession.id, isStrictMode]);
 
   const handleEmergencyOverride = async (pin: string): Promise<boolean> => {
     const success = await onEmergencyOverride(pin);
