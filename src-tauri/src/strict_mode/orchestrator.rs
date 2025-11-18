@@ -7,6 +7,49 @@ use super::system_lock_manager::SystemLockManager;
 use crate::cycle_orchestrator::CycleEvent;
 use crate::window_manager::WindowManager;
 
+/// Custom error types for StrictModeOrchestrator
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub enum StrictModeError {
+    /// Failed to register emergency hotkey
+    HotkeyRegistrationFailed(String),
+    /// Failed to create or show a window
+    WindowCreationFailed(String),
+    /// Failed to lock the system
+    SystemLockFailed(String),
+    /// State is out of sync with cycle orchestrator
+    StateDesynchronization(String),
+    /// Emergency exit failed
+    EmergencyExitFailed(String),
+    /// Database operation failed
+    DatabaseError(String),
+    /// General error
+    General(String),
+}
+
+impl std::fmt::Display for StrictModeError {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        match self {
+            StrictModeError::HotkeyRegistrationFailed(msg) => {
+                write!(f, "Hotkey registration failed: {}", msg)
+            }
+            StrictModeError::WindowCreationFailed(msg) => {
+                write!(f, "Window creation failed: {}", msg)
+            }
+            StrictModeError::SystemLockFailed(msg) => write!(f, "System lock failed: {}", msg),
+            StrictModeError::StateDesynchronization(msg) => {
+                write!(f, "State desynchronization: {}", msg)
+            }
+            StrictModeError::EmergencyExitFailed(msg) => {
+                write!(f, "Emergency exit failed: {}", msg)
+            }
+            StrictModeError::DatabaseError(msg) => write!(f, "Database error: {}", msg),
+            StrictModeError::General(msg) => write!(f, "Error: {}", msg),
+        }
+    }
+}
+
+impl std::error::Error for StrictModeError {}
+
 /// Orchestrates strict mode functionality, managing window transitions and system locks
 pub struct StrictModeOrchestrator {
     config: StrictModeConfig,
@@ -287,17 +330,35 @@ impl StrictModeOrchestrator {
     pub fn show_break_transition(&mut self) -> Result<(), String> {
         println!("🪟 [StrictModeOrchestrator] Showing break transition window");
 
-        let window_manager = self
-            .window_manager
-            .lock()
-            .map_err(|e| format!("Failed to lock window manager: {}", e))?;
+        let result = {
+            let window_manager = self
+                .window_manager
+                .lock()
+                .map_err(|e| format!("Failed to lock window manager: {}", e))?;
 
-        window_manager
-            .show_break_transition()
-            .map_err(|e| format!("Failed to show break transition: {}", e))?;
+            window_manager.show_break_transition()
+        };
+
+        match result {
+            Ok(_) => {
+                println!("✅ [StrictModeOrchestrator] Break transition window shown");
+            }
+            Err(e) => {
+                eprintln!(
+                    "❌ [StrictModeOrchestrator] Failed to show break transition: {}",
+                    e
+                );
+                return self.handle_error(StrictModeError::WindowCreationFailed(e.to_string()));
+            }
+        }
 
         self.state.current_window_type = Some(StrictModeWindowType::BreakTransition);
-        self.save_state_to_database()?;
+
+        if let Err(e) = self.save_state_to_database() {
+            eprintln!("⚠️ [StrictModeOrchestrator] Failed to save state: {}", e);
+            let _ = self.handle_error(StrictModeError::DatabaseError(e));
+        }
+
         Ok(())
     }
 
@@ -334,36 +395,70 @@ impl StrictModeOrchestrator {
         println!("🪟 [StrictModeOrchestrator] Showing fullscreen break overlay");
 
         // Show the break overlay window
-        let window_manager = self
-            .window_manager
-            .lock()
-            .map_err(|e| format!("Failed to lock window manager: {}", e))?;
+        let show_result = {
+            let window_manager = self
+                .window_manager
+                .lock()
+                .map_err(|e| format!("Failed to lock window manager: {}", e))?;
 
-        window_manager
-            .show_break_overlay()
-            .map_err(|e| format!("Failed to show break overlay: {}", e))?;
+            window_manager.show_break_overlay()
+        };
+
+        match show_result {
+            Ok(_) => {
+                println!("✅ [StrictModeOrchestrator] Break overlay window shown");
+            }
+            Err(e) => {
+                eprintln!(
+                    "❌ [StrictModeOrchestrator] Failed to show break overlay: {}",
+                    e
+                );
+                return self.handle_error(StrictModeError::WindowCreationFailed(e.to_string()));
+            }
+        }
 
         // Get the break overlay window
-        let window = self
-            .app_handle
-            .get_webview_window("break-overlay")
-            .ok_or_else(|| "Break overlay window not found".to_string())?;
+        let window = match self.app_handle.get_webview_window("break-overlay") {
+            Some(w) => w,
+            None => {
+                eprintln!(
+                    "❌ [StrictModeOrchestrator] Break overlay window not found after creation"
+                );
+                return self.handle_error(StrictModeError::WindowCreationFailed(
+                    "Break overlay window not found".to_string(),
+                ));
+            }
+        };
 
         // Lock the system
-        let mut lock_manager = self
-            .system_lock_manager
-            .lock()
-            .map_err(|e| format!("Failed to lock system lock manager: {}", e))?;
+        let lock_result = {
+            let mut lock_manager = self
+                .system_lock_manager
+                .lock()
+                .map_err(|e| format!("Failed to lock system lock manager: {}", e))?;
 
-        lock_manager
-            .lock_system(&window)
-            .map_err(|e| format!("Failed to lock system: {}", e))?;
+            lock_manager.lock_system(&window)
+        };
+
+        match lock_result {
+            Ok(_) => {
+                println!("✅ [StrictModeOrchestrator] System locked");
+            }
+            Err(e) => {
+                eprintln!("⚠️ [StrictModeOrchestrator] Failed to lock system: {}", e);
+                // Continue without full lock but handle the error
+                let _ = self.handle_error(StrictModeError::SystemLockFailed(e));
+            }
+        }
 
         self.state.current_window_type = Some(StrictModeWindowType::FullscreenBreakOverlay);
         self.state.is_locked = true;
 
         // Save state to database
-        self.save_state_to_database()?;
+        if let Err(e) = self.save_state_to_database() {
+            eprintln!("⚠️ [StrictModeOrchestrator] Failed to save state: {}", e);
+            let _ = self.handle_error(StrictModeError::DatabaseError(e));
+        }
 
         println!("✅ [StrictModeOrchestrator] Fullscreen break overlay shown and system locked");
         Ok(())
@@ -437,24 +532,52 @@ impl StrictModeOrchestrator {
 
         // Unlock system immediately
         if self.state.is_locked {
-            self.unlock_system()?;
+            if let Err(e) = self.unlock_system() {
+                eprintln!(
+                    "⚠️ [StrictModeOrchestrator] Failed to unlock system during emergency exit: {}",
+                    e
+                );
+                // Try force unlock
+                return self.handle_error(StrictModeError::EmergencyExitFailed(e));
+            }
         }
 
         // Hide all strict mode windows
-        self.hide_all_strict_windows()?;
+        if let Err(e) = self.hide_all_strict_windows() {
+            eprintln!(
+                "⚠️ [StrictModeOrchestrator] Failed to hide windows during emergency exit: {}",
+                e
+            );
+            // Continue anyway
+        }
 
         // Restore main window
         let window_manager = self
             .window_manager
             .lock()
             .map_err(|e| format!("Failed to lock window manager: {}", e))?;
-        window_manager
-            .restore_from_menu_bar()
-            .map_err(|e| format!("Failed to restore main window: {}", e))?;
+
+        if let Err(e) = window_manager.restore_from_menu_bar() {
+            eprintln!(
+                "⚠️ [StrictModeOrchestrator] Failed to restore main window: {}",
+                e
+            );
+            // Continue anyway
+        }
+
+        drop(window_manager);
 
         // Deactivate strict mode
         self.state.is_active = false;
         self.state.current_window_type = None;
+
+        // Save state
+        if let Err(e) = self.save_state_to_database() {
+            eprintln!(
+                "⚠️ [StrictModeOrchestrator] Failed to save state during emergency exit: {}",
+                e
+            );
+        }
 
         println!("✅ [StrictModeOrchestrator] Emergency exit completed");
 
@@ -502,20 +625,31 @@ impl StrictModeOrchestrator {
             combination
         );
 
-        let mut lock_manager = self
-            .system_lock_manager
-            .lock()
-            .map_err(|e| format!("Failed to lock system lock manager: {}", e))?;
+        let result = {
+            let mut lock_manager = self
+                .system_lock_manager
+                .lock()
+                .map_err(|e| format!("Failed to lock system lock manager: {}", e))?;
 
-        lock_manager
-            .register_emergency_hotkey(combination.clone())
-            .map_err(|e| format!("Failed to register emergency hotkey: {}", e))?;
+            lock_manager.register_emergency_hotkey(combination.clone())
+        };
 
-        // Update config
-        self.config.emergency_key_combination = Some(combination);
-
-        println!("✅ [StrictModeOrchestrator] Emergency hotkey registered");
-        Ok(())
+        match result {
+            Ok(_) => {
+                // Update config
+                self.config.emergency_key_combination = Some(combination);
+                println!("✅ [StrictModeOrchestrator] Emergency hotkey registered");
+                Ok(())
+            }
+            Err(e) => {
+                eprintln!(
+                    "❌ [StrictModeOrchestrator] Failed to register emergency hotkey: {}",
+                    e
+                );
+                // Try to register default emergency key as fallback
+                self.handle_error(StrictModeError::HotkeyRegistrationFailed(e))
+            }
+        }
     }
 
     /// Unregister the emergency hotkey
@@ -648,6 +782,436 @@ impl StrictModeOrchestrator {
 
         Ok(())
     }
+
+    /// Handle errors with appropriate fallback strategies
+    fn handle_error(&mut self, error: StrictModeError) -> Result<(), String> {
+        eprintln!("🚨 [StrictModeOrchestrator] Handling error: {}", error);
+
+        match error {
+            StrictModeError::HotkeyRegistrationFailed(msg) => {
+                eprintln!(
+                    "⚠️ [StrictModeOrchestrator] Hotkey registration failed: {}",
+                    msg
+                );
+                // Try to register default emergency key as fallback
+                match self.register_default_emergency_key() {
+                    Ok(_) => {
+                        println!("✅ [StrictModeOrchestrator] Registered default emergency key as fallback");
+                        Ok(())
+                    }
+                    Err(e) => {
+                        eprintln!("❌ [StrictModeOrchestrator] Failed to register default emergency key: {}", e);
+                        Err(format!("Failed to register emergency hotkey: {}", msg))
+                    }
+                }
+            }
+            StrictModeError::WindowCreationFailed(msg) => {
+                eprintln!(
+                    "⚠️ [StrictModeOrchestrator] Window creation failed: {}",
+                    msg
+                );
+                // Deactivate strict mode temporarily
+                if let Err(e) = self.safe_deactivate() {
+                    eprintln!(
+                        "❌ [StrictModeOrchestrator] Failed to deactivate strict mode: {}",
+                        e
+                    );
+                }
+                Err(format!(
+                    "Strict mode disabled due to window creation failure: {}",
+                    msg
+                ))
+            }
+            StrictModeError::SystemLockFailed(msg) => {
+                eprintln!("⚠️ [StrictModeOrchestrator] System lock failed: {}", msg);
+                // Continue without full lock but log warning
+                println!("⚠️ [StrictModeOrchestrator] Continuing without full system lock");
+                Ok(())
+            }
+            StrictModeError::StateDesynchronization(msg) => {
+                eprintln!(
+                    "⚠️ [StrictModeOrchestrator] State desynchronization: {}",
+                    msg
+                );
+                // Try to sync with cycle orchestrator
+                if let Err(e) = self.sync_state() {
+                    eprintln!("❌ [StrictModeOrchestrator] Failed to sync state: {}", e);
+                }
+                Ok(())
+            }
+            StrictModeError::EmergencyExitFailed(msg) => {
+                eprintln!("🚨 [StrictModeOrchestrator] Emergency exit failed: {}", msg);
+                // Force unlock the system
+                if let Err(e) = self.force_unlock_and_cleanup() {
+                    eprintln!("❌ [StrictModeOrchestrator] Failed to force unlock: {}", e);
+                    return Err(format!(
+                        "Critical: Emergency exit failed and force unlock failed: {}",
+                        e
+                    ));
+                }
+                Ok(())
+            }
+            StrictModeError::DatabaseError(msg) => {
+                eprintln!("⚠️ [StrictModeOrchestrator] Database error: {}", msg);
+                // Continue operation but log error
+                println!("⚠️ [StrictModeOrchestrator] Continuing without database persistence");
+                Ok(())
+            }
+            StrictModeError::General(msg) => {
+                eprintln!("⚠️ [StrictModeOrchestrator] General error: {}", msg);
+                Err(msg)
+            }
+        }
+    }
+
+    /// Register default emergency key combination (Cmd+Shift+Esc)
+    fn register_default_emergency_key(&mut self) -> Result<(), String> {
+        println!("🔑 [StrictModeOrchestrator] Registering default emergency key: Cmd+Shift+Esc");
+
+        let default_combination = "Cmd+Shift+Esc".to_string();
+
+        let mut lock_manager = self
+            .system_lock_manager
+            .lock()
+            .map_err(|e| format!("Failed to lock system lock manager: {}", e))?;
+
+        lock_manager
+            .register_emergency_hotkey(default_combination.clone())
+            .map_err(|e| format!("Failed to register default emergency hotkey: {}", e))?;
+
+        // Update config
+        self.config.emergency_key_combination = Some(default_combination);
+
+        println!("✅ [StrictModeOrchestrator] Default emergency key registered");
+        Ok(())
+    }
+
+    /// Safely deactivate strict mode without throwing errors
+    fn safe_deactivate(&mut self) -> Result<(), String> {
+        println!("🛑 [StrictModeOrchestrator] Safely deactivating strict mode");
+
+        // Try to unlock system if locked
+        if self.state.is_locked {
+            if let Err(e) = self.unlock_system() {
+                eprintln!("⚠️ [StrictModeOrchestrator] Failed to unlock system during safe deactivation: {}", e);
+                // Continue anyway
+            }
+        }
+
+        // Try to hide all windows
+        if let Err(e) = self.hide_all_strict_windows() {
+            eprintln!(
+                "⚠️ [StrictModeOrchestrator] Failed to hide windows during safe deactivation: {}",
+                e
+            );
+            // Continue anyway
+        }
+
+        // Update state
+        self.state.is_active = false;
+        self.state.current_window_type = None;
+
+        // Try to save state
+        if let Err(e) = self.save_state_to_database() {
+            eprintln!(
+                "⚠️ [StrictModeOrchestrator] Failed to save state during safe deactivation: {}",
+                e
+            );
+            // Continue anyway
+        }
+
+        println!("✅ [StrictModeOrchestrator] Strict mode safely deactivated");
+        Ok(())
+    }
+
+    /// Sync state with cycle orchestrator
+    fn sync_state(&mut self) -> Result<(), String> {
+        println!("🔄 [StrictModeOrchestrator] Syncing state");
+
+        // Reset to a known good state
+        if self.state.is_locked {
+            if let Err(e) = self.unlock_system() {
+                eprintln!(
+                    "⚠️ [StrictModeOrchestrator] Failed to unlock during sync: {}",
+                    e
+                );
+            }
+        }
+
+        // Hide all windows
+        if let Err(e) = self.hide_all_strict_windows() {
+            eprintln!(
+                "⚠️ [StrictModeOrchestrator] Failed to hide windows during sync: {}",
+                e
+            );
+        }
+
+        // Reset to menu bar icon if active
+        if self.state.is_active {
+            self.state.current_window_type = Some(StrictModeWindowType::MenuBarIcon);
+        } else {
+            self.state.current_window_type = None;
+        }
+
+        // Save synced state
+        if let Err(e) = self.save_state_to_database() {
+            eprintln!(
+                "⚠️ [StrictModeOrchestrator] Failed to save synced state: {}",
+                e
+            );
+        }
+
+        println!("✅ [StrictModeOrchestrator] State synced");
+        Ok(())
+    }
+
+    /// Force unlock and cleanup (used in critical error situations)
+    fn force_unlock_and_cleanup(&mut self) -> Result<(), String> {
+        println!("🚨 [StrictModeOrchestrator] Force unlocking and cleaning up");
+
+        // Force unlock the system
+        let mut lock_manager = self
+            .system_lock_manager
+            .lock()
+            .map_err(|e| format!("Failed to lock system lock manager: {}", e))?;
+
+        if let Err(e) = lock_manager.force_unlock() {
+            eprintln!("❌ [StrictModeOrchestrator] Failed to force unlock: {}", e);
+        }
+
+        drop(lock_manager);
+
+        // Update state
+        self.state.is_locked = false;
+
+        // Try to hide all windows (best effort)
+        let _ = self.hide_all_strict_windows();
+
+        // Try to restore main window
+        let window_manager = self
+            .window_manager
+            .lock()
+            .map_err(|e| format!("Failed to lock window manager: {}", e))?;
+
+        if let Err(e) = window_manager.restore_from_menu_bar() {
+            eprintln!(
+                "⚠️ [StrictModeOrchestrator] Failed to restore main window: {}",
+                e
+            );
+        }
+
+        drop(window_manager);
+
+        // Deactivate strict mode
+        self.state.is_active = false;
+        self.state.current_window_type = None;
+
+        // Try to save state
+        let _ = self.save_state_to_database();
+
+        println!("✅ [StrictModeOrchestrator] Force unlock and cleanup completed");
+        Ok(())
+    }
+
+    /// Handle monitor change during strict mode
+    /// This ensures the break overlay remains fullscreen on the current monitor
+    pub fn handle_monitor_change(&mut self) -> Result<(), String> {
+        println!("🖥️ [StrictModeOrchestrator] Handling monitor change");
+
+        // Only relevant if we're showing the break overlay
+        if self.state.current_window_type != Some(StrictModeWindowType::FullscreenBreakOverlay) {
+            println!("ℹ️ [StrictModeOrchestrator] Not showing break overlay, no action needed");
+            return Ok(());
+        }
+
+        // Get the break overlay window
+        if let Some(window) = self.app_handle.get_webview_window("break-overlay") {
+            println!("🖥️ [StrictModeOrchestrator] Refreshing break overlay window properties");
+
+            // Re-apply fullscreen and always-on-top properties
+            if let Err(e) = window.set_fullscreen(true) {
+                eprintln!(
+                    "⚠️ [StrictModeOrchestrator] Failed to re-apply fullscreen: {}",
+                    e
+                );
+            }
+
+            if let Err(e) = window.set_always_on_top(true) {
+                eprintln!(
+                    "⚠️ [StrictModeOrchestrator] Failed to re-apply always-on-top: {}",
+                    e
+                );
+            }
+
+            if let Err(e) = window.set_focus() {
+                eprintln!(
+                    "⚠️ [StrictModeOrchestrator] Failed to re-focus window: {}",
+                    e
+                );
+            }
+
+            println!("✅ [StrictModeOrchestrator] Monitor change handled");
+        } else {
+            eprintln!("⚠️ [StrictModeOrchestrator] Break overlay window not found");
+        }
+
+        Ok(())
+    }
+
+    /// Validate state consistency
+    /// This checks if the internal state matches the actual window state
+    pub fn validate_state(&self) -> Result<(), String> {
+        println!("🔍 [StrictModeOrchestrator] Validating state consistency");
+
+        // Check if locked state matches window existence
+        if self.state.is_locked {
+            if self
+                .app_handle
+                .get_webview_window("break-overlay")
+                .is_none()
+            {
+                eprintln!(
+                    "⚠️ [StrictModeOrchestrator] State says locked but break overlay doesn't exist"
+                );
+                return Err("State inconsistency: locked but no break overlay".to_string());
+            }
+        }
+
+        // Check if current window type matches actual windows
+        match &self.state.current_window_type {
+            Some(StrictModeWindowType::BreakTransition) => {
+                if self
+                    .app_handle
+                    .get_webview_window("break-transition")
+                    .is_none()
+                {
+                    eprintln!("⚠️ [StrictModeOrchestrator] State says break transition but window doesn't exist");
+                    return Err("State inconsistency: break transition window missing".to_string());
+                }
+            }
+            Some(StrictModeWindowType::FullscreenBreakOverlay) => {
+                if self
+                    .app_handle
+                    .get_webview_window("break-overlay")
+                    .is_none()
+                {
+                    eprintln!("⚠️ [StrictModeOrchestrator] State says break overlay but window doesn't exist");
+                    return Err("State inconsistency: break overlay window missing".to_string());
+                }
+            }
+            Some(StrictModeWindowType::MenuBarPopover) => {
+                if self
+                    .app_handle
+                    .get_webview_window("menu-bar-popover")
+                    .is_none()
+                {
+                    eprintln!("⚠️ [StrictModeOrchestrator] State says menu bar popover but window doesn't exist");
+                    return Err("State inconsistency: menu bar popover window missing".to_string());
+                }
+            }
+            _ => {}
+        }
+
+        println!("✅ [StrictModeOrchestrator] State is consistent");
+        Ok(())
+    }
+
+    /// Get diagnostic information for debugging
+    /// Returns a detailed snapshot of the current state
+    pub fn get_diagnostics(&self) -> StrictModeDiagnostics {
+        println!("📊 [StrictModeOrchestrator] Generating diagnostics");
+
+        let windows_status = StrictModeWindowsStatus {
+            main_window_exists: self.app_handle.get_webview_window("main").is_some(),
+            break_overlay_exists: self
+                .app_handle
+                .get_webview_window("break-overlay")
+                .is_some(),
+            break_transition_exists: self
+                .app_handle
+                .get_webview_window("break-transition")
+                .is_some(),
+            menu_bar_popover_exists: self
+                .app_handle
+                .get_webview_window("menu-bar-popover")
+                .is_some(),
+        };
+
+        let lock_manager_status = {
+            if let Ok(lock_manager) = self.system_lock_manager.lock() {
+                Some(StrictModeLockStatus {
+                    is_locked: lock_manager.is_locked(),
+                    emergency_hotkey: lock_manager.get_emergency_hotkey(),
+                })
+            } else {
+                None
+            }
+        };
+
+        StrictModeDiagnostics {
+            state: self.state.clone(),
+            config: self.config.clone(),
+            windows_status,
+            lock_manager_status,
+            state_validation: self.validate_state().is_ok(),
+        }
+    }
+
+    /// Log current state for debugging
+    pub fn log_state(&self) {
+        println!("📋 [StrictModeOrchestrator] === Current State ===");
+        println!("  is_active: {}", self.state.is_active);
+        println!("  is_locked: {}", self.state.is_locked);
+        println!(
+            "  current_window_type: {:?}",
+            self.state.current_window_type
+        );
+        println!(
+            "  emergency_key: {:?}",
+            self.config.emergency_key_combination
+        );
+        println!(
+            "  transition_countdown: {}",
+            self.config.transition_countdown_seconds
+        );
+
+        // Log window existence
+        println!("📋 [StrictModeOrchestrator] === Windows Status ===");
+        println!(
+            "  main: {}",
+            self.app_handle.get_webview_window("main").is_some()
+        );
+        println!(
+            "  break-overlay: {}",
+            self.app_handle
+                .get_webview_window("break-overlay")
+                .is_some()
+        );
+        println!(
+            "  break-transition: {}",
+            self.app_handle
+                .get_webview_window("break-transition")
+                .is_some()
+        );
+        println!(
+            "  menu-bar-popover: {}",
+            self.app_handle
+                .get_webview_window("menu-bar-popover")
+                .is_some()
+        );
+
+        // Log lock manager status
+        if let Ok(lock_manager) = self.system_lock_manager.lock() {
+            println!("📋 [StrictModeOrchestrator] === Lock Manager Status ===");
+            println!("  is_locked: {}", lock_manager.is_locked());
+            println!(
+                "  emergency_hotkey: {:?}",
+                lock_manager.get_emergency_hotkey()
+            );
+        }
+
+        println!("📋 [StrictModeOrchestrator] === End State ===");
+    }
 }
 
 /// Events emitted by the StrictModeOrchestrator
@@ -659,4 +1223,30 @@ pub enum StrictModeEvent {
     ShowBreakOverlay,
     ReturnToMenuBar,
     EmergencyExit,
+}
+
+/// Diagnostic information for debugging
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct StrictModeDiagnostics {
+    pub state: StrictModeState,
+    pub config: StrictModeConfig,
+    pub windows_status: StrictModeWindowsStatus,
+    pub lock_manager_status: Option<StrictModeLockStatus>,
+    pub state_validation: bool,
+}
+
+/// Status of strict mode windows
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct StrictModeWindowsStatus {
+    pub main_window_exists: bool,
+    pub break_overlay_exists: bool,
+    pub break_transition_exists: bool,
+    pub menu_bar_popover_exists: bool,
+}
+
+/// Status of the lock manager
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct StrictModeLockStatus {
+    pub is_locked: bool,
+    pub emergency_hotkey: Option<String>,
 }

@@ -24,23 +24,28 @@ impl SystemLockManager {
     /// This is called when a break starts in strict mode
     pub fn lock_system(&mut self, window: &WebviewWindow) -> Result<(), String> {
         if self.is_locked {
+            eprintln!("⚠️ [SystemLockManager] System is already locked");
             return Err("System is already locked".to_string());
         }
 
         println!("🔒 [SystemLockManager] Locking system inputs");
 
         // Set window properties to prevent interactions
-        window
-            .set_always_on_top(true)
-            .map_err(|e| format!("Failed to set always on top: {}", e))?;
+        if let Err(e) = window.set_always_on_top(true) {
+            eprintln!("❌ [SystemLockManager] Failed to set always on top: {}", e);
+            return Err(format!("Failed to set always on top: {}", e));
+        }
 
-        window
-            .set_fullscreen(true)
-            .map_err(|e| format!("Failed to set fullscreen: {}", e))?;
+        if let Err(e) = window.set_fullscreen(true) {
+            eprintln!("❌ [SystemLockManager] Failed to set fullscreen: {}", e);
+            return Err(format!("Failed to set fullscreen: {}", e));
+        }
 
-        window
-            .set_focus()
-            .map_err(|e| format!("Failed to set focus: {}", e))?;
+        if let Err(e) = window.set_focus() {
+            eprintln!("❌ [SystemLockManager] Failed to set focus: {}", e);
+            // Don't fail on focus error, just log it
+            println!("⚠️ [SystemLockManager] Continuing despite focus error");
+        }
 
         // Note: Actual keyboard/mouse blocking will be implemented via JavaScript
         // event listeners in the frontend (subtasks 5.2 and 5.3)
@@ -55,6 +60,7 @@ impl SystemLockManager {
     /// This is called when a break ends or emergency exit is triggered
     pub fn unlock_system(&mut self, window: Option<&WebviewWindow>) -> Result<(), String> {
         if !self.is_locked {
+            println!("ℹ️ [SystemLockManager] System is not locked, nothing to unlock");
             return Err("System is not locked".to_string());
         }
 
@@ -62,8 +68,11 @@ impl SystemLockManager {
 
         // Restore window properties if window is provided
         if let Some(win) = window {
-            win.set_fullscreen(false)
-                .map_err(|e| format!("Failed to exit fullscreen: {}", e))?;
+            if let Err(e) = win.set_fullscreen(false) {
+                eprintln!("⚠️ [SystemLockManager] Failed to exit fullscreen: {}", e);
+                // Continue anyway - we still want to mark as unlocked
+                println!("⚠️ [SystemLockManager] Continuing despite fullscreen exit error");
+            }
         }
 
         // Note: Frontend will handle removing event listeners
@@ -156,6 +165,12 @@ impl SystemLockManager {
     /// This bypasses normal checks and ensures the system is unlocked
     pub fn force_unlock(&mut self) -> Result<(), String> {
         println!("🚨 [SystemLockManager] Force unlocking system");
+
+        if !self.is_locked {
+            println!(
+                "ℹ️ [SystemLockManager] System was not locked, but marking as unlocked anyway"
+            );
+        }
 
         self.is_locked = false;
 

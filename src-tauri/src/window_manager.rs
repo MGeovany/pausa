@@ -220,19 +220,27 @@ impl WindowManager {
 
     /// Minimize the main window to menu bar (hide it)
     pub fn minimize_to_menu_bar(&self) -> Result<(), Box<dyn std::error::Error>> {
+        println!("📍 [WindowManager] Minimizing main window to menu bar");
+
         if let Some(window) = self.app_handle.get_webview_window("main") {
             window.hide()?;
-            println!("📍 [WindowManager] Main window minimized to menu bar");
+            println!("✅ [WindowManager] Main window minimized to menu bar");
+        } else {
+            println!("⚠️ [WindowManager] Main window not found");
         }
         Ok(())
     }
 
     /// Restore the main window from menu bar
     pub fn restore_from_menu_bar(&self) -> Result<(), Box<dyn std::error::Error>> {
+        println!("📍 [WindowManager] Restoring main window from menu bar");
+
         if let Some(window) = self.app_handle.get_webview_window("main") {
             window.show()?;
             window.set_focus()?;
-            println!("📍 [WindowManager] Main window restored from menu bar");
+            println!("✅ [WindowManager] Main window restored from menu bar");
+        } else {
+            println!("⚠️ [WindowManager] Main window not found");
         }
         Ok(())
     }
@@ -269,22 +277,33 @@ impl WindowManager {
 
     /// Show the break transition window
     pub fn show_break_transition(&self) -> Result<(), Box<dyn std::error::Error>> {
+        println!("🪟 [WindowManager] Showing break transition window");
+
         let window = self.get_or_create_window(WindowType::BreakTransition)?;
+        println!("🪟 [WindowManager] Break transition window created/retrieved");
 
         // Center the window on the current monitor
         self.center_window(&window)?;
+        println!("🪟 [WindowManager] Break transition window centered");
+
         window.show()?;
+        println!("🪟 [WindowManager] Break transition window shown");
+
         window.set_focus()?;
+        println!("🪟 [WindowManager] Break transition window focused");
 
         self.update_window_state(WindowType::BreakTransition, |state| {
             state.is_visible = true;
         });
 
+        println!("✅ [WindowManager] Break transition window fully displayed");
         Ok(())
     }
 
     /// Hide the break transition window
     pub fn hide_break_transition(&self) -> Result<(), Box<dyn std::error::Error>> {
+        println!("🪟 [WindowManager] Hiding break transition window");
+
         if let Some(window) = self
             .app_handle
             .get_webview_window(WindowType::BreakTransition.label())
@@ -293,6 +312,9 @@ impl WindowManager {
             self.update_window_state(WindowType::BreakTransition, |state| {
                 state.is_visible = false;
             });
+            println!("✅ [WindowManager] Break transition window hidden");
+        } else {
+            println!("ℹ️ [WindowManager] Break transition window not found, nothing to hide");
         }
         Ok(())
     }
