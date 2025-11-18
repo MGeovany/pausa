@@ -66,7 +66,7 @@ impl WindowManager {
         let window = self.get_or_create_window(WindowType::CommandPalette)?;
 
         // Position in center of current monitor
-        window.move_window(PositionerPosition::Center)?;
+        self.center_window(&window)?;
         window.show()?;
         window.set_focus()?;
 
@@ -116,14 +116,7 @@ impl WindowManager {
             }))?;
         } else {
             // Default to top-right corner with some margin
-            window.move_window(PositionerPosition::TopRight)?;
-            if let Ok(position) = window.outer_position() {
-                let adjusted_position = LogicalPosition {
-                    x: position.x as f64 - 20.0, // 20px margin from right edge
-                    y: position.y as f64 + 60.0, // 60px margin from top edge
-                };
-                window.set_position(Position::Logical(adjusted_position))?;
-            }
+            self.position_top_right(&window)?;
         }
 
         window.show()?;
@@ -196,7 +189,7 @@ impl WindowManager {
         let window = self.get_or_create_window(WindowType::Settings)?;
 
         // Center the settings window
-        window.move_window(PositionerPosition::Center)?;
+        self.center_window(&window)?;
         window.show()?;
         window.set_focus()?;
 
@@ -393,6 +386,40 @@ impl WindowManager {
         }
         Ok(())
     }
+
+    /// Center a window on the current monitor
+    fn center_window(&self, window: &WebviewWindow) -> Result<(), Box<dyn std::error::Error>> {
+        if let Some(monitor) = window.current_monitor()? {
+            let monitor_size = monitor.size();
+            let window_size = window.outer_size()?;
+
+            let x = (monitor_size.width as i32 - window_size.width as i32) / 2;
+            let y = (monitor_size.height as i32 - window_size.height as i32) / 2;
+
+            window.set_position(Position::Logical(LogicalPosition {
+                x: x as f64,
+                y: y as f64,
+            }))?;
+        }
+        Ok(())
+    }
+
+    /// Position a window at the top-right corner with margin
+    fn position_top_right(&self, window: &WebviewWindow) -> Result<(), Box<dyn std::error::Error>> {
+        if let Some(monitor) = window.current_monitor()? {
+            let monitor_size = monitor.size();
+            let window_size = window.outer_size()?;
+
+            let x = monitor_size.width as i32 - window_size.width as i32 - 20; // 20px margin from right
+            let y = 60; // 60px margin from top
+
+            window.set_position(Position::Logical(LogicalPosition {
+                x: x as f64,
+                y: y as f64,
+            }))?;
+        }
+        Ok(())
+    }
 }
 
 // Tauri commands for window management
@@ -538,4 +565,3 @@ pub async fn is_window_visible(
 
     Ok(manager.is_window_visible(window_type))
 }
-

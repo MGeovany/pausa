@@ -3,7 +3,6 @@ import { useNavigate } from "react-router-dom";
 import {
   LogOut,
   Home,
-  Timer,
   BarChart3,
   Settings,
   Play,
@@ -12,14 +11,14 @@ import {
   RefreshCcw,
   Square,
   Target,
-  Clock,
   TrendingUp,
 } from "lucide-react";
 import { invoke } from "@tauri-apps/api/core";
 import { useCycleManager } from "../lib/useCycleManager";
-import { useCycleState, useAppStore } from "../store";
+import { useCycleState, useAppStore, useStrictModeState } from "../store";
 import { tauriCommands } from "../lib/tauri";
 import { CycleManager } from "../lib/cycleCommands";
+import { useStrictMode } from "../lib/useStrictMode";
 import type { SessionStats } from "../types";
 
 interface UserInfo {
@@ -34,15 +33,16 @@ export default function Dashboard() {
   const [avatarError, setAvatarError] = useState(false);
   const [todayStats, setTodayStats] = useState<SessionStats | null>(null);
   const cycleState = useCycleState();
+  const strictModeState = useStrictModeState();
   const { setCycleState, updateSettings, settings } = useAppStore();
   const {
     startRoutine,
-    startFocusSession,
-    startBreakSession,
     pauseCycle,
     resumeCycle,
     endSession,
+    resetCycleCount,
   } = useCycleManager();
+  const { activateStrictMode } = useStrictMode();
 
   // Load settings from database on mount
   useEffect(() => {
@@ -174,6 +174,24 @@ export default function Dashboard() {
     return userInfo.name.trim().charAt(0).toUpperCase();
   }, [userInfo?.name]);
 
+  // Handle starting routine with strict mode support
+  const handleStartRoutine = async () => {
+    try {
+      // If strict mode is enabled in settings, activate the orchestrator
+      if (settings.strictMode) {
+        console.log("🔒 [Dashboard] Strict mode enabled, activating orchestrator");
+        await activateStrictMode();
+      }
+      
+      // Start the focus session
+      await startRoutine();
+      
+      console.log("✅ [Dashboard] Routine started", { strictMode: settings.strictMode });
+    } catch (error) {
+      console.error("❌ [Dashboard] Failed to start routine:", error);
+    }
+  };
+
   return (
     <div className="min-h-screen bg-gray-950 text-gray-200">
       {/* App Shell */}
@@ -250,8 +268,13 @@ export default function Dashboard() {
               {/* Quick Actions / Timer */}
               <section className="lg:col-span-2 bg-gray-900/40 border border-gray-800 rounded-xl p-6 md:p-8">
                 <div className="flex items-center justify-between mb-4">
-                  <h2 className="text-sm font-semibold text-gray-300">
+                  <h2 className="text-sm font-semibold text-gray-300 flex items-center gap-2">
                     Session
+                    {strictModeState?.isActive && (
+                      <span className="text-xs text-amber-400 bg-amber-400/10 border border-amber-400/20 rounded px-2 py-0.5">
+                        🔒 Strict
+                      </span>
+                    )}
                   </h2>
                   <div className="text-xs text-gray-500">
                     {cycleState ? phaseLabel : "Loading…"}
@@ -280,14 +303,24 @@ export default function Dashboard() {
 
                   <div className="flex items-center justify-center gap-2 flex-wrap">
                     {cycleState?.phase === "idle" && (
-                      <button
-                        onClick={() => startRoutine()}
-                        disabled={!cycleState?.can_start}
-                        className="inline-flex items-center gap-2 bg-gray-800 hover:bg-gray-700 text-gray-100 border border-gray-800 rounded-lg px-4 py-2 text-sm font-medium disabled:opacity-50 disabled:cursor-not-allowed"
-                      >
-                        <Play className="w-4 h-4" />
-                        Start Focus
-                      </button>
+                      <>
+                        <button
+                          onClick={handleStartRoutine}
+                          disabled={!cycleState?.can_start}
+                          className="inline-flex items-center gap-2 bg-gray-800 hover:bg-gray-700 text-gray-100 border border-gray-800 rounded-lg px-4 py-2 text-sm font-medium disabled:opacity-50 disabled:cursor-not-allowed"
+                        >
+                          <Play className="w-4 h-4" />
+                          Start Focus
+                          {settings.strictMode && (
+                            <span className="ml-1 text-xs text-amber-400">🔒</span>
+                          )}
+                        </button>
+                        {settings.strictMode && (
+                          <div className="text-xs text-amber-400 w-full text-center mt-1">
+                            Strict mode enabled
+                          </div>
+                        )}
+                      </>
                     )}
 
                     {cycleState && cycleState.phase !== "idle" && (

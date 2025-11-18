@@ -14,6 +14,8 @@ mod onboarding;
 mod pkce;
 mod services;
 mod state;
+mod strict_mode;
+mod window_manager;
 
 fn main() {
     app::run().expect("error while running Pausa");

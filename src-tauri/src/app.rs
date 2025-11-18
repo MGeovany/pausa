@@ -3,7 +3,7 @@ use tauri::Manager;
 
 use crate::handlers::{
     auth_handler, cycle_config_handler, cycle_handler, notification_handler, onboarding_handler,
-    stats_handler, work_schedule_handler,
+    stats_handler, strict_mode_handler, work_schedule_handler,
 };
 use crate::{config::AppConfig, onboarding::OnboardingManager, state::AppState};
 
@@ -74,7 +74,15 @@ pub fn run() -> Result<(), String> {
             cycle_handler::get_work_hours_stats,
             stats_handler::get_session_stats,
             notification_handler::update_notification_user_name,
-            notification_handler::get_notification_user_name
+            notification_handler::get_notification_user_name,
+            strict_mode_handler::activate_strict_mode,
+            strict_mode_handler::deactivate_strict_mode,
+            strict_mode_handler::get_strict_mode_state,
+            strict_mode_handler::show_menu_bar_popover,
+            strict_mode_handler::hide_menu_bar_popover,
+            strict_mode_handler::stop_break_transition_countdown,
+            strict_mode_handler::start_break_from_transition,
+            strict_mode_handler::emergency_exit_strict_mode
         ])
         .run(tauri::generate_context!())
         .map_err(|e| e.to_string())

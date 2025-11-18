@@ -15,7 +15,8 @@ mod onboarding;
 mod pkce;
 mod services;
 mod state;
-mod strict_mode;
+pub mod strict_mode;
+pub mod window_manager;
 
 use app::run;
 

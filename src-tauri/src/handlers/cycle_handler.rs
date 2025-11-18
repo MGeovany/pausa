@@ -78,7 +78,33 @@ pub async fn initialize_cycle_orchestrator(
 
     // Initialize notification service with user name
     let mut notification_service = state.notification_service.lock().await;
-    notification_service.set_user_name(user_settings.user_name);
+    notification_service.set_user_name(user_settings.user_name.clone());
+
+    // Initialize StrictModeOrchestrator if strict mode is enabled
+    if user_settings.strict_mode {
+        use crate::strict_mode::{StrictModeConfig, StrictModeOrchestrator};
+        use crate::window_manager::WindowManager;
+        use std::sync::{Arc, Mutex as StdMutex};
+
+        println!("🔒 [Rust] Initializing StrictModeOrchestrator (strict mode enabled)");
+
+        let strict_config = StrictModeConfig {
+            enabled: user_settings.strict_mode,
+            emergency_key_combination: user_settings.emergency_key_combination.clone(),
+            transition_countdown_seconds: user_settings.break_transition_seconds as u32,
+        };
+
+        // Create window manager (will be properly initialized in future tasks)
+        let window_manager = Arc::new(StdMutex::new(WindowManager::new(state.app_handle.clone())));
+
+        let strict_orchestrator =
+            StrictModeOrchestrator::new(strict_config, state.app_handle.clone(), window_manager);
+
+        let mut strict_mode_orchestrator = state.strict_mode_orchestrator.lock().await;
+        *strict_mode_orchestrator = Some(strict_orchestrator);
+
+        println!("✅ [Rust] StrictModeOrchestrator initialized");
+    }
 
     println!("✅ [Rust] Cycle orchestrator initialized");
 

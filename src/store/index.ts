@@ -1,6 +1,6 @@
 import { create } from 'zustand';
 import { devtools } from 'zustand/middleware';
-import type { AppState, UserSettings, FocusSession, BreakSession, SessionStats, CycleState } from '../types';
+import type { AppState, UserSettings, FocusSession, BreakSession, SessionStats, CycleState, StrictModeState } from '../types';
 
 // Default settings based on requirements
 const DEFAULT_SETTINGS: UserSettings = {
@@ -16,10 +16,12 @@ const DEFAULT_SETTINGS: UserSettings = {
   emergencyKeyCombination: undefined,
 };
 
-// Extended AppState interface with cycle state
+// Extended AppState interface with cycle state and strict mode
 interface ExtendedAppState extends AppState {
   cycleState: CycleState | null;
   setCycleState: (state: CycleState | null) => void;
+  strictModeState: StrictModeState | null;
+  setStrictModeState: (state: StrictModeState | null) => void;
 }
 
 export const useAppStore = create<ExtendedAppState>()(
@@ -33,6 +35,7 @@ export const useAppStore = create<ExtendedAppState>()(
       isBreakOverlayVisible: false,
       settings: DEFAULT_SETTINGS,
       cycleState: null,
+      strictModeState: null,
 
       // Session actions
       setCurrentSession: (session: FocusSession | null) =>
@@ -102,6 +105,14 @@ export const useAppStore = create<ExtendedAppState>()(
           false,
           'setCycleState'
         ),
+
+      // Strict mode actions
+      setStrictModeState: (strictModeState: StrictModeState | null) =>
+        set(
+          { strictModeState },
+          false,
+          'setStrictModeState'
+        ),
     }),
     {
       name: 'pausa-store',
@@ -119,3 +130,4 @@ export const useUIState = () => useAppStore((state) => ({
   isBreakOverlayVisible: state.isBreakOverlayVisible,
 }));
 export const useCycleState = () => useAppStore((state) => state.cycleState);
+export const useStrictModeState = () => useAppStore((state) => state.strictModeState);

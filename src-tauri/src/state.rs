@@ -7,6 +7,7 @@ use crate::database::DatabaseManager;
 use crate::domain::tokens::TokenStorage;
 use crate::notification_service::NotificationService;
 use crate::services::google_oauth::GoogleOAuthService;
+use crate::strict_mode::StrictModeOrchestrator;
 
 pub struct AppState {
     pub oauth_google: Mutex<GoogleOAuthService>,
@@ -15,6 +16,7 @@ pub struct AppState {
     pub app_handle: AppHandle,
     pub cycle_orchestrator: Mutex<Option<CycleOrchestrator>>,
     pub notification_service: Mutex<NotificationService>,
+    pub strict_mode_orchestrator: Mutex<Option<StrictModeOrchestrator>>,
 }
 
 impl AppState {
@@ -42,6 +44,7 @@ impl AppState {
             app_handle: app.clone(),
             cycle_orchestrator: Mutex::new(None),
             notification_service: Mutex::new(notification_service),
+            strict_mode_orchestrator: Mutex::new(None),
         })
     }
 }
