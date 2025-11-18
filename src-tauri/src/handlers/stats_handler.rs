@@ -9,22 +9,12 @@ pub async fn get_session_stats(
     days: u32,
     state: State<'_, AppState>,
 ) -> Result<Vec<SessionStats>, String> {
-    println!("📊 [StatsHandler] get_session_stats called for {} days", days);
-    
     let stats = state
         .database
         .get_session_stats(days)
-        .map_err(|error| {
-            eprintln!("❌ [StatsHandler] Failed to get session stats: {}", error);
-            format!("Failed to get session stats: {}", error)
-        })?;
+        .map_err(|error| format!("Failed to get session stats: {}", error))?;
 
-    println!("📊 [StatsHandler] Retrieved {} stat entries", stats.len());
-    for stat in &stats {
-        println!("📊 [StatsHandler] Stat: date={}, focus_minutes={}, breaks={}, sessions={}", 
-            stat.date, stat.focus_minutes, stat.breaks_completed, stat.sessions_completed);
-    }
+    for stat in &stats {}
 
     Ok(stats.into_iter().map(SessionStats::from).collect())
 }
-

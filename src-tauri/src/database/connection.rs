@@ -67,10 +67,8 @@ impl DatabaseManager {
         self.with_connection(|conn| {
             // Check if database exists
             if !MigrationManager::database_exists(conn)? {
-                println!("Initializing new database at: {:?}", self.db_path);
                 MigrationManager::initialize_database(conn)?;
             } else {
-                println!("Database found, checking for migrations...");
                 MigrationManager::migrate_to_current(conn)?;
             }
 
@@ -88,37 +86,30 @@ impl DatabaseManager {
         // Enable foreign key constraints
         conn.execute("PRAGMA foreign_keys = ON", [])
             .map_err(DatabaseError::Sqlite)?;
-        println!("✓ Foreign keys enabled");
 
         // Set WAL mode for better concurrency
-        let journal_mode: String = conn
+        let _journal_mode: String = conn
             .query_row("PRAGMA journal_mode = WAL", [], |row| row.get(0))
             .map_err(DatabaseError::Sqlite)?;
-        println!("✓ Journal mode set to: {}", journal_mode);
 
         // Set synchronous mode for better performance
         conn.execute("PRAGMA synchronous = NORMAL", [])
             .map_err(DatabaseError::Sqlite)?;
-        println!("✓ Synchronous mode set to NORMAL");
 
         // Set cache size (negative value means KB)
         conn.execute("PRAGMA cache_size = -64000", [])
             .map_err(DatabaseError::Sqlite)?;
-        println!("✓ Cache size configured");
 
         // Set temp store to memory
         conn.execute("PRAGMA temp_store = MEMORY", [])
             .map_err(DatabaseError::Sqlite)?;
-        println!("✓ Temp store set to MEMORY");
 
         // Set mmap size for better I/O performance
         // Note: mmap_size may not return a value in some SQLite versions
         // Temporarily commented out due to ExecuteReturnedResults error
         // conn.execute("PRAGMA mmap_size = 268435456", [])
         //     .map_err(DatabaseError::Sqlite)?;
-        // println!("✓ Mmap size configured");
 
-        println!("Database connection configured successfully");
         Ok(())
     }
 
@@ -509,38 +500,37 @@ impl DatabaseManager {
             let end_date = Utc::now();
             let start_date = end_date - Duration::days(days as i64);
 
-            println!("📊 [Database] Querying stats from {} to {}", start_date, end_date);
-
             // First, let's check what sessions exist
-            let mut check_stmt = conn.prepare(
-                "SELECT id, session_type, completed, actual_duration, start_time 
+            let mut check_stmt = conn
+                .prepare(
+                    "SELECT id, session_type, completed, actual_duration, start_time 
                  FROM sessions 
                  WHERE start_time >= ?1 AND start_time <= ?2
-                 ORDER BY start_time DESC"
-            ).map_err(DatabaseError::Sqlite)?;
-            
-            let session_check = check_stmt.query_map([start_date, end_date], |row| {
-                Ok((
-                    row.get::<_, String>(0)?,
-                    row.get::<_, String>(1)?,
-                    row.get::<_, bool>(2)?,
-                    row.get::<_, Option<i32>>(3)?,
-                    row.get::<_, String>(4)?,
-                ))
-            }).map_err(DatabaseError::Sqlite)?;
-            
+                 ORDER BY start_time DESC",
+                )
+                .map_err(DatabaseError::Sqlite)?;
+
+            let session_check = check_stmt
+                .query_map([start_date, end_date], |row| {
+                    Ok((
+                        row.get::<_, String>(0)?,
+                        row.get::<_, String>(1)?,
+                        row.get::<_, bool>(2)?,
+                        row.get::<_, Option<i32>>(3)?,
+                        row.get::<_, String>(4)?,
+                    ))
+                })
+                .map_err(DatabaseError::Sqlite)?;
+
             let mut session_count = 0;
             for session in session_check {
                 match session {
                     Ok((id, session_type, completed, actual_duration, start_time)) => {
                         session_count += 1;
-                        println!("📊 [Database] Session: id={}, type={}, completed={}, duration={:?}, start={}", 
-                            id, session_type, completed, actual_duration, start_time);
                     }
                     Err(e) => eprintln!("❌ [Database] Error reading session: {}", e),
                 }
             }
-            println!("📊 [Database] Total sessions found: {}", session_count);
 
             let mut stmt = conn
                 .prepare(
@@ -585,8 +575,7 @@ impl DatabaseManager {
             let mut stats = Vec::new();
             for stat in stats_iter {
                 let stat_result = stat.map_err(DatabaseError::Sqlite)?;
-                println!("📊 [Database] Calculated stat: date={}, focus_minutes={}, breaks={}, sessions={}", 
-                    stat_result.date, stat_result.focus_minutes, stat_result.breaks_completed, stat_result.sessions_completed);
+
                 stats.push(stat_result);
             }
 

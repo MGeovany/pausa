@@ -29,18 +29,18 @@ pub fn run() -> Result<(), String> {
                     if let tauri::tray::TrayIconEvent::Click { .. } = event {
                         println!("🖱️ [TrayIcon] Tray icon clicked");
                         
-                        // Get the app handle
-                        let app_handle = tray.app_handle();
+                        // Get the app handle and clone it for async use
+                        let app_handle = tray.app_handle().clone();
 
-                        // Try to get the app state and show menu bar popover via strict mode orchestrator
-                        if let Some(app_state) = app_handle.try_state::<AppState>() {
-                            println!("📊 [TrayIcon] Got app state, checking strict mode orchestrator");
-                            
-                            // Use tokio runtime to handle async operation
-                            tauri::async_runtime::spawn(async move {
+                        // Use tokio runtime to handle async operation
+                        tauri::async_runtime::spawn(async move {
+                            // Try to get the app state and show menu bar popover via strict mode orchestrator
+                            if let Some(app_state) = app_handle.try_state::<AppState>() {
+                                println!("📊 [TrayIcon] Got app state, checking strict mode orchestrator");
+                                
                                 let orchestrator_guard = app_state.strict_mode_orchestrator.lock().await;
                                 
-                                if let Some(orchestrator) = orchestrator_guard.as_ref() {
+                                if let Some(_) = orchestrator_guard.as_ref() {
                                     println!("🔒 [TrayIcon] Strict mode orchestrator found, showing popover");
                                     
                                     // We need to drop the guard before calling show_menu_bar_popover
@@ -72,10 +72,10 @@ pub fn run() -> Result<(), String> {
                                         eprintln!("❌ [TrayIcon] Main window not found");
                                     }
                                 }
-                            });
-                        } else {
-                            eprintln!("❌ [TrayIcon] Failed to get app state");
-                        }
+                            } else {
+                                eprintln!("❌ [TrayIcon] Failed to get app state");
+                            }
+                        });
                     }
                 });
             }

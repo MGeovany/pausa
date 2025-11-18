@@ -12,10 +12,6 @@ impl MigrationManager {
         conn.execute_batch(INITIAL_SCHEMA)
             .map_err(DatabaseError::Sqlite)?;
 
-        println!(
-            "Database initialized with schema version {}",
-            SCHEMA_VERSION
-        );
         Ok(())
     }
 
@@ -46,17 +42,10 @@ impl MigrationManager {
         let current_version = Self::get_current_version(conn)?;
 
         if current_version < SCHEMA_VERSION {
-            println!(
-                "Migrating database from version {} to {}",
-                current_version, SCHEMA_VERSION
-            );
-
             // Apply migrations in sequence
             for version in (current_version + 1)..=SCHEMA_VERSION {
                 Self::apply_migration(conn, version)?;
             }
-
-            println!("Database migration completed");
         } else if current_version > SCHEMA_VERSION {
             return Err(DatabaseError::Migration(format!(
                 "Database version {} is newer than application version {}",
@@ -154,8 +143,6 @@ impl MigrationManager {
 
     /// Migration to version 3: Add cycle configuration fields to user_settings
     fn migrate_to_v3(conn: &Connection) -> DatabaseResult<()> {
-        println!("Applying migration to version 3: Adding cycle configuration fields");
-
         // Add new fields to user_settings table
         conn.execute(
             "ALTER TABLE user_settings ADD COLUMN cycles_per_long_break_v2 INTEGER NOT NULL DEFAULT 4",
@@ -293,7 +280,6 @@ impl MigrationManager {
 
         // If no rows returned, that's okay for a new database
 
-        println!("Database validation passed");
         Ok(())
     }
 

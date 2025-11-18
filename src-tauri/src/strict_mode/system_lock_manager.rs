@@ -136,8 +136,6 @@ impl SystemLockManager {
 
         self.emergency_hotkey = Some(combination);
 
-        println!("✅ [SystemLockManager] Emergency hotkey registered successfully");
-
         Ok(())
     }
 
@@ -173,8 +171,6 @@ impl SystemLockManager {
         }
 
         self.is_locked = false;
-
-        println!("✅ [SystemLockManager] System force unlocked");
 
         Ok(())
     }

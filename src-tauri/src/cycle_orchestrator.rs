@@ -336,31 +336,23 @@ impl CycleOrchestrator {
             // Check if session completed
             if self.state.remaining_seconds == 0 {
                 let completed_phase = self.state.phase.clone();
-                println!("⏰ [CycleOrchestrator] Session completed! Phase: {:?}, Cycle count: {}", completed_phase, self.state.cycle_count);
-                
+
                 // Auto-complete the session
                 let completion_events = self.end_session(true)?;
-                println!("✅ [CycleOrchestrator] End session events: {:?}", completion_events);
+
                 events.extend(completion_events);
 
                 // If focus session completed, automatically start break
                 if completed_phase == CyclePhase::Focus {
-                    println!("🎯 [CycleOrchestrator] Focus session completed, starting break automatically...");
-                    
                     // Determine if this should be a long break
                     let is_long_break = self.state.cycle_count > 0
                         && self.state.cycle_count % self.config.cycles_per_long_break == 0;
-
-                    println!("📊 [CycleOrchestrator] Cycle count: {}, Cycles per long break: {}, Is long break: {}", 
-                        self.state.cycle_count, self.config.cycles_per_long_break, is_long_break);
 
                     let (phase, duration) = if is_long_break {
                         (CyclePhase::LongBreak, self.config.long_break_duration)
                     } else {
                         (CyclePhase::ShortBreak, self.config.break_duration)
                     };
-
-                    println!("☕ [CycleOrchestrator] Starting {:?} break with duration: {} seconds", phase, duration);
 
                     // Generate session ID
                     let session_id = uuid::Uuid::new_v4().to_string();
@@ -377,27 +369,13 @@ impl CycleOrchestrator {
                     self.state.started_at = Some(Utc::now());
                     self.state.within_work_hours = within_work_hours;
 
-                    println!("✅ [CycleOrchestrator] Break state updated: phase={:?}, remaining={}, is_running={}, session_id={}", 
-                        self.state.phase, self.state.remaining_seconds, self.state.is_running, session_id);
-
-                    events.push(CycleEvent::PhaseStarted {
-                        phase: phase.clone(),
-                        duration,
-                        cycle_count: self.state.cycle_count,
-                    });
-
-                    println!("📤 [CycleOrchestrator] Emitted PhaseStarted event for {:?}", phase);
-
                     // Emit long break event if applicable
                     if is_long_break {
                         events.push(CycleEvent::LongBreakReached {
                             cycles_completed: self.state.cycle_count,
                         });
-                        println!("🎉 [CycleOrchestrator] Long break reached after {} cycles", self.state.cycle_count);
                     }
                 } else if completed_phase == CyclePhase::ShortBreak {
-                    println!("☕ [CycleOrchestrator] Short break completed, automatically starting next focus session...");
-
                     // Automatically start the next focus session after a short break
                     let session_id = uuid::Uuid::new_v4().to_string();
                     let within_work_hours = self.is_within_work_hours();
@@ -408,20 +386,8 @@ impl CycleOrchestrator {
                     self.state.session_id = Some(session_id.clone());
                     self.state.started_at = Some(Utc::now());
                     self.state.within_work_hours = within_work_hours;
-
-                    println!("✅ [CycleOrchestrator] Focus state updated: phase={:?}, remaining={}, is_running={}, session_id={}", 
-                        self.state.phase, self.state.remaining_seconds, self.state.is_running, session_id);
-
-                    events.push(CycleEvent::PhaseStarted {
-                        phase: CyclePhase::Focus,
-                        duration: self.config.focus_duration,
-                        cycle_count: self.state.cycle_count,
-                    });
-
-                    println!("📤 [CycleOrchestrator] Emitted PhaseStarted event for Focus");
                 } else if completed_phase == CyclePhase::LongBreak {
                     // After a long break (end of configured cycle group), remain idle.
-                    println!("☕ [CycleOrchestrator] Long break completed, routine finished for this cycle group. Staying idle.");
                 }
             }
         }
@@ -433,7 +399,6 @@ impl CycleOrchestrator {
     pub fn reset_cycle_count(&mut self) {
         self.state.cycle_count = 0;
     }
-
 
     /// Get work schedule information for UI display
     pub fn get_work_schedule_info(&self) -> Option<WorkScheduleInfo> {

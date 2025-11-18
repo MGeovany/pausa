@@ -220,27 +220,17 @@ impl WindowManager {
 
     /// Minimize the main window to menu bar (hide it)
     pub fn minimize_to_menu_bar(&self) -> Result<(), Box<dyn std::error::Error>> {
-        println!("📍 [WindowManager] Minimizing main window to menu bar");
-
         if let Some(window) = self.app_handle.get_webview_window("main") {
             window.hide()?;
-            println!("✅ [WindowManager] Main window minimized to menu bar");
-        } else {
-            println!("⚠️ [WindowManager] Main window not found");
         }
         Ok(())
     }
 
     /// Restore the main window from menu bar
     pub fn restore_from_menu_bar(&self) -> Result<(), Box<dyn std::error::Error>> {
-        println!("📍 [WindowManager] Restoring main window from menu bar");
-
         if let Some(window) = self.app_handle.get_webview_window("main") {
             window.show()?;
             window.set_focus()?;
-            println!("✅ [WindowManager] Main window restored from menu bar");
-        } else {
-            println!("⚠️ [WindowManager] Main window not found");
         }
         Ok(())
     }
@@ -422,7 +412,7 @@ impl WindowManager {
                 WebviewUrl::App("index.html".into()),
             )
             .title("Pausa Menu Bar")
-            .inner_size(280.0, 200.0)
+            .inner_size(300.0, 250.0)
             .resizable(false)
             .decorations(false)
             .always_on_top(true)

@@ -29,7 +29,6 @@ impl NotificationService {
         };
 
         let _ = app.notification().builder().title(title).body(&body).show();
-        println!("📢 [Notification] {}: {}", title, body);
     }
 
     /// Send a focus warning notification (2 minutes before end)
@@ -38,7 +37,6 @@ impl NotificationService {
         let body = format!("{} minutes left. Time to wrap up ⏳", minutes_left);
 
         let _ = app.notification().builder().title(title).body(&body).show();
-        println!("📢 [Notification] {}: {}", title, body);
     }
 
     /// Send a focus end notification
@@ -51,7 +49,6 @@ impl NotificationService {
         };
 
         let _ = app.notification().builder().title(title).body(&body).show();
-        println!("📢 [Notification] {}: {}", title, body);
     }
 
     /// Send a break start notification
@@ -60,7 +57,6 @@ impl NotificationService {
         let body = "Move. Stretch. Drink water ☕";
 
         let _ = app.notification().builder().title(title).body(body).show();
-        println!("📢 [Notification] {}: {}", title, body);
     }
 
     /// Send a long break start notification
@@ -73,7 +69,6 @@ impl NotificationService {
         };
 
         let _ = app.notification().builder().title(title).body(&body).show();
-        println!("📢 [Notification] {}: {}", title, body);
     }
 
     /// Send a break end notification
@@ -82,7 +77,6 @@ impl NotificationService {
         let body = "Shall we start another block? 💪";
 
         let _ = app.notification().builder().title(title).body(body).show();
-        println!("📢 [Notification] {}: {}", title, body);
     }
 
     /// Send a cycle complete notification
@@ -91,7 +85,6 @@ impl NotificationService {
         let body = format!("You've completed {} cycles. Keep it up! 🎉", cycle_count);
 
         let _ = app.notification().builder().title(title).body(&body).show();
-        println!("📢 [Notification] {}: {}", title, body);
     }
 }
 

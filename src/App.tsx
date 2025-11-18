@@ -97,7 +97,7 @@ export default function App() {
     return (
       <ErrorBoundary>
         <CycleSync />
-        <div className="min-h-screen bg-transparent flex items-start justify-center pt-2">
+        <div className="min-h-screen flex items-start justify-center pt-2">
           <MenuBarPopover
             onClose={async () => {
               try {
