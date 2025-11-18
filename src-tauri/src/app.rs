@@ -105,6 +105,7 @@ pub fn run() -> Result<(), String> {
             strict_mode_handler::hide_menu_bar_popover,
             strict_mode_handler::stop_break_transition_countdown,
             strict_mode_handler::start_break_from_transition,
+            strict_mode_handler::hide_fullscreen_break_overlay,
             strict_mode_handler::emergency_exit_strict_mode
         ])
         .run(tauri::generate_context!())

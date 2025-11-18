@@ -123,3 +123,18 @@ pub async fn emergency_exit_strict_mode(
         Err("StrictModeOrchestrator not initialized".to_string())
     }
 }
+
+/// Hide fullscreen break overlay and unlock system
+#[tauri::command]
+pub async fn hide_fullscreen_break_overlay(
+    strict_mode_orchestrator: State<'_, Mutex<Option<StrictModeOrchestrator>>>,
+) -> Result<(), String> {
+    let mut orchestrator_guard = strict_mode_orchestrator.lock().await;
+
+    if let Some(orchestrator) = orchestrator_guard.as_mut() {
+        orchestrator.hide_fullscreen_break_overlay()?;
+        Ok(())
+    } else {
+        Err("StrictModeOrchestrator not initialized".to_string())
+    }
+}

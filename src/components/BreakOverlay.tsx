@@ -365,6 +365,39 @@ function CountdownTimer({
   );
 }
 
+function StrictModeBreakUI({ 
+  remaining 
+}: { 
+  remaining: number;
+}) {
+  const minutes = Math.floor(remaining / 60);
+  const seconds = remaining % 60;
+
+  return (
+    <div className="flex flex-col items-center justify-center text-center">
+      {/* Prominent "Pausa" title */}
+      <h1 className="text-[96px] font-bold text-white mb-12 tracking-tight">
+        Pausa
+      </h1>
+      
+      {/* Timer in MM:SS format */}
+      <div className="text-[64px] font-semibold text-gray-400 font-mono mb-16">
+        {minutes.toString().padStart(2, '0')}:{seconds.toString().padStart(2, '0')}
+      </div>
+      
+      {/* Minimalist pulsing circle animation */}
+      <div className="flex items-center justify-center">
+        <div 
+          className="w-[120px] h-[120px] rounded-full animate-strict-pulse"
+          style={{ 
+            backgroundColor: 'rgba(0, 122, 255, 0.2)'
+          }}
+        />
+      </div>
+    </div>
+  );
+}
+
 export function BreakOverlay({ 
   breakSession, 
   onCompleteBreak, 
@@ -393,7 +426,7 @@ export function BreakOverlay({
     setIsVisible(true);
   }, []);
 
-  // Strict mode keyboard blocking
+  // Strict mode keyboard blocking - prevent all inputs except emergency key
   useEffect(() => {
     if (!isStrictMode) return;
 
@@ -422,17 +455,34 @@ export function BreakOverlay({
         }
       }
 
-      // Block all other keyboard inputs
+      // Block all keyboard inputs including system shortcuts
       e.preventDefault();
       e.stopPropagation();
       e.stopImmediatePropagation();
+      
+      // Log specific blocked attempts for common shortcuts
+      if (e.metaKey || e.ctrlKey) {
+        if (e.key === 'q' || e.key === 'Q') {
+          console.log('🔒 [BreakOverlay] Blocked Cmd+Q (quit application)');
+          logBypassAttempt('cmd_q_blocked');
+        } else if (e.key === 'w' || e.key === 'W') {
+          console.log('🔒 [BreakOverlay] Blocked Cmd+W (close window)');
+          logBypassAttempt('cmd_w_blocked');
+        } else if (e.key === 'm' || e.key === 'M') {
+          console.log('🔒 [BreakOverlay] Blocked Cmd+M (minimize)');
+          logBypassAttempt('cmd_m_blocked');
+        } else if (e.key === 'Tab') {
+          console.log('🔒 [BreakOverlay] Blocked Cmd+Tab (app switcher)');
+          logBypassAttempt('cmd_tab_blocked');
+        }
+      }
       
       // Log blocked attempt
       console.log('🔒 [BreakOverlay] Blocked keyboard input:', e.key);
       logBypassAttempt(`keyboard_blocked_${e.key}`);
     };
 
-    // Block all keyboard events
+    // Block all keyboard events with capture phase to intercept before any other handlers
     window.addEventListener('keydown', blockKeyboardInput, true);
     window.addEventListener('keyup', blockKeyboardInput, true);
     window.addEventListener('keypress', blockKeyboardInput, true);
@@ -444,7 +494,7 @@ export function BreakOverlay({
     };
   }, [isStrictMode, emergencyKeyCombination]);
 
-  // Strict mode mouse blocking
+  // Strict mode mouse blocking - allow movement but block all clicks
   useEffect(() => {
     if (!isStrictMode) return;
 
@@ -479,6 +529,61 @@ export function BreakOverlay({
       window.removeEventListener('contextmenu', blockMouseInput, true);
     };
   }, [isStrictMode]);
+
+  // Prevent window close/minimize in strict mode
+  useEffect(() => {
+    if (!isStrictMode) return;
+
+    const preventWindowClose = (e: BeforeUnloadEvent) => {
+      e.preventDefault();
+      e.returnValue = '';
+      console.log('🔒 [BreakOverlay] Prevented window close attempt');
+      logBypassAttempt('window_close_blocked');
+    };
+
+    const preventVisibilityChange = () => {
+      if (document.hidden) {
+        console.log('🔒 [BreakOverlay] Detected visibility change attempt');
+        logBypassAttempt('visibility_change_blocked');
+      }
+    };
+
+    // Prevent window close
+    window.addEventListener('beforeunload', preventWindowClose);
+    
+    // Monitor visibility changes (tab switching, minimization)
+    document.addEventListener('visibilitychange', preventVisibilityChange);
+
+    return () => {
+      window.removeEventListener('beforeunload', preventWindowClose);
+      document.removeEventListener('visibilitychange', preventVisibilityChange);
+    };
+  }, [isStrictMode]);
+
+  // Auto-close overlay and unlock system when break ends in strict mode
+  useEffect(() => {
+    if (!isStrictMode) return;
+    if (breakSession.remaining > 0) return;
+
+    const handleBreakEnd = async () => {
+      console.log('✅ [BreakOverlay] Break ended in strict mode - unlocking system');
+      
+      try {
+        // Call backend to unlock system and hide overlay
+        await invoke('hide_fullscreen_break_overlay');
+        console.log('✅ [BreakOverlay] System unlocked successfully');
+        
+        // Call the completion handler
+        onCompleteBreak();
+      } catch (error) {
+        console.error('❌ [BreakOverlay] Failed to unlock system:', error);
+        // Still call completion handler even if unlock fails
+        onCompleteBreak();
+      }
+    };
+
+    handleBreakEnd();
+  }, [isStrictMode, breakSession.remaining, onCompleteBreak]);
 
   // Log bypass attempts
   const logBypassAttempt = async (method: string) => {
@@ -557,20 +662,22 @@ export function BreakOverlay({
     (checklistCompleted.length > 0 && checklistCompleted.every(item => item));
   
   const showCompletionInterface = breakSession.remaining <= 0;
-
-  // Different background colors for break types
-  const bgColor = breakSession.type === 'long' 
-    ? 'bg-gradient-to-br from-amber-900/40 via-gray-900 to-gray-900' 
-    : 'bg-gray-900';
   
   const accentColor = breakSession.type === 'long' ? 'amber' : 'blue';
+
+  // Determine background color based on mode and break type
+  const strictModeBg = '#0a0a0a'; // Solid dark background for strict mode
+  const normalModeBg = breakSession.type === 'long' 
+    ? 'bg-gradient-to-br from-amber-900/40 via-gray-900 to-gray-900' 
+    : 'bg-gray-900';
 
   return (
     <div 
       className={`
-        fixed inset-0 z-50 ${bgColor} flex items-center justify-center 
+        fixed inset-0 z-50 flex items-center justify-center 
         transition-all duration-700 ease-out
         ${isVisible ? 'opacity-100' : 'opacity-0'}
+        ${!isStrictMode ? normalModeBg : ''}
       `}
       style={{ 
         // Ensure fullscreen on all monitors
@@ -580,7 +687,8 @@ export function BreakOverlay({
         top: 0,
         left: 0,
         right: 0,
-        bottom: 0
+        bottom: 0,
+        backgroundColor: isStrictMode ? strictModeBg : undefined
       }}
     >
       {/* Main break content */}
@@ -589,18 +697,22 @@ export function BreakOverlay({
         transition-all duration-500 ease-out
         ${isVisible ? 'scale-100 opacity-100' : 'scale-95 opacity-0'}
       `}>
-        {showCompletionInterface ? (
+        {isStrictMode && !showCompletionInterface ? (
+          // Strict mode: Show minimalist UI with timer and animation
+          <StrictModeBreakUI remaining={breakSession.remaining} />
+        ) : showCompletionInterface ? (
           // Show completion interface when break is over
           <BreakCompletionInterface
             breakType={breakSession.type}
             userName={userName}
             cyclesCompleted={currentCycleState?.cycle_count || 0}
-              focusMinutes={(currentCycleState?.cycle_count || 0) * settings.focusDuration}
+            focusMinutes={(currentCycleState?.cycle_count || 0) * settings.focusDuration}
             onStartNewBlock={onCompleteBreak}
             onEndSession={onCompleteBreak}
           />
         ) : (
           <>
+            {/* Normal mode: Show full UI with activities */}
             {/* Break type indicator */}
             <div className="mb-8">
               <div className={`inline-flex items-center px-4 py-2 bg-${accentColor}-500/20 rounded-full`}>
@@ -666,13 +778,15 @@ export function BreakOverlay({
         )}
       </div>
 
-      {/* Emergency override modal */}
-      <EmergencyOverride
-        isOpen={showEmergencyModal}
-        onClose={() => setShowEmergencyModal(false)}
-        onOverride={handleEmergencyOverride}
-        emergencyWindowSeconds={45}
-      />
+      {/* Emergency override modal - only show in normal mode */}
+      {!isStrictMode && (
+        <EmergencyOverride
+          isOpen={showEmergencyModal}
+          onClose={() => setShowEmergencyModal(false)}
+          onOverride={handleEmergencyOverride}
+          emergencyWindowSeconds={45}
+        />
+      )}
     </div>
   );
 }

@@ -301,12 +301,28 @@ impl StrictModeOrchestrator {
         Ok(())
     }
 
-    /// Hide the fullscreen break overlay
+    /// Hide the fullscreen break overlay and unlock system
     pub fn hide_fullscreen_break_overlay(&mut self) -> Result<(), String> {
         println!("🪟 [StrictModeOrchestrator] Hiding fullscreen break overlay");
-        self.state.is_locked = false;
+
+        // Unlock the system first
+        if self.state.is_locked {
+            self.unlock_system()?;
+        }
+
+        // Hide the break overlay window
+        let window_manager = self
+            .window_manager
+            .lock()
+            .map_err(|e| format!("Failed to lock window manager: {}", e))?;
+
+        window_manager
+            .hide_break_overlay()
+            .map_err(|e| format!("Failed to hide break overlay: {}", e))?;
+
         self.state.current_window_type = Some(StrictModeWindowType::MenuBarIcon);
-        // Window hiding will be handled by WindowManager in future tasks
+
+        println!("✅ [StrictModeOrchestrator] Fullscreen break overlay hidden and system unlocked");
         Ok(())
     }
 
