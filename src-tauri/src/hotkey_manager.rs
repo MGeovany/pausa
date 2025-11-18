@@ -13,6 +13,7 @@ pub enum HotkeyAction {
     ToggleCommandPalette,
     ToggleFocusSession,
     ImmediateLock,
+    EmergencyExit,
 }
 
 impl HotkeyAction {
@@ -36,6 +37,12 @@ impl HotkeyAction {
                 #[cfg(not(target_os = "macos"))]
                 return Shortcut::new(Some(Modifiers::CONTROL | Modifiers::SHIFT), Code::KeyL);
             }
+            HotkeyAction::EmergencyExit => {
+                #[cfg(target_os = "macos")]
+                return Shortcut::new(Some(Modifiers::META | Modifiers::SHIFT), Code::KeyE);
+                #[cfg(not(target_os = "macos"))]
+                return Shortcut::new(Some(Modifiers::CONTROL | Modifiers::SHIFT), Code::KeyE);
+            }
         }
     }
 
@@ -44,6 +51,7 @@ impl HotkeyAction {
             HotkeyAction::ToggleCommandPalette => "Toggle Command Palette",
             HotkeyAction::ToggleFocusSession => "Toggle Focus Session",
             HotkeyAction::ImmediateLock => "Immediate Lock/Break",
+            HotkeyAction::EmergencyExit => "Emergency Exit from Strict Mode",
         }
     }
 }
@@ -109,6 +117,7 @@ impl HotkeyManager {
             HotkeyAction::ToggleCommandPalette,
             HotkeyAction::ToggleFocusSession,
             HotkeyAction::ImmediateLock,
+            HotkeyAction::EmergencyExit,
         ];
 
         for action in default_actions {
@@ -280,6 +289,9 @@ impl HotkeyManager {
             HotkeyAction::ImmediateLock => {
                 results.extend(self.handle_immediate_lock()?);
             }
+            HotkeyAction::EmergencyExit => {
+                results.push(self.handle_emergency_exit()?);
+            }
         }
 
         Ok(results)
@@ -436,6 +448,20 @@ impl HotkeyManager {
         Ok(results)
     }
 
+    /// Handle emergency exit from strict mode
+    fn handle_emergency_exit(&self) -> Result<HotkeyEventResult, Box<dyn std::error::Error>> {
+        // Note: The actual emergency exit is handled by the StrictModeOrchestrator
+        // This method is called from the frontend when the emergency key is detected
+        // The frontend will call the emergency_exit_strict_mode command directly
+
+        Ok(HotkeyEventResult {
+            action: HotkeyAction::EmergencyExit,
+            success: true,
+            message: "Emergency exit triggered".to_string(),
+            state_changes: vec![],
+        })
+    }
+
     /// Handle hotkey events (simplified version for callback)
     fn handle_hotkey_event(
         action: HotkeyAction,
@@ -491,6 +517,10 @@ impl HotkeyManager {
                         }
                     }
                 }
+            }
+            HotkeyAction::EmergencyExit => {
+                // Emergency exit is handled by the frontend calling emergency_exit_strict_mode command
+                println!("Emergency exit hotkey detected");
             }
         }
         Ok(())
@@ -713,4 +743,3 @@ pub async fn get_available_modifiers() -> Result<Vec<(String, String)>, String> 
         .collect();
     Ok(string_modifiers)
 }
-

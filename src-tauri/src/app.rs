@@ -106,7 +106,9 @@ pub fn run() -> Result<(), String> {
             strict_mode_handler::stop_break_transition_countdown,
             strict_mode_handler::start_break_from_transition,
             strict_mode_handler::hide_fullscreen_break_overlay,
-            strict_mode_handler::emergency_exit_strict_mode
+            strict_mode_handler::emergency_exit_strict_mode,
+            strict_mode_handler::register_emergency_hotkey,
+            strict_mode_handler::unregister_emergency_hotkey
         ])
         .run(tauri::generate_context!())
         .map_err(|e| e.to_string())

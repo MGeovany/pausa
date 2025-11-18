@@ -110,9 +110,31 @@ impl StrictModeOrchestrator {
         Ok(())
     }
 
-    /// Hide all strict mode windows (placeholder for future implementation)
+    /// Hide all strict mode windows
     fn hide_all_strict_windows(&self) -> Result<(), String> {
         println!("🪟 [StrictModeOrchestrator] Hiding all strict mode windows");
+
+        let window_manager = self
+            .window_manager
+            .lock()
+            .map_err(|e| format!("Failed to lock window manager: {}", e))?;
+
+        // Hide break overlay if it exists
+        if let Err(e) = window_manager.hide_break_overlay() {
+            eprintln!("Warning: Failed to hide break overlay: {}", e);
+        }
+
+        // Hide break transition if it exists
+        if let Err(e) = window_manager.hide_break_transition() {
+            eprintln!("Warning: Failed to hide break transition: {}", e);
+        }
+
+        // Hide menu bar popover if it exists
+        if let Err(e) = window_manager.hide_menu_bar_popover() {
+            eprintln!("Warning: Failed to hide menu bar popover: {}", e);
+        }
+
+        println!("✅ [StrictModeOrchestrator] All strict mode windows hidden");
         Ok(())
     }
 

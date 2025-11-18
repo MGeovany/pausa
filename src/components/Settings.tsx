@@ -173,7 +173,50 @@ export function Settings({ onClose }: SettingsProps) {
     setEmergencyKey("");
   };
 
+  const validateEmergencyKey = (key: string): { valid: boolean; error?: string } => {
+    if (!key.trim()) {
+      return { valid: false, error: "Emergency key combination cannot be empty" };
+    }
+
+    // Check if it has at least one modifier
+    const hasModifier = key.includes("⌘") || key.includes("Ctrl") || key.includes("Alt") || key.includes("⇧");
+    if (!hasModifier) {
+      return { valid: false, error: "Must include at least one modifier key (⌘, Ctrl, Alt, or ⇧)" };
+    }
+
+    // Prevent common system shortcuts
+    const forbiddenCombinations = [
+      "⌘ + Q",
+      "⌘ + W",
+      "⌘ + M",
+      "⌘ + H",
+      "⌘ + TAB",
+      "Ctrl + Q",
+      "Ctrl + W",
+      "Alt + F4",
+      "Ctrl + Alt + DELETE",
+    ];
+
+    const normalizedKey = key.toUpperCase().replace(/\s/g, "");
+    for (const forbidden of forbiddenCombinations) {
+      const normalizedForbidden = forbidden.toUpperCase().replace(/\s/g, "");
+      if (normalizedKey === normalizedForbidden) {
+        return { valid: false, error: `Cannot use system shortcut '${forbidden}'` };
+      }
+    }
+
+    return { valid: true };
+  };
+
   const handleSaveEmergencyKey = () => {
+    const validation = validateEmergencyKey(emergencyKey);
+    
+    if (!validation.valid) {
+      setSaveMessage({ type: "error", text: validation.error || "Invalid key combination" });
+      setTimeout(() => setSaveMessage(null), 3000);
+      return;
+    }
+
     if (emergencyKey.trim()) {
       updateLocalSettings({
         strictMode: true,
@@ -201,6 +244,24 @@ export function Settings({ onClose }: SettingsProps) {
     try {
       // Save to backend
       await tauriCommands.updateSettings(localSettings);
+
+      // If strict mode is enabled and emergency key is set, register it
+      if (localSettings.strictMode && localSettings.emergencyKeyCombination) {
+        try {
+          await tauriCommands.registerEmergencyHotkey(localSettings.emergencyKeyCombination);
+        } catch (error) {
+          console.error("Failed to register emergency hotkey:", error);
+          // Don't fail the entire save if hotkey registration fails
+        }
+      } else if (!localSettings.strictMode) {
+        // Unregister emergency hotkey if strict mode is disabled
+        try {
+          await tauriCommands.unregisterEmergencyHotkey();
+        } catch (error) {
+          console.error("Failed to unregister emergency hotkey:", error);
+          // Don't fail the entire save if hotkey unregistration fails
+        }
+      }
 
       // Update store
       updateSettings(localSettings);

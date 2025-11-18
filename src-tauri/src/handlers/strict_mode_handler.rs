@@ -138,3 +138,34 @@ pub async fn hide_fullscreen_break_overlay(
         Err("StrictModeOrchestrator not initialized".to_string())
     }
 }
+
+/// Register emergency hotkey combination
+#[tauri::command]
+pub async fn register_emergency_hotkey(
+    combination: String,
+    strict_mode_orchestrator: State<'_, Mutex<Option<StrictModeOrchestrator>>>,
+) -> Result<(), String> {
+    let mut orchestrator_guard = strict_mode_orchestrator.lock().await;
+
+    if let Some(orchestrator) = orchestrator_guard.as_mut() {
+        orchestrator.register_emergency_hotkey(combination)?;
+        Ok(())
+    } else {
+        Err("StrictModeOrchestrator not initialized".to_string())
+    }
+}
+
+/// Unregister emergency hotkey
+#[tauri::command]
+pub async fn unregister_emergency_hotkey(
+    strict_mode_orchestrator: State<'_, Mutex<Option<StrictModeOrchestrator>>>,
+) -> Result<(), String> {
+    let mut orchestrator_guard = strict_mode_orchestrator.lock().await;
+
+    if let Some(orchestrator) = orchestrator_guard.as_mut() {
+        orchestrator.unregister_emergency_hotkey()?;
+        Ok(())
+    } else {
+        Err("StrictModeOrchestrator not initialized".to_string())
+    }
+}

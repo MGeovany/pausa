@@ -450,7 +450,17 @@ export function BreakOverlay({
           hasMainKey;
 
         if (isEmergencyKey) {
-          console.log('🚨 [BreakOverlay] Emergency key combination detected');
+          console.log('🚨 [BreakOverlay] Emergency key combination detected - triggering emergency exit');
+          
+          // Trigger emergency exit
+          invoke('emergency_exit_strict_mode')
+            .then(() => {
+              console.log('✅ [BreakOverlay] Emergency exit completed successfully');
+            })
+            .catch((error) => {
+              console.error('❌ [BreakOverlay] Emergency exit failed:', error);
+            });
+          
           return; // Allow emergency key through
         }
       }
