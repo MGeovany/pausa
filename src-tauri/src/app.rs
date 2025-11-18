@@ -27,20 +27,54 @@ pub fn run() -> Result<(), String> {
             if let Some(tray) = app.tray_by_id("main-tray") {
                 tray.on_tray_icon_event(|tray, event| {
                     if let tauri::tray::TrayIconEvent::Click { .. } = event {
+                        println!("🖱️ [TrayIcon] Tray icon clicked");
+                        
                         // Get the app handle
                         let app_handle = tray.app_handle();
 
-                        // Try to show menu bar popover
-                        if let Some(window_manager) =
-                            app_handle.try_state::<std::sync::Arc<
-                                std::sync::Mutex<crate::window_manager::WindowManager>,
-                            >>()
-                        {
-                            if let Ok(manager) = window_manager.lock() {
-                                if let Err(e) = manager.show_menu_bar_popover() {
-                                    eprintln!("Failed to show menu bar popover: {}", e);
+                        // Try to get the app state and show menu bar popover via strict mode orchestrator
+                        if let Some(app_state) = app_handle.try_state::<AppState>() {
+                            println!("📊 [TrayIcon] Got app state, checking strict mode orchestrator");
+                            
+                            // Use tokio runtime to handle async operation
+                            tauri::async_runtime::spawn(async move {
+                                let orchestrator_guard = app_state.strict_mode_orchestrator.lock().await;
+                                
+                                if let Some(orchestrator) = orchestrator_guard.as_ref() {
+                                    println!("🔒 [TrayIcon] Strict mode orchestrator found, showing popover");
+                                    
+                                    // We need to drop the guard before calling show_menu_bar_popover
+                                    // because it needs mutable access
+                                    drop(orchestrator_guard);
+                                    
+                                    let mut orchestrator_guard_mut = app_state.strict_mode_orchestrator.lock().await;
+                                    if let Some(orchestrator_mut) = orchestrator_guard_mut.as_mut() {
+                                        if let Err(e) = orchestrator_mut.show_menu_bar_popover() {
+                                            eprintln!("❌ [TrayIcon] Failed to show menu bar popover: {}", e);
+                                        } else {
+                                            println!("✅ [TrayIcon] Menu bar popover shown");
+                                        }
+                                    }
+                                } else {
+                                    println!("⚠️ [TrayIcon] Strict mode orchestrator not initialized");
+                                    
+                                    // If strict mode is not active, try to show the main window
+                                    if let Some(window) = app_handle.get_webview_window("main") {
+                                        if let Err(e) = window.show() {
+                                            eprintln!("❌ [TrayIcon] Failed to show main window: {}", e);
+                                        } else {
+                                            if let Err(e) = window.set_focus() {
+                                                eprintln!("⚠️ [TrayIcon] Failed to focus main window: {}", e);
+                                            }
+                                            println!("✅ [TrayIcon] Main window shown");
+                                        }
+                                    } else {
+                                        eprintln!("❌ [TrayIcon] Main window not found");
+                                    }
                                 }
-                            }
+                            });
+                        } else {
+                            eprintln!("❌ [TrayIcon] Failed to get app state");
                         }
                     }
                 });

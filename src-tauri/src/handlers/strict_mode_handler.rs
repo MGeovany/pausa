@@ -1,14 +1,12 @@
 use tauri::State;
-use tokio::sync::Mutex;
 
-use crate::strict_mode::{StrictModeOrchestrator, StrictModeState};
+use crate::state::AppState;
+use crate::strict_mode::StrictModeState;
 
 /// Activate strict mode
 #[tauri::command]
-pub async fn activate_strict_mode(
-    strict_mode_orchestrator: State<'_, Mutex<Option<StrictModeOrchestrator>>>,
-) -> Result<(), String> {
-    let mut orchestrator_guard = strict_mode_orchestrator.lock().await;
+pub async fn activate_strict_mode(app_state: State<'_, AppState>) -> Result<(), String> {
+    let mut orchestrator_guard = app_state.strict_mode_orchestrator.lock().await;
 
     if let Some(orchestrator) = orchestrator_guard.as_mut() {
         orchestrator.activate()?;
@@ -20,10 +18,8 @@ pub async fn activate_strict_mode(
 
 /// Deactivate strict mode
 #[tauri::command]
-pub async fn deactivate_strict_mode(
-    strict_mode_orchestrator: State<'_, Mutex<Option<StrictModeOrchestrator>>>,
-) -> Result<(), String> {
-    let mut orchestrator_guard = strict_mode_orchestrator.lock().await;
+pub async fn deactivate_strict_mode(app_state: State<'_, AppState>) -> Result<(), String> {
+    let mut orchestrator_guard = app_state.strict_mode_orchestrator.lock().await;
 
     if let Some(orchestrator) = orchestrator_guard.as_mut() {
         orchestrator.deactivate()?;
@@ -36,9 +32,9 @@ pub async fn deactivate_strict_mode(
 /// Get the current strict mode state
 #[tauri::command]
 pub async fn get_strict_mode_state(
-    strict_mode_orchestrator: State<'_, Mutex<Option<StrictModeOrchestrator>>>,
+    app_state: State<'_, AppState>,
 ) -> Result<StrictModeState, String> {
-    let orchestrator_guard = strict_mode_orchestrator.lock().await;
+    let orchestrator_guard = app_state.strict_mode_orchestrator.lock().await;
 
     if let Some(orchestrator) = orchestrator_guard.as_ref() {
         Ok(orchestrator.get_state())
@@ -49,10 +45,8 @@ pub async fn get_strict_mode_state(
 
 /// Show menu bar popover
 #[tauri::command]
-pub async fn show_menu_bar_popover(
-    strict_mode_orchestrator: State<'_, Mutex<Option<StrictModeOrchestrator>>>,
-) -> Result<(), String> {
-    let mut orchestrator_guard = strict_mode_orchestrator.lock().await;
+pub async fn show_menu_bar_popover(app_state: State<'_, AppState>) -> Result<(), String> {
+    let mut orchestrator_guard = app_state.strict_mode_orchestrator.lock().await;
 
     if let Some(orchestrator) = orchestrator_guard.as_mut() {
         orchestrator.show_menu_bar_popover()?;
@@ -64,10 +58,8 @@ pub async fn show_menu_bar_popover(
 
 /// Hide menu bar popover
 #[tauri::command]
-pub async fn hide_menu_bar_popover(
-    strict_mode_orchestrator: State<'_, Mutex<Option<StrictModeOrchestrator>>>,
-) -> Result<(), String> {
-    let mut orchestrator_guard = strict_mode_orchestrator.lock().await;
+pub async fn hide_menu_bar_popover(app_state: State<'_, AppState>) -> Result<(), String> {
+    let mut orchestrator_guard = app_state.strict_mode_orchestrator.lock().await;
 
     if let Some(orchestrator) = orchestrator_guard.as_mut() {
         orchestrator.hide_menu_bar_popover()?;
@@ -79,10 +71,8 @@ pub async fn hide_menu_bar_popover(
 
 /// Stop break transition countdown
 #[tauri::command]
-pub async fn stop_break_transition_countdown(
-    strict_mode_orchestrator: State<'_, Mutex<Option<StrictModeOrchestrator>>>,
-) -> Result<(), String> {
-    let orchestrator_guard = strict_mode_orchestrator.lock().await;
+pub async fn stop_break_transition_countdown(app_state: State<'_, AppState>) -> Result<(), String> {
+    let orchestrator_guard = app_state.strict_mode_orchestrator.lock().await;
 
     if orchestrator_guard.is_some() {
         // This will be handled by the frontend countdown logic
@@ -96,10 +86,8 @@ pub async fn stop_break_transition_countdown(
 
 /// Start break from transition window
 #[tauri::command]
-pub async fn start_break_from_transition(
-    strict_mode_orchestrator: State<'_, Mutex<Option<StrictModeOrchestrator>>>,
-) -> Result<(), String> {
-    let mut orchestrator_guard = strict_mode_orchestrator.lock().await;
+pub async fn start_break_from_transition(app_state: State<'_, AppState>) -> Result<(), String> {
+    let mut orchestrator_guard = app_state.strict_mode_orchestrator.lock().await;
 
     if let Some(orchestrator) = orchestrator_guard.as_mut() {
         orchestrator.start_break_from_transition()?;
@@ -111,10 +99,8 @@ pub async fn start_break_from_transition(
 
 /// Emergency exit from strict mode
 #[tauri::command]
-pub async fn emergency_exit_strict_mode(
-    strict_mode_orchestrator: State<'_, Mutex<Option<StrictModeOrchestrator>>>,
-) -> Result<(), String> {
-    let mut orchestrator_guard = strict_mode_orchestrator.lock().await;
+pub async fn emergency_exit_strict_mode(app_state: State<'_, AppState>) -> Result<(), String> {
+    let mut orchestrator_guard = app_state.strict_mode_orchestrator.lock().await;
 
     if let Some(orchestrator) = orchestrator_guard.as_mut() {
         orchestrator.emergency_exit()?;
@@ -126,10 +112,8 @@ pub async fn emergency_exit_strict_mode(
 
 /// Hide fullscreen break overlay and unlock system
 #[tauri::command]
-pub async fn hide_fullscreen_break_overlay(
-    strict_mode_orchestrator: State<'_, Mutex<Option<StrictModeOrchestrator>>>,
-) -> Result<(), String> {
-    let mut orchestrator_guard = strict_mode_orchestrator.lock().await;
+pub async fn hide_fullscreen_break_overlay(app_state: State<'_, AppState>) -> Result<(), String> {
+    let mut orchestrator_guard = app_state.strict_mode_orchestrator.lock().await;
 
     if let Some(orchestrator) = orchestrator_guard.as_mut() {
         orchestrator.hide_fullscreen_break_overlay()?;
@@ -143,9 +127,9 @@ pub async fn hide_fullscreen_break_overlay(
 #[tauri::command]
 pub async fn register_emergency_hotkey(
     combination: String,
-    strict_mode_orchestrator: State<'_, Mutex<Option<StrictModeOrchestrator>>>,
+    app_state: State<'_, AppState>,
 ) -> Result<(), String> {
-    let mut orchestrator_guard = strict_mode_orchestrator.lock().await;
+    let mut orchestrator_guard = app_state.strict_mode_orchestrator.lock().await;
 
     if let Some(orchestrator) = orchestrator_guard.as_mut() {
         orchestrator.register_emergency_hotkey(combination)?;
@@ -157,10 +141,8 @@ pub async fn register_emergency_hotkey(
 
 /// Unregister emergency hotkey
 #[tauri::command]
-pub async fn unregister_emergency_hotkey(
-    strict_mode_orchestrator: State<'_, Mutex<Option<StrictModeOrchestrator>>>,
-) -> Result<(), String> {
-    let mut orchestrator_guard = strict_mode_orchestrator.lock().await;
+pub async fn unregister_emergency_hotkey(app_state: State<'_, AppState>) -> Result<(), String> {
+    let mut orchestrator_guard = app_state.strict_mode_orchestrator.lock().await;
 
     if let Some(orchestrator) = orchestrator_guard.as_mut() {
         orchestrator.unregister_emergency_hotkey()?;

@@ -18,7 +18,6 @@ import { useCycleManager } from "../lib/useCycleManager";
 import { useCycleState, useAppStore, useStrictModeState } from "../store";
 import { tauriCommands } from "../lib/tauri";
 import { CycleManager } from "../lib/cycleCommands";
-import { useStrictMode } from "../lib/useStrictMode";
 import type { SessionStats } from "../types";
 
 interface UserInfo {
@@ -42,7 +41,6 @@ export default function Dashboard() {
     endSession,
     resetCycleCount,
   } = useCycleManager();
-  const { activateStrictMode } = useStrictMode();
 
   // Load settings from database on mount
   useEffect(() => {
@@ -177,12 +175,11 @@ export default function Dashboard() {
   // Handle starting routine with strict mode support
   const handleStartRoutine = async () => {
     try {
-      // If strict mode is enabled in settings, activate the orchestrator
-      console.log(settings,'SSSS')
-      if (settings.strictMode) {
-        console.log("🔒 [Dashboard] Strict mode enabled, activating orchestrator");
-        await activateStrictMode();
-      }
+      console.log("🚀 [Dashboard] Starting routine", { strictMode: settings.strictMode });
+      
+      // Note: StrictModeOrchestrator is automatically initialized and activated
+      // in initialize_cycle_orchestrator when strict mode is enabled in settings.
+      // No need to call activateStrictMode() manually here.
       
       // Start the focus session
       await startRoutine();
