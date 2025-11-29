@@ -14,7 +14,8 @@ pub async fn get_session_stats(
         .get_session_stats(days)
         .map_err(|error| format!("Failed to get session stats: {}", error))?;
 
-    for stat in &stats {}
+    // Process stats if needed in the future
+    let _ = &stats;
 
     Ok(stats.into_iter().map(SessionStats::from).collect())
 }

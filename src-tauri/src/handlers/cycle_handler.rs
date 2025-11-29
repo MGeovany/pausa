@@ -5,16 +5,111 @@ use chrono::Utc;
 use serde::{Deserialize, Serialize};
 use tauri::{AppHandle, Emitter, State};
 
+#[cfg(target_os = "macos")]
+use crate::menu_bar_text;
+
 #[derive(Debug, Serialize, Deserialize)]
 pub struct InitializeCycleRequest {
     pub force_reload: Option<bool>,
+}
+
+/// Helper function to format time in MM:SS format
+fn format_time(seconds: u32) -> String {
+    let minutes = seconds / 60;
+    let secs = seconds % 60;
+    format!("{:02}:{:02}", minutes, secs)
+}
+
+// Icon generation functions commented out until Tauri supports text in menu bar
+// See: https://github.com/tauri-apps/tao/issues/65
+// When support is added, we can uncomment and use these functions to generate
+// dynamic icons with text rendered on them.
+
+/// Update the tray icon with text showing the timer
+/// On macOS, we use native NSStatusItem to show text directly in menu bar
+/// On other platforms, we fall back to tooltip
+fn update_tray_icon_with_text(app: &AppHandle, state: &CycleState) {
+    let text = match state.phase {
+        CyclePhase::Idle => "Pausa".to_string(),
+        CyclePhase::Focus => {
+            if state.is_running {
+                format_time(state.remaining_seconds)
+            } else {
+                format!("{} ⏸", format_time(state.remaining_seconds))
+            }
+        }
+        CyclePhase::ShortBreak => {
+            if state.is_running {
+                format!("☕ {}", format_time(state.remaining_seconds))
+            } else {
+                format!("☕ {} ⏸", format_time(state.remaining_seconds))
+            }
+        }
+        CyclePhase::LongBreak => {
+            if state.is_running {
+                format!("☕ {}", format_time(state.remaining_seconds))
+            } else {
+                format!("☕ {} ⏸", format_time(state.remaining_seconds))
+            }
+        }
+    };
+
+    // Try to update native menu bar text on macOS
+    #[cfg(target_os = "macos")]
+    {
+        if let Err(e) = menu_bar_text::update_menu_bar_text(&text) {
+            eprintln!("⚠️ [CycleHandler] Failed to update menu bar text: {}", e);
+            // Fallback to tooltip if native text update fails
+            update_tray_tooltip_fallback(app, state);
+        }
+    }
+
+    // Always update tooltip as well (for non-macOS and as fallback)
+    #[cfg(not(target_os = "macos"))]
+    {
+        update_tray_tooltip_fallback(app, state);
+    }
+}
+
+/// Fallback: Update the tray icon tooltip with the current cycle state
+fn update_tray_tooltip_fallback(app: &AppHandle, state: &CycleState) {
+    if let Some(tray) = app.tray_by_id("main-tray") {
+        let tooltip = match state.phase {
+            CyclePhase::Idle => "Pausa - Inactivo".to_string(),
+            CyclePhase::Focus => {
+                if state.is_running {
+                    format!("Pausa - Enfoque: {}", format_time(state.remaining_seconds))
+                } else {
+                    format!("Pausa - Enfoque (pausado): {}", format_time(state.remaining_seconds))
+                }
+            }
+            CyclePhase::ShortBreak => {
+                if state.is_running {
+                    format!("Pausa - Descanso corto: {}", format_time(state.remaining_seconds))
+                } else {
+                    format!("Pausa - Descanso corto (pausado): {}", format_time(state.remaining_seconds))
+                }
+            }
+            CyclePhase::LongBreak => {
+                if state.is_running {
+                    format!("Pausa - Descanso largo: {}", format_time(state.remaining_seconds))
+                } else {
+                    format!("Pausa - Descanso largo (pausado): {}", format_time(state.remaining_seconds))
+                }
+            }
+        };
+
+        if let Err(e) = tray.set_tooltip(Some(&tooltip)) {
+            eprintln!("⚠️ [CycleHandler] Failed to update tray tooltip: {}", e);
+        }
+    }
 }
 
 /// Initialize the cycle orchestrator with current user settings
 #[tauri::command]
 pub async fn initialize_cycle_orchestrator(
     state: State<'_, AppState>,
-    _app: AppHandle,
+    app: AppHandle,
 ) -> Result<CycleState, String> {
     println!("🔄 [Rust] initialize_cycle_orchestrator called");
 
@@ -145,6 +240,9 @@ pub async fn initialize_cycle_orchestrator(
     }
 
     println!("✅ [Rust] Cycle orchestrator initialized");
+
+    // Update tray icon with text showing timer
+    update_tray_icon_with_text(&app, &current_state);
 
     Ok(current_state)
 }
@@ -309,6 +407,9 @@ pub async fn start_focus_session(
     let notification_service = state.notification_service.lock().await;
     notification_service.notify_focus_start(&app);
 
+    // Update tray icon with text showing timer
+    update_tray_icon_with_text(&app, &current_state);
+
     println!("✅ [Rust] Focus session started");
 
     Ok(current_state)
@@ -443,6 +544,9 @@ pub async fn start_break_session(
         _ => notification_service.notify_break_start(&app),
     };
 
+    // Update tray icon with text showing timer
+    update_tray_icon_with_text(&app, &current_state);
+
     println!("✅ [Rust] Break session started");
 
     Ok(current_state)
@@ -463,6 +567,10 @@ pub async fn pause_cycle(state: State<'_, AppState>) -> Result<CycleState, Strin
 
     let current_state = orchestrator.get_state();
 
+    // Update tray icon with text showing timer
+    let app_handle = state.app_handle.clone();
+    update_tray_icon_with_text(&app_handle, &current_state);
+
     println!("✅ [Rust] Cycle paused");
 
     Ok(current_state)
@@ -482,6 +590,10 @@ pub async fn resume_cycle(state: State<'_, AppState>) -> Result<CycleState, Stri
     orchestrator.resume()?;
 
     let current_state = orchestrator.get_state();
+
+    // Update tray icon with text showing timer
+    let app_handle = state.app_handle.clone();
+    update_tray_icon_with_text(&app_handle, &current_state);
 
     println!("✅ [Rust] Cycle resumed");
 
@@ -558,6 +670,9 @@ pub async fn end_cycle_session(
             _ => {}
         };
     }
+
+    // Update tray icon with text showing timer
+    update_tray_icon_with_text(&app, &current_state);
 
     println!("✅ [Rust] Cycle session ended");
 
@@ -767,6 +882,9 @@ pub async fn cycle_tick(state: State<'_, AppState>, app: AppHandle) -> Result<Cy
             eprintln!("Failed to emit cycle event: {}", e);
         }
     }
+
+    // Update tray icon with text showing timer
+    update_tray_icon_with_text(&app, &current_state);
 
     Ok(current_state)
 }

@@ -11,6 +11,8 @@ mod errors;
 mod handlers;
 mod infra;
 pub mod notification_service;
+#[cfg(target_os = "macos")]
+mod menu_bar_text;
 mod onboarding;
 mod pkce;
 mod services;

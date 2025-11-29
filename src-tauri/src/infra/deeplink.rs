@@ -1,7 +1,7 @@
 use tauri::{AppHandle, Emitter, Manager};
 use url::Url;
 
-use crate::{errors::AppError, state::AppState, domain::oauth::{OAuthCallback, OAuthProvider}};
+use crate::{state::AppState, domain::oauth::{OAuthCallback, OAuthProvider}};
 
 pub fn handle_deep_link(app: &AppHandle, raw: String) -> Result<(), String> {
     let url = Url::parse(&raw).map_err(|e| e.to_string())?;

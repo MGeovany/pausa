@@ -522,11 +522,10 @@ impl DatabaseManager {
                 })
                 .map_err(DatabaseError::Sqlite)?;
 
-            let mut session_count = 0;
             for session in session_check {
                 match session {
-                    Ok((id, session_type, completed, actual_duration, start_time)) => {
-                        session_count += 1;
+                    Ok((_id, _session_type, _completed, _actual_duration, _start_time)) => {
+                        // Session exists, continue processing
                     }
                     Err(e) => eprintln!("❌ [Database] Error reading session: {}", e),
                 }

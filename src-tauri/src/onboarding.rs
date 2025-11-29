@@ -6,9 +6,8 @@ pub mod validation;
 
 pub use backup::{
     create_post_onboarding_backup, create_pre_onboarding_backup, BackupManager, BackupType,
-    ConfigurationBackup,
 };
-pub use validation::{validate_step_data, OnboardingValidator, ValidationError, ValidationResult};
+pub use validation::{validate_step_data, OnboardingValidator};
 
 // This module provides onboarding functionality for the Pausa application
 

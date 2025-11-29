@@ -46,7 +46,7 @@ impl OAuthProvider for GoogleOAuthService {
             .append_pair("access_type", "offline")
             .append_pair("prompt", "consent");
         
-        let url_string = url.into_string();
+        let url_string: String = url.into();
         println!("✅ [OAuth] URL generated successfully");
         Ok(url_string)
     }

@@ -7,6 +7,10 @@ use crate::handlers::{
 };
 use crate::{config::AppConfig, onboarding::OnboardingManager, state::AppState};
 
+// Menu bar text temporarily disabled
+// #[cfg(target_os = "macos")]
+// use crate::menu_bar_text;
+
 pub fn run() -> Result<(), String> {
     // Load environment variables from .env file
     dotenv::dotenv().ok();
@@ -23,61 +27,128 @@ pub fn run() -> Result<(), String> {
             let onboarding_manager = OnboardingManager::new();
             app.manage(Mutex::new(onboarding_manager));
 
-            // Setup tray icon click handler
-            if let Some(tray) = app.tray_by_id("main-tray") {
-                tray.on_tray_icon_event(|tray, event| {
-                    if let tauri::tray::TrayIconEvent::Click { .. } = event {
-                        println!("🖱️ [TrayIcon] Tray icon clicked");
-                        
-                        // Get the app handle and clone it for async use
-                        let app_handle = tray.app_handle().clone();
+            // Initialize native menu bar text support on macOS
+            // TEMPORARILY DISABLED: This was causing fatal runtime errors
+            // The Objective-C code may be throwing exceptions that Rust cannot catch
+            // TODO: Re-implement with proper exception handling or use Tauri's native APIs
+            #[cfg(target_os = "macos")]
+            {
+                println!("⚠️ [App] Menu bar text initialization temporarily disabled to avoid fatal errors");
+                // Disabled for now:
+                // tauri::async_runtime::spawn(async move {
+                //     tokio::time::sleep(std::time::Duration::from_millis(1000)).await;
+                //     match menu_bar_text::init_menu_bar_text() {
+                //         Ok(_) => println!("✅ [App] Native menu bar text initialized"),
+                //         Err(e) => eprintln!("⚠️ [App] Failed to initialize menu bar text: {}", e),
+                //     }
+                // });
+            }
 
-                        // Use tokio runtime to handle async operation
-                        tauri::async_runtime::spawn(async move {
-                            // Try to get the app state and show menu bar popover via strict mode orchestrator
-                            if let Some(app_state) = app_handle.try_state::<AppState>() {
-                                println!("📊 [TrayIcon] Got app state, checking strict mode orchestrator");
-                                
-                                let orchestrator_guard = app_state.strict_mode_orchestrator.lock().await;
-                                
-                                if let Some(_) = orchestrator_guard.as_ref() {
-                                    println!("🔒 [TrayIcon] Strict mode orchestrator found, showing popover");
-                                    
-                                    // We need to drop the guard before calling show_menu_bar_popover
-                                    // because it needs mutable access
-                                    drop(orchestrator_guard);
-                                    
-                                    let mut orchestrator_guard_mut = app_state.strict_mode_orchestrator.lock().await;
-                                    if let Some(orchestrator_mut) = orchestrator_guard_mut.as_mut() {
-                                        if let Err(e) = orchestrator_mut.show_menu_bar_popover() {
-                                            eprintln!("❌ [TrayIcon] Failed to show menu bar popover: {}", e);
-                                        } else {
-                                            println!("✅ [TrayIcon] Menu bar popover shown");
-                                        }
-                                    }
-                                } else {
-                                    println!("⚠️ [TrayIcon] Strict mode orchestrator not initialized");
-                                    
-                                    // If strict mode is not active, try to show the main window
-                                    if let Some(window) = app_handle.get_webview_window("main") {
-                                        if let Err(e) = window.show() {
-                                            eprintln!("❌ [TrayIcon] Failed to show main window: {}", e);
-                                        } else {
-                                            if let Err(e) = window.set_focus() {
-                                                eprintln!("⚠️ [TrayIcon] Failed to focus main window: {}", e);
-                                            }
-                                            println!("✅ [TrayIcon] Main window shown");
-                                        }
-                                    } else {
-                                        eprintln!("❌ [TrayIcon] Main window not found");
-                                    }
-                                }
-                            } else {
-                                eprintln!("❌ [TrayIcon] Failed to get app state");
+            // Setup tray icon with context menu (similar to Docker Desktop)
+            println!("🔍 [App] Looking for tray icon with id 'main-tray'");
+            if let Some(tray) = app.tray_by_id("main-tray") {
+                println!("✅ [App] Tray icon found, setting up menu");
+                use tauri::{menu::{Menu, MenuItem, PredefinedMenuItem}, tray::MouseButton};
+                
+                // Create context menu
+                let app_handle = app.handle();
+                
+                // Menu items
+                let show_window = MenuItem::with_id(app_handle, "show-window", "Mostrar Ventana", true, None::<&str>)?;
+                let separator1 = PredefinedMenuItem::separator(app_handle)?;
+                let start_focus = MenuItem::with_id(app_handle, "start-focus", "Iniciar Sesión de Enfoque", true, None::<&str>)?;
+                let start_break = MenuItem::with_id(app_handle, "start-break", "Iniciar Descanso", true, None::<&str>)?;
+                let separator2 = PredefinedMenuItem::separator(app_handle)?;
+                let settings = MenuItem::with_id(app_handle, "settings", "Configuración...", true, None::<&str>)?;
+                let separator3 = PredefinedMenuItem::separator(app_handle)?;
+                let quit = PredefinedMenuItem::quit(app_handle, Some("Salir de Pausa"))?;
+                
+                let menu = Menu::with_items(app_handle, &[
+                    &show_window,
+                    &separator1,
+                    &start_focus,
+                    &start_break,
+                    &separator2,
+                    &settings,
+                    &separator3,
+                    &quit,
+                ])?;
+                
+                // Set the menu on the tray icon
+                match tray.set_menu(Some(menu)) {
+                    Ok(_) => println!("✅ [App] Menu set successfully on tray icon"),
+                    Err(e) => {
+                        eprintln!("❌ [App] Failed to set menu on tray icon: {}", e);
+                        return Err(format!("Failed to set tray menu: {}", e).into());
+                    }
+                }
+                
+                // Handle menu item clicks
+                let app_handle_clone = app.handle().clone();
+                tray.on_menu_event(move |_tray, event| {
+                    let app_handle = app_handle_clone.clone();
+                    match event.id.as_ref() {
+                        "show-window" => {
+                            println!("🖱️ [TrayMenu] Show window clicked");
+                            if let Some(window) = app_handle.get_webview_window("main") {
+                                let _ = window.show();
+                                let _ = window.set_focus();
                             }
-                        });
+                        }
+                        "start-focus" => {
+                            println!("🖱️ [TrayMenu] Start focus clicked");
+                            let app_handle_inner = app_handle.clone();
+                            // Emit event that frontend can listen to, or show window to let user start from UI
+                            if let Some(window) = app_handle_inner.get_webview_window("main") {
+                                let _ = window.show();
+                                let _ = window.set_focus();
+                                // Frontend will handle starting the focus session when window is shown
+                            }
+                        }
+                        "start-break" => {
+                            println!("🖱️ [TrayMenu] Start break clicked");
+                            let app_handle_inner = app_handle.clone();
+                            // Emit event that frontend can listen to, or show window to let user start from UI
+                            if let Some(window) = app_handle_inner.get_webview_window("main") {
+                                let _ = window.show();
+                                let _ = window.set_focus();
+                                // Frontend will handle starting the break session when window is shown
+                            }
+                        }
+                        "settings" => {
+                            println!("🖱️ [TrayMenu] Settings clicked");
+                            if let Some(window) = app_handle.get_webview_window("main") {
+                                let _ = window.show();
+                                let _ = window.set_focus();
+                                // TODO: Navigate to settings page
+                            }
+                        }
+                        "quit" => {
+                            println!("🖱️ [TrayMenu] Quit clicked");
+                            app_handle.exit(0);
+                        }
+                        _ => {}
                     }
                 });
+                
+                // Also handle left click to show/hide window (macOS behavior)
+                tray.on_tray_icon_event(|tray, event| {
+                    if let tauri::tray::TrayIconEvent::Click { button: MouseButton::Left, .. } = event {
+                        let app_handle = tray.app_handle().clone();
+                        if let Some(window) = app_handle.get_webview_window("main") {
+                            if window.is_visible().unwrap_or(false) {
+                                let _ = window.hide();
+                            } else {
+                                let _ = window.show();
+                                let _ = window.set_focus();
+                            }
+                        }
+                    }
+                });
+                println!("✅ [App] Tray icon event handlers registered");
+            } else {
+                eprintln!("❌ [App] Tray icon 'main-tray' not found! Check tauri.conf.json configuration.");
+                eprintln!("⚠️ [App] Make sure trayIcon is configured in tauri.conf.json");
             }
 
             Ok(())

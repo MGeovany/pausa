@@ -1,4 +1,3 @@
-use crate::database::DatabaseResult;
 use chrono::{DateTime, Utc};
 use serde::{Deserialize, Serialize};
 use std::fs;
@@ -336,7 +335,7 @@ impl BackupManager {
     /// Get work schedule from database (helper method)
     fn get_work_schedule(
         &self,
-        database: &crate::database::DatabaseManager,
+        _database: &crate::database::DatabaseManager,
     ) -> BackupResult<Option<serde_json::Value>> {
         // This is a simplified version - in a real implementation, you'd have a proper work schedule query
         // For now, we'll return None as work schedule might be stored differently

@@ -5,7 +5,6 @@ pub mod schema;
 
 
 pub use connection::DatabaseManager;
-pub use models::*;
 
 use thiserror::Error;
 

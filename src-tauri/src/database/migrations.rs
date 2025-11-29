@@ -1,6 +1,6 @@
 use crate::database::schema::{INITIAL_SCHEMA, SCHEMA_VERSION};
 use crate::database::{DatabaseError, DatabaseResult};
-use rusqlite::{Connection, OptionalExtension, Result as SqliteResult};
+use rusqlite::{Connection, OptionalExtension};
 
 /// Migration manager for handling database schema changes
 pub struct MigrationManager;
