@@ -2,7 +2,7 @@ import React, { useEffect, useState, useCallback, useMemo } from "react";
 import { Play, Pause } from "lucide-react";
 import { useCycleState } from "../store";
 import { CycleManager } from "../lib/cycleCommands";
-import { toastManager } from "../lib/toastManager";
+import { notificationHelper } from "../lib/notificationHelper";
 
 interface MenuBarPopoverProps {
   onClose?: () => void;
@@ -42,12 +42,13 @@ export const MenuBarPopover: React.FC<MenuBarPopoverProps> = ({ onClose }) => {
 
   // Memoize phase color calculation
   const phaseColor = useMemo(() => {
-    if (!cycleState) return {
-      bg: "bg-gray-500/20",
-      border: "border-gray-500/30",
-      text: "text-gray-300",
-      indicator: "bg-gray-400",
-    };
+    if (!cycleState)
+      return {
+        bg: "bg-gray-500/20",
+        border: "border-gray-500/30",
+        text: "text-gray-300",
+        indicator: "bg-gray-400",
+      };
 
     switch (cycleState.phase) {
       case "focus":
@@ -106,9 +107,9 @@ export const MenuBarPopover: React.FC<MenuBarPopoverProps> = ({ onClose }) => {
       }
     } catch (error) {
       console.error("Failed to pause/resume cycle:", error);
-      toastManager.showError(
-        "Failed to pause/resume cycle. Please try again.",
-        { title: "Cycle Control Failed" }
+      notificationHelper.showError(
+        "Cycle Control Failed",
+        "Failed to pause/resume cycle. Please try again."
       );
     } finally {
       setIsLoading(false);
@@ -139,23 +140,25 @@ export const MenuBarPopover: React.FC<MenuBarPopoverProps> = ({ onClose }) => {
   if (!cycleState) {
     return (
       <div className="menu-bar-popover">
-        <div className="text-center text-gray-400 text-sm">
-          No active cycle
-        </div>
+        <div className="text-center text-gray-400 text-sm">No active cycle</div>
       </div>
     );
   }
 
   return (
-    <div 
+    <div
       className={`menu-bar-popover transition-all duration-300 ease-out ${
-        isVisible ? 'opacity-100 scale-100' : 'opacity-0 scale-95'
+        isVisible ? "opacity-100 scale-100" : "opacity-0 scale-95"
       }`}
     >
       {/* Phase indicator badge */}
       <div className="flex items-center justify-center mb-3">
-        <div className={`inline-flex items-center gap-2 px-3 py-1.5 ${phaseColor.bg} border ${phaseColor.border} rounded-full transition-all duration-300`}>
-          <span className={`w-2 h-2 ${phaseColor.indicator} rounded-full animate-pulse`}></span>
+        <div
+          className={`inline-flex items-center gap-2 px-3 py-1.5 ${phaseColor.bg} border ${phaseColor.border} rounded-full transition-all duration-300`}
+        >
+          <span
+            className={`w-2 h-2 ${phaseColor.indicator} rounded-full animate-pulse`}
+          ></span>
           <span className={`text-xs font-medium ${phaseColor.text}`}>
             {phaseLabel}
           </span>
@@ -163,9 +166,7 @@ export const MenuBarPopover: React.FC<MenuBarPopoverProps> = ({ onClose }) => {
       </div>
 
       <div className="cycle-info">
-        <div className="cycle-count">
-          Ciclo {cycleState.cycle_count}
-        </div>
+        <div className="cycle-count">Cycle {cycleState.cycle_count}</div>
         <div className="timer">{formattedTime}</div>
       </div>
 
@@ -180,12 +181,12 @@ export const MenuBarPopover: React.FC<MenuBarPopoverProps> = ({ onClose }) => {
           ) : cycleState.is_running ? (
             <>
               <Pause className="w-4 h-4" />
-              <span>Pausar</span>
+              <span>Pause</span>
             </>
           ) : (
             <>
               <Play className="w-4 h-4" />
-              <span>Reanudar</span>
+              <span>Resume</span>
             </>
           )}
         </button>

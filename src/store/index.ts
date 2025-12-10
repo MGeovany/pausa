@@ -1,6 +1,6 @@
 import { create } from 'zustand';
 import { devtools } from 'zustand/middleware';
-import type { AppState, UserSettings, FocusSession, BreakSession, SessionStats, CycleState, StrictModeState } from '../types';
+import type { AppState, UserSettings, FocusSession, BreakSession, CycleState, StrictModeState } from '../types';
 
 // Default settings based on requirements
 const DEFAULT_SETTINGS: UserSettings = {

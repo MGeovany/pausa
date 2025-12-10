@@ -113,7 +113,7 @@ export default function Login() {
           </a>
           
           {/* Development button to reset onboarding */}
-          {process.env.NODE_ENV === 'development' && (
+          {import.meta.env.DEV && (
             <button
               onClick={async () => {
                 try {

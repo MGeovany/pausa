@@ -1,11 +1,8 @@
 import { useEffect, useMemo, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import {
-  ArrowLeft,
   RefreshCcw,
-  TrendingUp,
   Flame,
-  Coffee,
   BarChart,
   Home,
   Settings,
@@ -15,7 +12,7 @@ import {
 import { invoke } from "@tauri-apps/api/core";
 import { tauriCommands } from "../lib/tauri";
 import type { SessionStats } from "../types";
-import { toastManager } from "../lib/toastManager";
+import { notificationHelper } from "../lib/notificationHelper";
 
 interface UserInfo {
   name: string;
@@ -73,10 +70,21 @@ export default function Stats() {
     return userInfo.name.trim().charAt(0).toUpperCase();
   }, [userInfo?.name]);
 
+  const normalizeStat = (stat: any): SessionStats => ({
+    date: stat.date,
+    focusMinutes: stat.focusMinutes ?? stat.focusMinutes ?? 0,
+    breaksCompleted: stat.breaksCompleted ?? stat.breaksCompleted ?? 0,
+    sessionsCompleted: stat.sessionsCompleted ?? stat.sessionsCompleted ?? 0,
+    evasionAttempts: stat.evasionAttempts ?? stat.evasionAttempts ?? 0,
+  });
+
+  const normalizeStats = (raw: SessionStats[]): SessionStats[] =>
+    raw.map((item) => normalizeStat(item));
+
   // Generate deterministic demo data for the last `range` days
   const makeDemoStats = (days: number): SessionStats[] => {
     const today = new Date();
-    const demo: any[] = [];
+    const demo: SessionStats[] = [];
     for (let i = days - 1; i >= 0; i--) {
       const d = new Date(today);
       d.setDate(d.getDate() - i);
@@ -88,15 +96,17 @@ export default function Stats() {
       const focus = Math.max(0, base + noise);
       const sessions = Math.max(1, Math.round(focus / 25));
       const breaks = Math.max(1, sessions); // 1 break per session
-      demo.push({
-        date: dateStr,
-        focus_minutes: focus,
-        breaks_completed: breaks,
-        sessions_completed: sessions,
-        evasion_attempts: 0,
-      });
+      demo.push(
+        normalizeStat({
+          date: dateStr,
+          focusMinutes: focus,
+          breaksCompleted: breaks,
+          sessionsCompleted: sessions,
+          evasionAttempts: 0,
+        })
+      );
     }
-    return demo as unknown as SessionStats[];
+    return demo;
   };
 
   useEffect(() => {
@@ -109,15 +119,13 @@ export default function Stats() {
           return;
         }
         const data = await tauriCommands.getSessionStats(range);
-        setStats(data);
+        setStats(normalizeStats(data));
         setLastUpdated(new Date().toISOString());
       } catch (error) {
         console.error("Failed to load stats:", error);
-        toastManager.showError(
-          "We couldn't load your latest stats. Please try again.",
-          {
-            title: "Stats unavailable",
-          }
+        notificationHelper.showError(
+          "Stats unavailable",
+          "We couldn't load your latest stats. Please try again."
         );
       } finally {
         setIsLoading(false);
@@ -137,14 +145,14 @@ export default function Stats() {
     }
 
     const totalSessions = stats.reduce(
-      (sum, day) => sum + (day.sessions_completed || 0),
+      (sum, day) => sum + (day.sessionsCompleted || 0),
       0
     );
 
     const bestDay = stats.reduce((best, current) => {
       if (!best) return current;
       if (!current) return best;
-      return (current.focus_minutes || 0) > (best.focus_minutes || 0)
+      return (current.focusMinutes || 0) > (best.focusMinutes || 0)
         ? current
         : best;
     }, null as SessionStats | null);
@@ -152,10 +160,10 @@ export default function Stats() {
     const half = Math.ceil(stats.length / 2);
     const firstHalf = stats
       .slice(0, half)
-      .reduce((sum, day) => sum + (day.sessions_completed || 0), 0);
+      .reduce((sum, day) => sum + (day.sessionsCompleted || 0), 0);
     const secondHalf = stats
       .slice(half)
-      .reduce((sum, day) => sum + (day.sessions_completed || 0), 0);
+      .reduce((sum, day) => sum + (day.sessionsCompleted || 0), 0);
     const focusTrend =
       firstHalf === 0
         ? secondHalf > 0
@@ -174,7 +182,7 @@ export default function Stats() {
   // filling missing days with 0 minutes so the chart always shows all days.
   const daysSeries = useMemo(() => {
     const today = new Date();
-    const out: Array<{ date: string; focus_minutes: number }> = [];
+    const out: Array<{ date: string; focusMinutes: number }> = [];
     for (let i = range - 1; i >= 0; i--) {
       const d = new Date(today);
       d.setDate(d.getDate() - i);
@@ -182,26 +190,17 @@ export default function Stats() {
       const stat = stats.find((s) => s.date === dateStr);
       out.push({
         date: dateStr,
-        focus_minutes: stat?.focus_minutes ?? 0,
+        focusMinutes: stat?.focusMinutes ?? 0,
       });
     }
     return out;
   }, [stats, range]);
 
   const maxFocusMinutes = useMemo(() => {
-    const values = daysSeries.map((d) => d.focus_minutes);
+    const values = daysSeries.map((d) => d.focusMinutes);
     const max = values.length > 0 ? Math.max(...values) : 0;
     return Math.max(max, 1);
   }, [daysSeries]);
-
-  const heatLevels = (minutes: number) => {
-    if (minutes === 0) return "bg-gray-800/40 border border-gray-800";
-    const ratio = minutes / maxFocusMinutes;
-    if (ratio > 0.75) return "bg-blue-500/90";
-    if (ratio > 0.5) return "bg-blue-500/70";
-    if (ratio > 0.25) return "bg-blue-500/40";
-    return "bg-blue-500/20";
-  };
 
   const handleRangeChange = (value: RangeValue) => {
     setRange(value);
@@ -358,7 +357,7 @@ export default function Stats() {
                 icon={<BarChart className="h-5 w-5" />}
                 label="Best day"
                 value={
-                  aggregates.bestDay && aggregates.bestDay.focus_minutes > 0
+                  aggregates.bestDay && aggregates.bestDay.focusMinutes > 0
                     ? new Date(aggregates.bestDay.date).toLocaleDateString(
                         undefined,
                         {
@@ -370,8 +369,8 @@ export default function Stats() {
                     : "No data"
                 }
                 helper={
-                  aggregates.bestDay && aggregates.bestDay.focus_minutes > 0
-                    ? `${aggregates.bestDay.focus_minutes} focus minutes`
+                  aggregates.bestDay && aggregates.bestDay.focusMinutes > 0
+                    ? `${aggregates.bestDay.focusMinutes} focus minutes`
                     : "Start a session to populate this insight"
                 }
               />
@@ -391,7 +390,7 @@ export default function Stats() {
                   {daysSeries.map((day) => {
                     const barHeight = Math.max(
                       6,
-                      Math.round((day.focus_minutes / maxFocusMinutes) * 180)
+                      Math.round((day.focusMinutes / maxFocusMinutes) * 180)
                     );
                     return (
                       <div
@@ -405,11 +404,11 @@ export default function Stats() {
                         <span className="mt-2 font-medium text-gray-300">
                           {formatDayLabel(day.date)}
                         </span>
-                        <span>{day.focus_minutes}m</span>
+                        <span>{day.focusMinutes}m</span>
                       </div>
                     );
                   })}
-                  {daysSeries.every((d) => d.focus_minutes === 0) && (
+                  {daysSeries.every((d) => d.focusMinutes === 0) && (
                     <div className="flex h-40 w-full items-center justify-center text-sm text-gray-500">
                       No sessions recorded yet.
                     </div>
@@ -440,7 +439,7 @@ export default function Stats() {
                     const days: Array<{ date: Date; minutes: number }> = [];
                     const lookup = new Map<string, number>();
                     stats.forEach((s) =>
-                      lookup.set(s.date, s.focus_minutes || 0)
+                      lookup.set(s.date, s.focusMinutes || 0)
                     );
 
                     for (
@@ -609,17 +608,15 @@ export default function Stats() {
                   <tbody className="divide-y divide-gray-900">
                     {stats.map((day) => {
                       const avgSession =
-                        day.sessions_completed > 0
-                          ? Math.round(
-                              day.focus_minutes / day.sessions_completed
-                            )
+                        day.sessionsCompleted > 0
+                          ? Math.round(day.focusMinutes / day.sessionsCompleted)
                           : 0;
                       const completionRate =
-                        day.sessions_completed > 0
+                        day.sessionsCompleted > 0
                           ? Math.round(
-                              (day.sessions_completed /
-                                (day.sessions_completed +
-                                  (day.evasion_attempts || 0))) *
+                              (day.sessionsCompleted /
+                                (day.sessionsCompleted +
+                                  (day.evasionAttempts || 0))) *
                                 100
                             )
                           : 100;
@@ -638,13 +635,13 @@ export default function Stats() {
                           </td>
                           <td className="px-4 py-3">
                             <span className="font-semibold">
-                              {day.focus_minutes}
+                              {day.focusMinutes}
                             </span>
                             <span className="text-gray-500 ml-1">min</span>
                           </td>
                           <td className="px-4 py-3">
                             <span className="font-semibold">
-                              {day.sessions_completed}
+                              {day.sessionsCompleted}
                             </span>
                             <span className="text-gray-500 ml-1">sessions</span>
                           </td>

@@ -84,24 +84,6 @@
     @apply transition-all duration-150;
   }
 
-  /* Toast Styles */
-  .toast {
-    @apply bg-surface-dark/95 backdrop-blur-xl border border-gray-700/50 rounded-xl shadow-widget;
-    @apply px-4 py-3 flex items-center gap-3 animate-slide-up;
-  }
-
-  .toast.success {
-    @apply border-green-500/30 text-green-400;
-  }
-
-  .toast.error {
-    @apply border-red-500/30 text-red-400;
-  }
-
-  .toast.warning {
-    @apply border-yellow-500/30 text-yellow-400;
-  }
-
   /* Break Overlay Styles */
   .break-overlay {
     @apply fixed inset-0 bg-gray-950/95 backdrop-blur-sm;
@@ -334,7 +316,8 @@
   }
 
   @keyframes pulseGlow {
-    0%, 100% {
+    0%,
+    100% {
       box-shadow: 0 0 0 0 rgba(59, 130, 246, 0.7);
     }
     50% {
@@ -352,7 +335,8 @@
   }
 
   @keyframes wiggle {
-    0%, 100% {
+    0%,
+    100% {
       transform: rotate(-3deg);
     }
     50% {
@@ -360,22 +344,30 @@
     }
   }
 
-  /* Strict Mode Break Overlay - Minimalist Pulse Animation */
-  @keyframes strictPulse {
-    0%, 100% {
-      transform: scale(1) translateZ(0);
-      opacity: 0.6;
+  /* Strict Mode Break Overlay - Breathing circle */
+  @keyframes breathingCircle {
+    0% {
+      transform: scale(0.9) translateZ(0);
+      box-shadow: 0 0 0 0 rgba(59, 130, 246, 0.22);
+      opacity: 0.8;
     }
     50% {
-      transform: scale(1.2) translateZ(0);
-      opacity: 0.3;
+      transform: scale(1.08) translateZ(0);
+      box-shadow: 0 0 0 22px rgba(59, 130, 246, 0.06);
+      opacity: 0.6;
+    }
+    100% {
+      transform: scale(0.9) translateZ(0);
+      box-shadow: 0 0 0 0 rgba(59, 130, 246, 0);
+      opacity: 0.8;
     }
   }
 
   /* Performance optimization for animations */
   .animate-strict-pulse,
   .animate-pulse,
-  .animate-pulse-glow {
+  .animate-pulse-glow,
+  .animate-breathing-circle {
     will-change: transform, opacity;
     backface-visibility: hidden;
     perspective: 1000px;
@@ -433,8 +425,8 @@
     animation: wiggle 0.5s ease-in-out;
   }
 
-  .animate-strict-pulse {
-    animation: strictPulse 2s ease-in-out infinite;
+  .animate-breathing-circle {
+    animation: breathingCircle 3.5s ease-in-out infinite;
   }
 
   /* Transition utilities for smooth interactions */

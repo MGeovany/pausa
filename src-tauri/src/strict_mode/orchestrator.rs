@@ -257,12 +257,33 @@ impl StrictModeOrchestrator {
                     }
                     crate::cycle_orchestrator::CyclePhase::ShortBreak
                     | crate::cycle_orchestrator::CyclePhase::LongBreak => {
-                        // When break starts, show transition window
-                        println!("☕ [StrictModeOrchestrator] Break starting - showing transition window");
+                        // When break starts, show fullscreen break overlay directly
+                        println!("☕ [StrictModeOrchestrator] Break starting - showing fullscreen break overlay");
 
-                        self.show_break_transition()?;
+                        // Ensure main window is minimized first
+                        {
+                            let window_manager = self
+                                .window_manager
+                                .lock()
+                                .map_err(|e| format!("Failed to lock window manager: {}", e))?;
+                            
+                            // Minimize main window if not already minimized
+                            if let Some(main_window) = self.app_handle.get_webview_window("main") {
+                                if let Ok(is_visible) = main_window.is_visible() {
+                                    if is_visible {
+                                        println!("📍 [StrictModeOrchestrator] Minimizing main window before break");
+                                        if let Err(e) = window_manager.minimize_to_menu_bar() {
+                                            eprintln!("⚠️ [StrictModeOrchestrator] Failed to minimize main window: {}", e);
+                                        }
+                                    }
+                                }
+                            }
+                        } // Release lock before showing break overlay
 
-                        println!("✅ [StrictModeOrchestrator] Break transition window shown");
+                        // Show the fullscreen break overlay directly
+                        self.show_fullscreen_break_overlay()?;
+
+                        println!("✅ [StrictModeOrchestrator] Fullscreen break overlay shown");
 
                         events.push(StrictModeEvent::ShowBreakTransition);
                     }

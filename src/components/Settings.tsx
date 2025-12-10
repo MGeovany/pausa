@@ -1,5 +1,5 @@
 import { useState, useEffect, useRef } from "react";
-import { Plus, Trash2, Save, X, AlertTriangle } from "lucide-react";
+import { Save, X, AlertTriangle } from "lucide-react";
 import { useSettings, useAppStore, useCycleState } from "../store";
 import { tauriCommands } from "../lib/tauri";
 import type { UserSettings } from "../types";
@@ -23,8 +23,6 @@ export function Settings({ onClose }: SettingsProps) {
   const [customLongBreak, setCustomLongBreak] = useState(
     initialSettings.longBreakDuration
   );
-  const [websiteInput, setWebsiteInput] = useState("");
-  const [appInput, setAppInput] = useState("");
   const [isSaving, setIsSaving] = useState(false);
   const [saveMessage, setSaveMessage] = useState<{
     type: "success" | "error";
@@ -121,36 +119,6 @@ export function Settings({ onClose }: SettingsProps) {
 
   const updateLocalSettings = (updates: Partial<UserSettings>) => {
     setLocalSettings((prev) => ({ ...prev, ...updates }));
-  };
-
-  const handleAddWebsite = () => {
-    const value = websiteInput.trim();
-    if (!value) return;
-    const next = Array.from(new Set([...localSettings.blockedWebsites, value]));
-    updateLocalSettings({ blockedWebsites: next });
-    setWebsiteInput("");
-  };
-
-  const handleRemoveWebsite = (site: string) => {
-    updateLocalSettings({
-      blockedWebsites: localSettings.blockedWebsites.filter(
-        (item) => item !== site
-      ),
-    });
-  };
-
-  const handleAddApp = () => {
-    const value = appInput.trim();
-    if (!value) return;
-    const next = Array.from(new Set([...localSettings.blockedApps, value]));
-    updateLocalSettings({ blockedApps: next });
-    setAppInput("");
-  };
-
-  const handleRemoveApp = (app: string) => {
-    updateLocalSettings({
-      blockedApps: localSettings.blockedApps.filter((item) => item !== app),
-    });
   };
 
   const handleStrictModeToggle = (enabled: boolean) => {
@@ -781,81 +749,6 @@ function SettingTiles({
           <span className="text-xs text-gray-500">{suffix}</span>
         </div>
       </div>
-    </div>
-  );
-}
-
-interface BlockListProps {
-  title: string;
-  placeholder: string;
-  value: string;
-  onChange: (value: string) => void;
-  items: string[];
-  onAdd: () => void;
-  onRemove: (value: string) => void;
-}
-
-function BlockList({
-  title,
-  placeholder,
-  value,
-  onChange,
-  items,
-  onAdd,
-  onRemove,
-}: BlockListProps) {
-  return (
-    <div>
-      <h3 className="text-lg font-semibold text-white">{title}</h3>
-      <p className="text-xs text-gray-500">
-        Add items that should be blocked automatically while strict mode is
-        active.
-      </p>
-      <div className="mt-4 flex items-center gap-2">
-        <div className="flex-1 rounded-xl border border-gray-800 bg-gray-950/60 px-3 py-2">
-          <input
-            value={value}
-            onChange={(event) => onChange(event.target.value)}
-            onKeyDown={(event) => {
-              if (event.key === "Enter") {
-                event.preventDefault();
-                onAdd();
-              }
-            }}
-            placeholder={placeholder}
-            className="w-full bg-transparent text-sm text-white focus:outline-none"
-          />
-        </div>
-        <button
-          onClick={onAdd}
-          className="flex items-center gap-2 rounded-xl border border-blue-500/40 bg-blue-500/10 px-3 py-2 text-sm text-blue-200 hover:bg-blue-500/20 transition-colors"
-        >
-          <Plus className="h-4 w-4" />
-          Add
-        </button>
-      </div>
-      <ul className="mt-4 space-y-2">
-        {items.map((item) => (
-          <li
-            key={item}
-            className="flex items-center justify-between rounded-xl border border-gray-800 bg-gray-950/60 px-3 py-2 text-sm text-gray-300"
-          >
-            <span>{item}</span>
-            <button
-              onClick={() => onRemove(item)}
-              className="rounded-lg border border-red-500/40 bg-red-500/10 p-1 text-red-200 hover:bg-red-500/20 transition-colors"
-              aria-label={`Eliminar ${item}`}
-            >
-              <Trash2 className="h-4 w-4" />
-            </button>
-          </li>
-        ))}
-        {items.length === 0 && (
-          <li className="rounded-xl border border-dashed border-gray-800 bg-gray-900/40 px-3 py-4 text-center text-xs text-gray-500">
-            You have no blocked entries yet.
-          </li>
-        )}
-      </ul>
     </div>
   );
 }

@@ -1,5 +1,7 @@
 import { useEffect } from "react";
 import { listen } from "@tauri-apps/api/event";
+import { getCurrentWindow } from "@tauri-apps/api/window";
+import { LogicalSize } from "@tauri-apps/api/dpi";
 import { useAppStore } from "../store";
 import { CycleManager } from "../lib/cycleCommands";
 import type { CycleEventData } from "../types";
@@ -16,6 +18,18 @@ export function CycleSync() {
     showBreakOverlay,
     hideBreakOverlay,
   } = useAppStore();
+
+  // Keep main window centered/normalized to avoid OS repositioning
+  const normalizeMainWindow = async () => {
+    try {
+      const win = getCurrentWindow();
+      if (win.label !== "main") return;
+      await win.setSize(new LogicalSize(1280, 800));
+      await win.center();
+    } catch (error) {
+      console.error("Failed to normalize main window:", error);
+    }
+  };
 
   // Initialize cycle orchestrator on mount
   useEffect(() => {
@@ -39,8 +53,16 @@ export function CycleSync() {
       try {
         unlisten = await listen<CycleEventData>("cycle-event", (event) => {
           const cycleEvent = event.payload;
+          const phaseLabel =
+            "phase" in cycleEvent ? cycleEvent.phase : "n/a";
           console.log("📡 [Frontend] Cycle event received:", cycleEvent);
-          console.log("📡 [Frontend] Event type:", cycleEvent.type, "Phase:", cycleEvent.phase);
+          console.log(
+            "📡 [Frontend] Event type:",
+            cycleEvent.type,
+            "Phase:",
+            phaseLabel
+          );
+          normalizeMainWindow();
 
           // Handle different event types
           switch (cycleEvent.type) {
@@ -199,4 +221,3 @@ export function CycleSync() {
 
   return null; // This component doesn't render anything
 }
-

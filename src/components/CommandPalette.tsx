@@ -2,7 +2,7 @@ import React, { useState, useEffect, useRef, useMemo } from "react";
 import { Search, Clock, Lock, Coffee, BarChart3, Settings } from "lucide-react";
 import { ANIMATIONS, COMMAND_PALETTE, SHADOWS } from "../constants/design";
 import type { Command } from "../types";
-import { toastManager } from "../lib/toastManager";
+import { notificationHelper } from "../lib/notificationHelper";
 
 interface CommandPaletteProps {
   isOpen: boolean;
@@ -278,9 +278,9 @@ export const CommandPalette: React.FC<CommandPaletteProps> = ({
       handleClose();
     } catch (error) {
       console.error("Failed to execute command:", error);
-      toastManager.showError(
-        "The command couldn't be completed. Please try again.",
-        { title: "Command Execution Failed" }
+      notificationHelper.showError(
+        "Command Execution Failed",
+        "The command couldn't be completed. Please try again."
       );
     }
   };

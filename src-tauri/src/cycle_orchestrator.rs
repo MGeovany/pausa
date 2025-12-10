@@ -135,6 +135,11 @@ impl CycleOrchestrator {
         self.state.clone()
     }
 
+    /// Get a copy of the current configuration
+    pub fn get_config(&self) -> CycleConfig {
+        self.config.clone()
+    }
+
     /// Check if we're within work hours (if work schedule is configured)
     pub fn is_within_work_hours(&self) -> bool {
         if let Some(ref schedule) = self.config.work_schedule {
@@ -369,6 +374,12 @@ impl CycleOrchestrator {
                     self.state.started_at = Some(Utc::now());
                     self.state.within_work_hours = within_work_hours;
 
+                    events.push(CycleEvent::PhaseStarted {
+                        phase: phase.clone(),
+                        duration,
+                        cycle_count: self.state.cycle_count,
+                    });
+
                     // Emit long break event if applicable
                     if is_long_break {
                         events.push(CycleEvent::LongBreakReached {
@@ -386,6 +397,12 @@ impl CycleOrchestrator {
                     self.state.session_id = Some(session_id.clone());
                     self.state.started_at = Some(Utc::now());
                     self.state.within_work_hours = within_work_hours;
+
+                    events.push(CycleEvent::PhaseStarted {
+                        phase: CyclePhase::Focus,
+                        duration: self.config.focus_duration,
+                        cycle_count: self.state.cycle_count,
+                    });
                 } else if completed_phase == CyclePhase::LongBreak {
                     // After a long break (end of configured cycle group), remain idle.
                 }

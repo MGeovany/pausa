@@ -11,9 +11,8 @@ import { useAppStore, useCurrentSession, useCycleState } from "../store";
 import { COLORS, FOCUS_WIDGET, SHADOWS, ANIMATIONS } from "../constants/design";
 import { setupEventListeners } from "../lib/tauri";
 import { SessionManager } from "../lib/commands";
-import { CycleManager } from "../lib/cycleCommands";
-import type { FocusSession, Position, CycleState } from "../types";
-import { toastManager } from "../lib/toastManager";
+import type { FocusSession, Position } from "../types";
+import { notificationHelper } from "../lib/notificationHelper";
 
 interface FocusWidgetProps {
   session: FocusSession | null;
@@ -452,7 +451,12 @@ export const FocusWidget: React.FC<FocusWidgetProps> = ({
 // Hook to use the FocusWidget with store integration and real-time updates
 export const useFocusWidget = () => {
   const session = useCurrentSession();
-  const { setCurrentSession, setCurrentBreak, showFocusWidget, hideFocusWidget } = useAppStore();
+  const {
+    setCurrentSession,
+    setCurrentBreak,
+    showFocusWidget,
+    hideFocusWidget,
+  } = useAppStore();
 
   // Set up real-time session updates from backend
   useEffect(() => {
@@ -485,9 +489,9 @@ export const useFocusWidget = () => {
         });
       } catch (error) {
         console.error("Failed to setup event listeners:", error);
-        toastManager.showError(
-          "Real-time updates are temporarily unavailable. Session status may be outdated.",
-          { title: "Live Updates Disabled", duration: 6000 }
+        notificationHelper.showError(
+          "Live Updates Disabled",
+          "Real-time updates are temporarily unavailable. Session status may be outdated."
         );
       }
     };
@@ -533,9 +537,9 @@ export const useFocusWidget = () => {
       // State will be updated via event listener
     } catch (error) {
       console.error("Failed to toggle session:", error);
-      toastManager.showError(
-        "We couldn't toggle the focus session. Please try again.",
-        { title: "Toggle Focus Failed" }
+      notificationHelper.showError(
+        "Toggle Focus Failed",
+        "We couldn't toggle the focus session. Please try again."
       );
     }
   };
@@ -546,15 +550,15 @@ export const useFocusWidget = () => {
       // State will be updated via event listener
     } catch (error) {
       console.error("Failed to reset session:", error);
-      toastManager.showError(
-        "We couldn't reset the current session. Please try again.",
-        { title: "Reset Session Failed" }
+      notificationHelper.showError(
+        "Reset Session Failed",
+        "We couldn't reset the current session. Please try again."
       );
     }
   };
 
   const handleOpenMenu = () => {
-    window.location.hash = '#/settings';
+    window.location.hash = "#/settings";
   };
 
   return {

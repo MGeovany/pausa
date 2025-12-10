@@ -1,9 +1,11 @@
+use crate::api_models::{BreakActivity, BreakSession, BreakType};
 use crate::cycle_orchestrator::{CycleConfig, CycleOrchestrator, CyclePhase, CycleState};
 use crate::database::models::{Session, SessionType, UserSettings, WorkSchedule};
 use crate::state::AppState;
 use chrono::Utc;
 use serde::{Deserialize, Serialize};
 use tauri::{AppHandle, Emitter, State};
+use uuid::Uuid;
 
 #[cfg(target_os = "macos")]
 use crate::menu_bar_text;
@@ -691,6 +693,74 @@ pub async fn get_cycle_state(state: State<'_, AppState>) -> Result<CycleState, S
     let current_state = orchestrator.get_state();
 
     Ok(current_state)
+}
+
+/// Get the current break session details (if a break is active)
+#[tauri::command]
+pub async fn get_current_break(
+    state: State<'_, AppState>,
+) -> Result<Option<BreakSession>, String> {
+    let cycle_orchestrator = state.cycle_orchestrator.lock().await;
+
+    let orchestrator = cycle_orchestrator
+        .as_ref()
+        .ok_or_else(|| "Cycle orchestrator not initialized".to_string())?;
+
+    let cycle_state = orchestrator.get_state();
+
+    match cycle_state.phase {
+        CyclePhase::ShortBreak | CyclePhase::LongBreak => {
+            let config = orchestrator.get_config();
+
+            let (break_type, duration) = match cycle_state.phase {
+                CyclePhase::LongBreak => (BreakType::Long, config.long_break_duration),
+                _ => (BreakType::Short, config.break_duration),
+            };
+
+            // Mirror the frontend defaults so the overlay has meaningful content
+            let activity = match break_type {
+                BreakType::Long => BreakActivity {
+                    title: "Extended Break".to_string(),
+                    description: "Time for a longer break to fully recharge".to_string(),
+                    checklist: vec![
+                        "🚶‍♂️ Take a short walk".to_string(),
+                        "💧 Hydrate with water or herbal tea".to_string(),
+                        "🥗 Have a healthy snack".to_string(),
+                        "🧘‍♀️ Do some light stretching or meditation".to_string(),
+                        "🌱 Step outside for fresh air".to_string(),
+                        "📱 Check in with a friend or family member".to_string(),
+                    ],
+                },
+                BreakType::Short => BreakActivity {
+                    title: "Quick Refresh".to_string(),
+                    description: "Take a moment to recharge with these quick activities"
+                        .to_string(),
+                    checklist: vec![
+                        "💧 Drink a glass of water".to_string(),
+                        "👀 Look away from the screen (20-20-20 rule)".to_string(),
+                        "🧘 Take 3 deep breaths".to_string(),
+                        "🚶 Stand up and stretch".to_string(),
+                    ],
+                },
+            };
+
+            let id = cycle_state
+                .session_id
+                .clone()
+                .unwrap_or_else(|| Uuid::new_v4().to_string());
+
+            Ok(Some(BreakSession {
+                id,
+                break_type,
+                duration,
+                remaining: cycle_state.remaining_seconds,
+                activity,
+                // In strict mode we don't allow emergency overrides from the overlay UI
+                allow_emergency: false,
+            }))
+        }
+        _ => Ok(None),
+    }
 }
 
 /// Handle timer tick (should be called every second by frontend)

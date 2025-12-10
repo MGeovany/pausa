@@ -18,7 +18,6 @@ import { useCycleManager } from "../lib/useCycleManager";
 import { useCycleState, useAppStore, useStrictModeState } from "../store";
 import { tauriCommands } from "../lib/tauri";
 import { CycleManager } from "../lib/cycleCommands";
-import type { SessionStats } from "../types";
 
 interface UserInfo {
   name: string;
@@ -30,17 +29,11 @@ export default function Dashboard() {
   const navigate = useNavigate();
   const [userInfo, setUserInfo] = useState<UserInfo | null>(null);
   const [avatarError, setAvatarError] = useState(false);
-  const [todayStats, setTodayStats] = useState<SessionStats | null>(null);
   const cycleState = useCycleState();
   const strictModeState = useStrictModeState();
   const { setCycleState, updateSettings, settings } = useAppStore();
-  const {
-    startRoutine,
-    pauseCycle,
-    resumeCycle,
-    endSession,
-    resetCycleCount,
-  } = useCycleManager();
+  const { startRoutine, pauseCycle, resumeCycle, endSession, resetCycleCount } =
+    useCycleManager();
 
   // Load settings from database on mount
   useEffect(() => {
@@ -102,40 +95,6 @@ export default function Dashboard() {
     setAvatarError(false);
   }, [userInfo?.picture]);
 
-  useEffect(() => {
-    const loadTodayStats = async () => {
-      try {
-        console.log("📊 [Dashboard] Loading today's stats...");
-        const stats = await tauriCommands.getSessionStats(1);
-        console.log("📊 [Dashboard] All stats:", stats);
-        const today = new Date().toISOString().split("T")[0];
-        console.log("📊 [Dashboard] Today's date:", today);
-        const todayStat = stats.find((stat) => stat.date === today);
-        console.log("📊 [Dashboard] Today's stat:", todayStat);
-        setTodayStats(todayStat || null);
-      } catch (error) {
-        console.error("❌ [Dashboard] Error loading today stats:", error);
-      }
-    };
-
-    loadTodayStats();
-
-    // Listen for refresh-stats events
-    const handleRefreshStats = () => {
-      console.log("🔄 [Dashboard] Refresh stats event received");
-      loadTodayStats();
-    };
-    window.addEventListener("refresh-stats", handleRefreshStats);
-
-    // Refresh every 5 seconds to keep stats updated
-    const interval = setInterval(loadTodayStats, 5000);
-
-    return () => {
-      clearInterval(interval);
-      window.removeEventListener("refresh-stats", handleRefreshStats);
-    };
-  }, [cycleState?.cycle_count, cycleState?.phase]);
-
   const handleLogout = async () => {
     try {
       await invoke("logout");
@@ -175,16 +134,20 @@ export default function Dashboard() {
   // Handle starting routine with strict mode support
   const handleStartRoutine = async () => {
     try {
-      console.log("🚀 [Dashboard] Starting routine", { strictMode: settings.strictMode });
-      
+      console.log("🚀 [Dashboard] Starting routine", {
+        strictMode: settings.strictMode,
+      });
+
       // Note: StrictModeOrchestrator is automatically initialized and activated
       // in initialize_cycle_orchestrator when strict mode is enabled in settings.
       // No need to call activateStrictMode() manually here.
-      
+
       // Start the focus session
       await startRoutine();
-      
-      console.log("✅ [Dashboard] Routine started", { strictMode: settings.strictMode });
+
+      console.log("✅ [Dashboard] Routine started", {
+        strictMode: settings.strictMode,
+      });
     } catch (error) {
       console.error("❌ [Dashboard] Failed to start routine:", error);
     }
@@ -308,13 +271,12 @@ export default function Dashboard() {
                           disabled={!cycleState?.can_start}
                           className={`inline-flex items-center gap-2 text-gray-100 border rounded-lg px-4 py-2 text-sm font-medium disabled:opacity-50 disabled:cursor-not-allowed transition-all ${
                             settings.strictMode
-                              ? 'bg-amber-600 hover:bg-amber-400 border-amber-500 shadow-lg shadow-amber-500/70'
-                              : 'bg-gray-800 hover:bg-gray-700 border-gray-800'
+                              ? "bg-amber-600 hover:bg-amber-400 border-amber-500 shadow-lg shadow-amber-500/70"
+                              : "bg-gray-800 hover:bg-gray-700 border-gray-800"
                           }`}
                         >
                           <Play className="w-4 h-4" />
                           Start Focus
-                          
                         </button>
                         {settings.strictMode && (
                           <div className="flex items-center justify-center gap-1.5 text-xs text-amber-300 w-full text-center mt-2 animate-pulse">
@@ -359,8 +321,7 @@ export default function Dashboard() {
 
               {/* Today's Progress */}
               <section className="bg-gray-900/40 border border-gray-800 rounded-xl p-5">
-                <h2 className="text-sm font-semibold text-gray-300 mb-4 flex items-center gap-2">
-                  <Target className="w-4 h-4" />
+                <h2 className="text-sm font-semibold text-gray-300 mb-4 flex items-center gap-2 ">
                   Today's Progress
                 </h2>
                 <div className="grid grid-cols-2 gap-3 auto-rows-fr">
@@ -671,25 +632,26 @@ export default function Dashboard() {
                                 </>
                               ) : (
                                 <span className="text-green-400 font-semibold">
-                                  Día productivo finalizado
+                                  Productive day completed
                                 </span>
                               )}
                             </div>
                           </div>
 
-                          {isReadyForLongBreak && cycleState?.phase !== "idle" && (
-                            <div className="mt-2 text-xs text-amber-400 font-semibold text-center">
-                              ⭐ Ready for long break!
-                            </div>
-                          )}
-                          
-                          {cycleState?.phase === "idle" && 
-                           cyclesCompleted > 0 && 
-                           cyclesCompleted % cyclesPerLongBreak === 0 && (
-                            <div className="mt-2 text-xs sm:text-sm text-green-400 font-semibold text-center">
-                              🎉 Día productivo finalizado
-                            </div>
-                          )}
+                          {isReadyForLongBreak &&
+                            cycleState?.phase !== "idle" && (
+                              <div className="mt-2 text-xs text-amber-400 font-semibold text-center">
+                                ⭐ Ready for long break!
+                              </div>
+                            )}
+
+                          {cycleState?.phase === "idle" &&
+                            cyclesCompleted > 0 &&
+                            cyclesCompleted % cyclesPerLongBreak === 0 && (
+                              <div className="mt-2 text-xs sm:text-sm text-green-400 font-semibold text-center">
+                                🎉 Productive day completed
+                              </div>
+                            )}
                         </>
                       );
                     })()}
@@ -720,7 +682,7 @@ export default function Dashboard() {
                   </li>
                   <li>
                     <span className="text-gray-500">⌘</span> +{" "}
-                    <span className="text-gray-500">P</span> — Abrir Ajustes
+                    <span className="text-gray-500">P</span> — Open Settings
                   </li>
                 </ul>
               </section>

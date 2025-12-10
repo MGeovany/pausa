@@ -151,6 +151,11 @@ pub fn run() -> Result<(), String> {
                 eprintln!("⚠️ [App] Make sure trayIcon is configured in tauri.conf.json");
             }
 
+            // Ensure the main window starts centered
+            if let Some(main_win) = app.get_webview_window("main") {
+                let _ = main_win.center();
+            }
+
             Ok(())
         })
         .invoke_handler(tauri::generate_handler![
@@ -195,6 +200,7 @@ pub fn run() -> Result<(), String> {
             cycle_handler::resume_cycle,
             cycle_handler::end_cycle_session,
             cycle_handler::get_cycle_state,
+            cycle_handler::get_current_break,
             cycle_handler::cycle_tick,
             cycle_handler::reset_cycle_count,
             cycle_handler::log_bypass_attempt,

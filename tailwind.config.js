@@ -40,6 +40,7 @@ export default {
       },
       fontFamily: {
         sans: ["Inter", "SF Pro Display", "system-ui", "sans-serif"],
+        bbh: ["BBH Sans Bartle", "system-ui", "sans-serif"],
       },
       animation: {
         "fade-in": "fadeIn 150ms ease-out",
