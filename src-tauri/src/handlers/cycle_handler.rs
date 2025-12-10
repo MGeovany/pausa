@@ -60,8 +60,6 @@ fn update_tray_icon_with_text(app: &AppHandle, state: &CycleState) {
     #[cfg(target_os = "macos")]
     {
         if let Err(e) = menu_bar_text::update_menu_bar_text(&text) {
-            eprintln!("⚠️ [CycleHandler] Failed to update menu bar text: {}", e);
-            // Fallback to tooltip if native text update fails
             update_tray_tooltip_fallback(app, state);
         }
     }

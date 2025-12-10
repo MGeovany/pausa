@@ -53,8 +53,7 @@ export function CycleSync() {
       try {
         unlisten = await listen<CycleEventData>("cycle-event", (event) => {
           const cycleEvent = event.payload;
-          const phaseLabel =
-            "phase" in cycleEvent ? cycleEvent.phase : "n/a";
+          const phaseLabel = "phase" in cycleEvent ? cycleEvent.phase : "n/a";
           console.log("📡 [Frontend] Cycle event received:", cycleEvent);
           console.log(
             "📡 [Frontend] Event type:",
@@ -71,7 +70,10 @@ export function CycleSync() {
               // Immediately sync state from backend to ensure we have the latest state
               CycleManager.getState()
                 .then((state) => {
-                  console.log("✅ [Frontend] Synced state after phase_started:", state);
+                  console.log(
+                    "✅ [Frontend] Synced state after phase_started:",
+                    state
+                  );
                   setCycleState(state);
                   // Update UI based on phase
                   if (cycleEvent.phase === "focus") {
@@ -79,24 +81,30 @@ export function CycleSync() {
                     showFocusWidget();
                     hideBreakOverlay();
                     // Refresh stats when a new focus session starts to show updated progress
-                    window.dispatchEvent(new CustomEvent('refresh-stats'));
+                    window.dispatchEvent(new CustomEvent("refresh-stats"));
                   } else if (
                     cycleEvent.phase === "short_break" ||
                     cycleEvent.phase === "long_break"
                   ) {
-                    console.log("☕ [Frontend] Showing break overlay for:", cycleEvent.phase);
+                    console.log(
+                      "☕ [Frontend] Showing break overlay for:",
+                      cycleEvent.phase
+                    );
                     hideFocusWidget();
                     showBreakOverlay();
                   }
                 })
                 .catch((error) => {
-                  console.error("Failed to sync state after phase_started:", error);
+                  console.error(
+                    "Failed to sync state after phase_started:",
+                    error
+                  );
                   // Still update UI even if state sync fails
                   if (cycleEvent.phase === "focus") {
                     showFocusWidget();
                     hideBreakOverlay();
                     // Refresh stats even if state sync fails
-                    window.dispatchEvent(new CustomEvent('refresh-stats'));
+                    window.dispatchEvent(new CustomEvent("refresh-stats"));
                   } else if (
                     cycleEvent.phase === "short_break" ||
                     cycleEvent.phase === "long_break"
@@ -111,27 +119,55 @@ export function CycleSync() {
               console.log("🏁 [Frontend] Phase ended:", cycleEvent.phase);
               // Sync state when phase ends
               CycleManager.getState()
-                .then((state) => {
-                  console.log("✅ [Frontend] Synced state after phase_ended:", state);
+                .then(async (state) => {
+                  console.log(
+                    "✅ [Frontend] Synced state after phase_ended:",
+                    state
+                  );
                   setCycleState(state);
                   // Update UI based on ended phase
                   if (cycleEvent.phase === "focus") {
                     console.log("🎯 [Frontend] Hiding focus widget");
                     hideFocusWidget();
                     // Trigger stats refresh after focus ends
-                    window.dispatchEvent(new CustomEvent('refresh-stats'));
+                    window.dispatchEvent(new CustomEvent("refresh-stats"));
                   } else if (
                     cycleEvent.phase === "short_break" ||
                     cycleEvent.phase === "long_break"
                   ) {
-                    console.log("☕ [Frontend] Hiding break overlay");
+                    console.log(
+                      "☕ [Frontend] Break ended - hiding break overlay state"
+                    );
                     hideBreakOverlay();
+
+                    // The break overlay window will close itself when it detects the break ended
+                    // The backend will restore the main window via strict mode orchestrator
+                    // Just ensure main window is visible if we're in it
+                    try {
+                      const { getCurrentWindow } = await import(
+                        "@tauri-apps/api/window"
+                      );
+                      const currentWindow = await getCurrentWindow();
+                      if (currentWindow.label === "main") {
+                        await currentWindow.show();
+                        await currentWindow.setFocus();
+                      }
+                    } catch (error) {
+                      console.error(
+                        "❌ [Frontend] Failed to show main window:",
+                        error
+                      );
+                    }
+
                     // Trigger stats refresh after break ends
-                    window.dispatchEvent(new CustomEvent('refresh-stats'));
+                    window.dispatchEvent(new CustomEvent("refresh-stats"));
                   }
                 })
                 .catch((error) => {
-                  console.error("Failed to sync state after phase_ended:", error);
+                  console.error(
+                    "Failed to sync state after phase_ended:",
+                    error
+                  );
                   // Still update UI even if state sync fails
                   if (cycleEvent.phase === "focus") {
                     hideFocusWidget();
@@ -153,13 +189,19 @@ export function CycleSync() {
               // Sync state when cycle completes to update cycle_count
               CycleManager.getState()
                 .then((state) => {
-                  console.log("✅ [Frontend] Synced state after cycle_completed:", state);
+                  console.log(
+                    "✅ [Frontend] Synced state after cycle_completed:",
+                    state
+                  );
                   setCycleState(state);
                   // Refresh stats to show updated progress
-                  window.dispatchEvent(new CustomEvent('refresh-stats'));
+                  window.dispatchEvent(new CustomEvent("refresh-stats"));
                 })
                 .catch((error) => {
-                  console.error("Failed to sync state after cycle_completed:", error);
+                  console.error(
+                    "Failed to sync state after cycle_completed:",
+                    error
+                  );
                 });
               break;
 
@@ -202,7 +244,12 @@ export function CycleSync() {
         if (state.is_running || state.phase !== "idle") {
           const updatedState = await CycleManager.tick();
           if (updatedState.phase !== state.phase) {
-            console.log("🔄 [Frontend] Phase changed:", state.phase, "->", updatedState.phase);
+            console.log(
+              "🔄 [Frontend] Phase changed:",
+              state.phase,
+              "->",
+              updatedState.phase
+            );
           }
           setCycleState(updatedState);
         } else {

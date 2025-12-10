@@ -196,17 +196,7 @@ impl StrictModeOrchestrator {
         &mut self,
         event: &CycleEvent,
     ) -> Result<Vec<StrictModeEvent>, String> {
-        println!(
-            "🔔 [StrictModeOrchestrator::handle_cycle_event] Received event: {:?}",
-            event
-        );
-        println!(
-            "🔔 [StrictModeOrchestrator::handle_cycle_event] Is active: {}",
-            self.state.is_active
-        );
-
         if !self.state.is_active {
-            println!("⚠️ [StrictModeOrchestrator::handle_cycle_event] Strict mode is NOT active, ignoring event");
             return Ok(vec![]);
         }
 
@@ -218,23 +208,14 @@ impl StrictModeOrchestrator {
                 duration,
                 cycle_count,
             } => {
-                println!(
-                    "🎯 [StrictModeOrchestrator] Phase started: {:?}, duration: {}, cycle: {}",
-                    phase, duration, cycle_count
-                );
-
                 match phase {
                     crate::cycle_orchestrator::CyclePhase::Focus => {
                         // When focus starts in strict mode, minimize to menu bar
-                        println!(
-                            "📍 [StrictModeOrchestrator] Focus started - minimizing to menu bar"
-                        );
 
                         // First, hide any break overlay if it's showing
                         if self.state.current_window_type
                             == Some(StrictModeWindowType::FullscreenBreakOverlay)
                         {
-                            println!("🪟 [StrictModeOrchestrator] Hiding break overlay before starting focus");
                             self.hide_fullscreen_break_overlay()?;
                         }
 
@@ -243,13 +224,9 @@ impl StrictModeOrchestrator {
                             .lock()
                             .map_err(|e| format!("Failed to lock window manager: {}", e))?;
 
-                        println!("📍 [StrictModeOrchestrator] Got window manager lock, calling minimize_to_menu_bar()");
-
                         window_manager
                             .minimize_to_menu_bar()
                             .map_err(|e| format!("Failed to minimize to menu bar: {}", e))?;
-
-                        println!("✅ [StrictModeOrchestrator] Successfully minimized to menu bar");
 
                         events.push(StrictModeEvent::MinimizeToMenuBar);
                         self.state.current_window_type = Some(StrictModeWindowType::MenuBarIcon);
@@ -258,7 +235,7 @@ impl StrictModeOrchestrator {
                     crate::cycle_orchestrator::CyclePhase::ShortBreak
                     | crate::cycle_orchestrator::CyclePhase::LongBreak => {
                         // When break starts, show fullscreen break overlay directly
-                        println!("☕ [StrictModeOrchestrator] Break starting - showing fullscreen break overlay");
+                        println!("🖥️ [StrictMode] Break starting - showing overlay");
 
                         // Ensure main window is minimized first
                         {
@@ -271,9 +248,8 @@ impl StrictModeOrchestrator {
                             if let Some(main_window) = self.app_handle.get_webview_window("main") {
                                 if let Ok(is_visible) = main_window.is_visible() {
                                     if is_visible {
-                                        println!("📍 [StrictModeOrchestrator] Minimizing main window before break");
                                         if let Err(e) = window_manager.minimize_to_menu_bar() {
-                                            eprintln!("⚠️ [StrictModeOrchestrator] Failed to minimize main window: {}", e);
+                                            eprintln!("⚠️ [StrictMode] Failed to minimize main window: {}", e);
                                         }
                                     }
                                 }
@@ -282,8 +258,6 @@ impl StrictModeOrchestrator {
 
                         // Show the fullscreen break overlay directly
                         self.show_fullscreen_break_overlay()?;
-
-                        println!("✅ [StrictModeOrchestrator] Fullscreen break overlay shown");
 
                         events.push(StrictModeEvent::ShowBreakTransition);
                     }
@@ -304,36 +278,45 @@ impl StrictModeOrchestrator {
                 match phase {
                     crate::cycle_orchestrator::CyclePhase::Focus => {
                         // Focus ended, break transition will be shown when break PhaseStarted event fires
-                        println!("📍 [StrictModeOrchestrator] Focus ended - break transition will show on break start");
                     }
                     crate::cycle_orchestrator::CyclePhase::ShortBreak => {
-                        // Short break ended, hide overlay and return to menu bar
+                        // Short break ended, hide overlay and restore main window
                         // Next focus will auto-start (handled by CycleOrchestrator)
-                        println!("☕ [StrictModeOrchestrator] Short break ended - hiding overlay, next focus will auto-start");
+                        println!("🖥️ [StrictMode] Short break ended");
 
                         if self.state.current_window_type
                             == Some(StrictModeWindowType::FullscreenBreakOverlay)
                         {
-                            self.hide_fullscreen_break_overlay()?;
+                            if let Err(e) = self.hide_fullscreen_break_overlay() {
+                                eprintln!("⚠️ [StrictMode] Failed to hide break overlay: {}", e);
+                            }
                         }
 
+                        // Restore main window from menu bar (non-blocking)
+                        let _ = self.restore_from_menu_bar();
+
                         events.push(StrictModeEvent::ReturnToMenuBar);
-                        self.state.current_window_type = Some(StrictModeWindowType::MenuBarIcon);
+                        self.state.current_window_type = None;
                         let _ = self.save_state_to_database();
                     }
                     crate::cycle_orchestrator::CyclePhase::LongBreak => {
-                        // Long break ended, hide overlay and return to menu bar
+                        // Long break ended, hide overlay and restore main window
                         // Stay in idle (no auto-start of next focus)
-                        println!("☕ [StrictModeOrchestrator] Long break ended - hiding overlay, staying in idle");
+                        println!("🖥️ [StrictMode] Long break ended");
 
                         if self.state.current_window_type
                             == Some(StrictModeWindowType::FullscreenBreakOverlay)
                         {
-                            self.hide_fullscreen_break_overlay()?;
+                            if let Err(e) = self.hide_fullscreen_break_overlay() {
+                                eprintln!("⚠️ [StrictMode] Failed to hide break overlay: {}", e);
+                            }
                         }
 
+                        // Restore main window from menu bar (non-blocking)
+                        let _ = self.restore_from_menu_bar();
+
                         events.push(StrictModeEvent::ReturnToMenuBar);
-                        self.state.current_window_type = Some(StrictModeWindowType::MenuBarIcon);
+                        self.state.current_window_type = None;
                         let _ = self.save_state_to_database();
                     }
                     _ => {}
@@ -349,7 +332,6 @@ impl StrictModeOrchestrator {
 
     /// Show the break transition window
     pub fn show_break_transition(&mut self) -> Result<(), String> {
-        println!("🪟 [StrictModeOrchestrator] Showing break transition window");
 
         let result = {
             let window_manager = self
@@ -360,23 +342,15 @@ impl StrictModeOrchestrator {
             window_manager.show_break_transition()
         };
 
-        match result {
-            Ok(_) => {
-                println!("✅ [StrictModeOrchestrator] Break transition window shown");
-            }
-            Err(e) => {
-                eprintln!(
-                    "❌ [StrictModeOrchestrator] Failed to show break transition: {}",
-                    e
-                );
-                return self.handle_error(StrictModeError::WindowCreationFailed(e.to_string()));
-            }
+        if let Err(e) = result {
+            eprintln!("❌ [StrictMode] Failed to show break transition: {}", e);
+            return self.handle_error(StrictModeError::WindowCreationFailed(e.to_string()));
         }
 
         self.state.current_window_type = Some(StrictModeWindowType::BreakTransition);
 
         if let Err(e) = self.save_state_to_database() {
-            eprintln!("⚠️ [StrictModeOrchestrator] Failed to save state: {}", e);
+            eprintln!("⚠️ [StrictMode] Failed to save state: {}", e);
             let _ = self.handle_error(StrictModeError::DatabaseError(e));
         }
 
@@ -385,7 +359,6 @@ impl StrictModeOrchestrator {
 
     /// Hide the break transition window
     pub fn hide_break_transition(&mut self) -> Result<(), String> {
-        println!("🪟 [StrictModeOrchestrator] Hiding break transition window");
 
         let window_manager = self
             .window_manager
@@ -401,7 +374,6 @@ impl StrictModeOrchestrator {
 
     /// Start break from transition (after countdown or manual trigger)
     pub fn start_break_from_transition(&mut self) -> Result<(), String> {
-        println!("🪟 [StrictModeOrchestrator] Starting break from transition");
 
         // Hide the break transition window first
         self.hide_break_transition()?;
@@ -413,7 +385,7 @@ impl StrictModeOrchestrator {
 
     /// Show the fullscreen break overlay with system lock
     pub fn show_fullscreen_break_overlay(&mut self) -> Result<(), String> {
-        println!("🪟 [StrictModeOrchestrator] Showing fullscreen break overlay");
+        println!("🖥️ [StrictMode] Showing break overlay");
 
         // Show the break overlay window
         let show_result = {
@@ -425,17 +397,9 @@ impl StrictModeOrchestrator {
             window_manager.show_break_overlay()
         };
 
-        match show_result {
-            Ok(_) => {
-                println!("✅ [StrictModeOrchestrator] Break overlay window shown");
-            }
-            Err(e) => {
-                eprintln!(
-                    "❌ [StrictModeOrchestrator] Failed to show break overlay: {}",
-                    e
-                );
-                return self.handle_error(StrictModeError::WindowCreationFailed(e.to_string()));
-            }
+        if let Err(e) = show_result {
+            eprintln!("❌ [StrictMode] Failed to show break overlay: {}", e);
+            return self.handle_error(StrictModeError::WindowCreationFailed(e.to_string()));
         }
 
         // Get the break overlay window
@@ -461,15 +425,9 @@ impl StrictModeOrchestrator {
             lock_manager.lock_system(&window)
         };
 
-        match lock_result {
-            Ok(_) => {
-                println!("✅ [StrictModeOrchestrator] System locked");
-            }
-            Err(e) => {
-                eprintln!("⚠️ [StrictModeOrchestrator] Failed to lock system: {}", e);
-                // Continue without full lock but handle the error
-                let _ = self.handle_error(StrictModeError::SystemLockFailed(e));
-            }
+        if let Err(e) = lock_result {
+            eprintln!("⚠️ [StrictMode] Failed to lock system: {}", e);
+            let _ = self.handle_error(StrictModeError::SystemLockFailed(e));
         }
 
         self.state.current_window_type = Some(StrictModeWindowType::FullscreenBreakOverlay);
@@ -477,24 +435,24 @@ impl StrictModeOrchestrator {
 
         // Save state to database
         if let Err(e) = self.save_state_to_database() {
-            eprintln!("⚠️ [StrictModeOrchestrator] Failed to save state: {}", e);
+            eprintln!("⚠️ [StrictMode] Failed to save state: {}", e);
             let _ = self.handle_error(StrictModeError::DatabaseError(e));
         }
 
-        println!("✅ [StrictModeOrchestrator] Fullscreen break overlay shown and system locked");
+        println!("🖥️ [StrictMode] Break overlay shown");
         Ok(())
     }
 
     /// Hide the fullscreen break overlay and unlock system
     pub fn hide_fullscreen_break_overlay(&mut self) -> Result<(), String> {
-        println!("🪟 [StrictModeOrchestrator] Hiding fullscreen break overlay");
+        println!("🖥️ [StrictMode] Hiding break overlay");
 
         // Unlock the system first
         if self.state.is_locked {
             self.unlock_system()?;
         }
 
-        // Hide the break overlay window
+        // Hide the break overlay window (don't close it to avoid app crash)
         let window_manager = self
             .window_manager
             .lock()
@@ -509,7 +467,6 @@ impl StrictModeOrchestrator {
         // Save state to database
         self.save_state_to_database()?;
 
-        println!("✅ [StrictModeOrchestrator] Fullscreen break overlay hidden and system unlocked");
         Ok(())
     }
 
@@ -624,16 +581,16 @@ impl StrictModeOrchestrator {
 
     /// Restore main window from menu bar
     pub fn restore_from_menu_bar(&mut self) -> Result<(), String> {
-        println!("📍 [StrictModeOrchestrator] Restoring from menu bar");
-
         let window_manager = self
             .window_manager
             .lock()
             .map_err(|e| format!("Failed to lock window manager: {}", e))?;
 
-        window_manager
-            .restore_from_menu_bar()
-            .map_err(|e| format!("Failed to restore from menu bar: {}", e))?;
+        // Restore main window, but don't fail if it's already visible
+        if let Err(e) = window_manager.restore_from_menu_bar() {
+            eprintln!("⚠️ [StrictMode] Failed to restore main window: {}", e);
+            // Don't return error, just log it - the window might already be visible
+        }
 
         self.state.current_window_type = None;
         Ok(())

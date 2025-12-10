@@ -42,14 +42,20 @@ export default function App() {
               const currentBreak = await invoke<BreakSession | null>(
                 "get_current_break"
               );
+              console.log(
+                "🖥️ [App] Break session loaded:",
+                currentBreak ? `remaining:${currentBreak.remaining}` : "null"
+              );
               setBreakSession(currentBreak);
 
               const settings = await invoke<any>("get_settings");
-              setIsStrictMode(settings.strictMode || false);
+              const strictMode = settings.strictMode || false;
+              console.log("🖥️ [App] Strict mode:", strictMode);
+              setIsStrictMode(strictMode);
               setEmergencyKeyCombination(settings.emergencyKeyCombination);
             } catch (error) {
               console.error(
-                "Failed to fetch break session or settings:",
+                "❌ [App] Failed to fetch break session or settings:",
                 error
               );
             }
@@ -136,30 +142,17 @@ export default function App() {
 
   // Render BreakOverlay for break-overlay window
   if (windowLabel === "break-overlay") {
-    console.log("🖥️ [App] Rendering BreakOverlay component");
     console.log(
-      "🖥️ [App] Break session state:",
-      breakSession ? "loaded" : "not loaded"
+      "🖥️ [App] BreakOverlay window - session:",
+      breakSession
+        ? `remaining:${breakSession.remaining} strict:${isStrictMode}`
+        : "null"
     );
-    console.log("🖥️ [App] Strict mode:", isStrictMode);
-
-    if (breakSession) {
-      console.log("✅ [App] Rendering BreakOverlay with break session:", {
-        id: breakSession.id,
-        type: breakSession.type,
-        remaining: breakSession.remaining,
-      });
-    } else {
-      console.log("⚠️ [App] Break session not yet available");
-    }
 
     // If no break session, immediately hide overlay window to avoid blank/black view
     if (!breakSession) {
       invoke("hide_fullscreen_break_overlay").catch((error) =>
-        console.error(
-          "❌ [App] Failed to hide break overlay without session:",
-          error
-        )
+        console.error("❌ [App] Failed to hide break overlay:", error)
       );
       return null;
     }
@@ -169,26 +162,15 @@ export default function App() {
         <BreakOverlay
           breakSession={breakSession}
           onCompleteBreak={async () => {
-            console.log("🖥️ [App] onCompleteBreak called");
             try {
-              console.log("🖥️ [App] Calling hide_fullscreen_break_overlay...");
               await invoke("hide_fullscreen_break_overlay");
-              console.log("✅ [App] Break overlay hidden successfully");
             } catch (error) {
               console.error("❌ [App] Failed to hide break overlay:", error);
             }
           }}
           onEmergencyOverride={async (pin: string) => {
-            console.log("🖥️ [App] onEmergencyOverride called with pin");
             try {
-              const result = await invoke<boolean>("verify_emergency_pin", {
-                pin,
-              });
-              console.log(
-                "🖥️ [App] Emergency pin verification result:",
-                result
-              );
-              return result;
+              return await invoke<boolean>("verify_emergency_pin", { pin });
             } catch (error) {
               console.error("❌ [App] Failed to verify emergency pin:", error);
               return false;

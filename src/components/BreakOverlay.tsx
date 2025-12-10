@@ -423,6 +423,15 @@ function StrictModeBreakUI({ remaining }: { remaining: number }) {
   const minutes = Math.floor(remaining / 60);
   const seconds = remaining % 60;
 
+  console.log(
+    "🖥️ [StrictModeBreakUI] Rendering - remaining:",
+    remaining,
+    "minutes:",
+    minutes,
+    "seconds:",
+    seconds
+  );
+
   return (
     <div className="flex flex-col items-center justify-center text-center gap-10">
       <div className="text-2xl font-black tracking-[0.35em] text-blue-100">
@@ -471,13 +480,12 @@ export function BreakOverlay({
   isStrictMode = false,
   emergencyKeyCombination,
 }: BreakOverlayProps) {
-  console.log("🖥️ [BreakOverlay] Component rendered with props:", {
-    breakSessionId: breakSession.id,
-    breakType: breakSession.type,
-    remaining: breakSession.remaining,
-    isStrictMode,
-    emergencyKeyCombination,
-  });
+  console.log(
+    "🖥️ [BreakOverlay] MOUNTED - remaining:",
+    breakSession.remaining,
+    "isStrictMode:",
+    isStrictMode
+  );
 
   const [checklistCompleted, setChecklistCompleted] = useState<boolean[]>([]);
   const [showEmergencyModal, setShowEmergencyModal] = useState(false);
@@ -485,14 +493,12 @@ export function BreakOverlay({
   const storeCycleState = useCycleState();
   const settings = useSettings();
   const [remaining, setRemaining] = useState(breakSession.remaining);
-  const [isVisible, setIsVisible] = useState(false);
+  const [isVisible, setIsVisible] = useState(true); // Start visible to show content immediately
   const windowRef = useRef<ReturnType<typeof getCurrentWindow> | null>(null);
   const alertShownRef = useRef(false);
 
   // Use provided cycleState or fall back to store
   const currentCycleState = cycleState || storeCycleState;
-
-  console.log("🖥️ [BreakOverlay] Current cycle state:", currentCycleState);
 
   // Memoize activity to avoid recalculation
   const activity = useMemo(
@@ -508,39 +514,49 @@ export function BreakOverlay({
   // Keep remaining time in sync with backend so the fullscreen overlay shows a live countdown
   useEffect(() => {
     setRemaining(breakSession.remaining);
-
-    // One-time heads up alert when the break overlay mounts
-    if (!alertShownRef.current && breakSession.remaining > 0) {
-      alertShownRef.current = true;
-      const mins = Math.floor(breakSession.remaining / 60);
-      const secs = breakSession.remaining % 60;
-      const timeLabel =
-        mins > 0
-          ? `${mins} min${mins !== 1 ? "s" : ""} ${secs
-              .toString()
-              .padStart(2, "0")}s`
-          : `${secs}s`;
-      window.alert(
-        `Tu break empieza pronto. Guarda tu trabajo. Tiempo restante: ${timeLabel}.`
-      );
-    }
   }, [breakSession.id, breakSession.remaining]);
 
   useEffect(() => {
     let cancelled = false;
 
     const syncRemaining = async () => {
+      if (cancelled) return;
+
       try {
         const state = await invoke<CycleState>("get_cycle_state");
+
+        // Only sync if we're still in a break phase
         if (
           !cancelled &&
           (state.phase === "short_break" || state.phase === "long_break")
         ) {
           setRemaining(state.remaining_seconds);
+
+          // Only hide if break actually ended (remaining is 0)
+          if (state.remaining_seconds === 0) {
+            cancelled = true;
+            try {
+              await invoke("hide_fullscreen_break_overlay");
+            } catch (error) {
+              console.error("❌ [BreakOverlay] Failed to hide:", error);
+            }
+          }
+        } else if (
+          !cancelled &&
+          state.phase !== "short_break" &&
+          state.phase !== "long_break" &&
+          state.phase !== "idle"
+        ) {
+          // Break phase ended (transitioned to focus), hide overlay
+          cancelled = true;
+          try {
+            await invoke("hide_fullscreen_break_overlay");
+          } catch (error) {
+            console.error("❌ [BreakOverlay] Failed to hide:", error);
+          }
         }
       } catch (error) {
-        console.error("Failed to sync break remaining time:", error);
-        setRemaining((prev) => Math.max(0, prev - 1));
+        console.error("❌ [BreakOverlay] Sync error:", error);
       }
     };
 
@@ -600,19 +616,12 @@ export function BreakOverlay({
 
   // Fade in animation on mount
   useEffect(() => {
-    console.log("🖥️ [BreakOverlay] Component mounted, setting visible");
     setIsVisible(true);
     windowRef.current = getCurrentWindow();
   }, []);
 
   // Keyboard blocking - prevent all inputs except emergency key combo when provided
   useEffect(() => {
-    console.log("🔒 [BreakOverlay] Setting up keyboard blocking");
-    console.log(
-      "🔒 [BreakOverlay] Emergency key combination (if any):",
-      emergencyKeyCombination
-    );
-
     const blockKeyboardInput = (e: KeyboardEvent) => {
       // Check if this is the emergency key combination
       if (emergencyKeyCombination) {
@@ -647,20 +656,10 @@ export function BreakOverlay({
           hasMainKey;
 
         if (modifiersMatch) {
-          console.log(
-            "🚨 [BreakOverlay] Emergency key combination detected - triggering emergency exit"
-          );
-
           // Trigger emergency exit
-          invoke("emergency_exit_strict_mode")
-            .then(() => {
-              console.log(
-                "✅ [BreakOverlay] Emergency exit completed successfully"
-              );
-            })
-            .catch((error) => {
-              console.error("❌ [BreakOverlay] Emergency exit failed:", error);
-            });
+          invoke("emergency_exit_strict_mode").catch((error) => {
+            console.error("❌ [BreakOverlay] Emergency exit failed:", error);
+          });
 
           return; // Allow emergency key through
         }
@@ -674,40 +673,31 @@ export function BreakOverlay({
       // Log specific blocked attempts for common shortcuts
       if (e.metaKey || e.ctrlKey) {
         if (e.key === "q" || e.key === "Q") {
-          console.log("🔒 [BreakOverlay] Blocked Cmd+Q (quit application)");
           logBypassAttempt("cmd_q_blocked");
         } else if (e.key === "w" || e.key === "W") {
-          console.log("🔒 [BreakOverlay] Blocked Cmd+W (close window)");
           logBypassAttempt("cmd_w_blocked");
         } else if (e.key === "m" || e.key === "M") {
-          console.log("🔒 [BreakOverlay] Blocked Cmd+M (minimize)");
           logBypassAttempt("cmd_m_blocked");
         } else if (e.key === "Tab") {
-          console.log("🔒 [BreakOverlay] Blocked Cmd+Tab (app switcher)");
           logBypassAttempt("cmd_tab_blocked");
         } else if (e.key === "h" || e.key === "H") {
-          console.log("🔒 [BreakOverlay] Blocked Cmd+H (hide window)");
           logBypassAttempt("cmd_h_blocked");
         } else if (e.key === "`" || e.key === "~") {
-          console.log("🔒 [BreakOverlay] Blocked Cmd+` (window switcher)");
           logBypassAttempt("cmd_backtick_blocked");
         }
       }
 
       // Block function keys that might trigger system actions
       if (e.key.startsWith("F") && e.key.length <= 3) {
-        console.log(`🔒 [BreakOverlay] Blocked function key: ${e.key}`);
         logBypassAttempt(`function_key_blocked_${e.key}`);
       }
 
       // Block Escape key (except if it's part of emergency combination)
       if (e.key === "Escape" || e.key === "Esc") {
-        console.log("🔒 [BreakOverlay] Blocked Escape key");
         logBypassAttempt("escape_blocked");
       }
 
       // Log blocked attempt
-      console.log("🔒 [BreakOverlay] Blocked keyboard input:", e.key);
       logBypassAttempt(`keyboard_blocked_${e.key}`);
     };
 
@@ -726,13 +716,8 @@ export function BreakOverlay({
   // Strict mode mouse blocking - allow movement but block all clicks
   useEffect(() => {
     if (!isStrictMode) {
-      console.log(
-        "🖥️ [BreakOverlay] Strict mode not active, skipping mouse blocking"
-      );
       return;
     }
-
-    console.log("🔒 [BreakOverlay] Setting up strict mode mouse blocking");
 
     const blockMouseInput = (e: MouseEvent) => {
       // Allow mouse movement (cursor can move) - this is important for UX
@@ -746,7 +731,6 @@ export function BreakOverlay({
       e.stopImmediatePropagation();
 
       // Log blocked attempt
-      console.log("🔒 [BreakOverlay] Blocked mouse input:", e.type);
       logBypassAttempt(`mouse_blocked_${e.type}`);
     };
 
@@ -775,13 +759,11 @@ export function BreakOverlay({
     const preventWindowClose = (e: BeforeUnloadEvent) => {
       e.preventDefault();
       e.returnValue = "";
-      console.log("🔒 [BreakOverlay] Prevented window close attempt");
       logBypassAttempt("window_close_blocked");
     };
 
     const preventVisibilityChange = () => {
       if (document.hidden) {
-        console.log("🔒 [BreakOverlay] Detected visibility change attempt");
         logBypassAttempt("visibility_change_blocked");
       }
     };
@@ -800,44 +782,16 @@ export function BreakOverlay({
 
   // Auto-close overlay and unlock system when break ends in strict mode
   useEffect(() => {
-    if (!isStrictMode) {
-      console.log(
-        "🖥️ [BreakOverlay] Strict mode not active, skipping auto-unlock"
-      );
-      return;
-    }
-
-    console.log(
-      "🖥️ [BreakOverlay] Monitoring break end - remaining:",
-      remaining
-    );
-
-    if (remaining > 0) {
+    if (!isStrictMode || remaining > 0) {
       return;
     }
 
     const handleBreakEnd = async () => {
-      console.log(
-        "✅ [BreakOverlay] Break ended in strict mode - unlocking system"
-      );
-
       try {
-        // Call backend to unlock system and hide overlay
-        console.log(
-          "🖥️ [BreakOverlay] Calling hide_fullscreen_break_overlay..."
-        );
         await invoke("hide_fullscreen_break_overlay");
-        console.log("✅ [BreakOverlay] System unlocked successfully");
-
-        // Call the completion handler
-        console.log("🖥️ [BreakOverlay] Calling onCompleteBreak handler");
         onCompleteBreak();
       } catch (error) {
         console.error("❌ [BreakOverlay] Failed to unlock system:", error);
-        // Still call completion handler even if unlock fails
-        console.log(
-          "🖥️ [BreakOverlay] Calling onCompleteBreak handler despite error"
-        );
         onCompleteBreak();
       }
     };
@@ -919,16 +873,19 @@ export function BreakOverlay({
     [breakSession.type]
   );
 
+  console.log(
+    "🖥️ [BreakOverlay] RENDER - remaining:",
+    remaining,
+    "isStrictMode:",
+    isStrictMode,
+    "breakSession:",
+    breakSession
+  );
+
   return (
     <div
-      className={`
-        fixed inset-0 z-50 flex items-center justify-center 
-        transition-all duration-700 ease-out
-        ${isVisible ? "opacity-100" : "opacity-0"}
-        ${!isStrictMode ? normalModeBg : ""}
-      `}
+      className="fixed inset-0 z-50 flex items-center justify-center"
       style={{
-        // Ensure fullscreen on all monitors
         width: "100vw",
         height: "100vh",
         position: "fixed",
@@ -937,95 +894,106 @@ export function BreakOverlay({
         right: 0,
         bottom: 0,
         backgroundColor: isStrictMode ? strictModeBg : undefined,
-        transition: "background-color 0.7s ease-out",
       }}
     >
       {/* Main break content */}
-      <div
-        className={`
-        flex flex-col items-center justify-center min-h-screen p-8 w-full
-        transition-all duration-700 ease-out
-        ${isVisible ? "scale-100 opacity-100" : "scale-95 opacity-0"}
-      `}
-      >
-        {isStrictMode && !showCompletionInterface ? (
-          // Strict mode: Show minimalist UI with timer and animation
-          <StrictModeBreakUI remaining={remaining} />
-        ) : showCompletionInterface ? (
-          // Show completion interface when break is over
-          <BreakCompletionInterface
-            breakType={breakSession.type}
-            userName={userName}
-            cyclesCompleted={currentCycleState?.cycle_count || 0}
-            focusMinutes={
-              (currentCycleState?.cycle_count || 0) * settings.focusDuration
+      <div className="flex flex-col items-center justify-center min-h-screen p-8 w-full">
+        {(() => {
+          console.log(
+            "🖥️ [BreakOverlay] RENDER CHECK - remaining:",
+            remaining,
+            "isStrictMode:",
+            isStrictMode
+          );
+
+          // Always show timer if remaining > 0, regardless of mode
+          if (remaining > 0) {
+            if (isStrictMode) {
+              console.log("🖥️ [BreakOverlay] ✅ RENDERING StrictModeBreakUI");
+              return <StrictModeBreakUI remaining={remaining} />;
+            } else {
+              console.log("🖥️ [BreakOverlay] ✅ RENDERING Normal mode UI");
+              return (
+                <>
+                  {/* Normal mode: Show full UI with activities */}
+                  {/* Break type indicator */}
+                  <div className="mb-8">
+                    <div
+                      className={`inline-flex items-center px-4 py-2 bg-${accentColor}-500/20 rounded-full`}
+                    >
+                      <div
+                        className={`w-2 h-2 bg-${accentColor}-400 rounded-full mr-3 animate-pulse`}
+                      ></div>
+                      <span className={`text-${accentColor}-200 font-medium`}>
+                        {breakSession.type === "short"
+                          ? "☕ Short Break"
+                          : "🌟 Long Break"}
+                      </span>
+                    </div>
+                  </div>
+
+                  {/* Cycle progress indicator */}
+                  {currentCycleState && currentCycleState.cycle_count > 0 && (
+                    <CycleProgressIndicator
+                      cycleCount={currentCycleState.cycle_count}
+                      cyclesPerLongBreak={settings.cyclesPerLongBreak}
+                      breakType={breakSession.type}
+                    />
+                  )}
+
+                  {/* Countdown timer */}
+                  <CountdownTimer
+                    remaining={remaining}
+                    breakType={breakSession.type}
+                    userName={userName}
+                  />
+
+                  {/* Break activity checklist */}
+                  <BreakActivityChecklist
+                    activity={activity}
+                    onChecklistUpdate={handleChecklistUpdate}
+                  />
+
+                  {/* Complete break button (only if checklist is done) */}
+                  {canCompleteBreak && !showCompletionInterface && (
+                    <button
+                      onClick={onCompleteBreak}
+                      className="mt-8 px-8 py-3 bg-green-600 hover:bg-green-700 text-white font-medium rounded-xl transition-colors duration-200"
+                    >
+                      Complete Break
+                    </button>
+                  )}
+
+                  {/* Bypass attempts indicator (for debugging/awareness) */}
+                  {bypassAttempts > 0 && (
+                    <div className="absolute top-8 right-8">
+                      <div className="bg-red-500/20 border border-red-500/30 rounded-lg px-4 py-2">
+                        <p className="text-red-400 text-sm">
+                          Bypass attempts: {bypassAttempts}
+                        </p>
+                      </div>
+                    </div>
+                  )}
+                </>
+              );
             }
-            onStartNewBlock={onCompleteBreak}
-            onEndSession={onCompleteBreak}
-          />
-        ) : (
-          <>
-            {/* Normal mode: Show full UI with activities */}
-            {/* Break type indicator */}
-            <div className="mb-8">
-              <div
-                className={`inline-flex items-center px-4 py-2 bg-${accentColor}-500/20 rounded-full`}
-              >
-                <div
-                  className={`w-2 h-2 bg-${accentColor}-400 rounded-full mr-3 animate-pulse`}
-                ></div>
-                <span className={`text-${accentColor}-200 font-medium`}>
-                  {breakSession.type === "short"
-                    ? "☕ Short Break"
-                    : "🌟 Long Break"}
-                </span>
-              </div>
-            </div>
-
-            {/* Cycle progress indicator */}
-            {currentCycleState && currentCycleState.cycle_count > 0 && (
-              <CycleProgressIndicator
-                cycleCount={currentCycleState.cycle_count}
-                cyclesPerLongBreak={settings.cyclesPerLongBreak}
+          } else {
+            // Break completed - show completion interface
+            console.log("🖥️ [BreakOverlay] ✅ RENDERING completion interface");
+            return (
+              <BreakCompletionInterface
                 breakType={breakSession.type}
+                userName={userName}
+                cyclesCompleted={currentCycleState?.cycle_count || 0}
+                focusMinutes={
+                  (currentCycleState?.cycle_count || 0) * settings.focusDuration
+                }
+                onStartNewBlock={onCompleteBreak}
+                onEndSession={onCompleteBreak}
               />
-            )}
-
-            {/* Countdown timer */}
-            <CountdownTimer
-              remaining={remaining}
-              breakType={breakSession.type}
-              userName={userName}
-            />
-
-            {/* Break activity checklist */}
-            <BreakActivityChecklist
-              activity={activity}
-              onChecklistUpdate={handleChecklistUpdate}
-            />
-
-            {/* Complete break button (only if checklist is done) */}
-            {canCompleteBreak && !showCompletionInterface && (
-              <button
-                onClick={onCompleteBreak}
-                className="mt-8 px-8 py-3 bg-green-600 hover:bg-green-700 text-white font-medium rounded-xl transition-colors duration-200"
-              >
-                Complete Break
-              </button>
-            )}
-
-            {/* Bypass attempts indicator (for debugging/awareness) */}
-            {bypassAttempts > 0 && (
-              <div className="absolute top-8 right-8">
-                <div className="bg-red-500/20 border border-red-500/30 rounded-lg px-4 py-2">
-                  <p className="text-red-400 text-sm">
-                    Bypass attempts: {bypassAttempts}
-                  </p>
-                </div>
-              </div>
-            )}
-          </>
-        )}
+            );
+          }
+        })()}
       </div>
 
       {/* Emergency override modal - only show in normal mode */}
