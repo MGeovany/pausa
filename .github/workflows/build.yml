@@ -61,23 +61,73 @@ jobs:
           POSTHOG_API_KEY: ${{ secrets.POSTHOG_API_KEY }}
         run: |
           echo "Building Tauri app for macOS..."
-          npm run tauri:build:macos
-          echo "Build completed. Checking outputs..."
-          echo "Target directory exists: $([ -d src-tauri/target/release ] && echo 'yes' || echo 'no')"
-          echo "Bundle directory exists: $([ -d src-tauri/target/release/bundle ] && echo 'yes' || echo 'no')"
+          echo "Using target: aarch64-apple-darwin"
+          echo "Running: npm run tauri:build:macos"
+
+          # Build with verbose output
+          npm run tauri:build:macos 2>&1 | tee build.log || {
+            echo "❌ Build command exited with error!"
+            echo "Last 50 lines of build output:"
+            tail -50 build.log || cat build.log
+            echo ""
+            echo "Checking for partial outputs..."
+            ls -la src-tauri/target/aarch64-apple-darwin/release/ 2>/dev/null || echo "No aarch64 release dir"
+            ls -la src-tauri/target/release/ 2>/dev/null || echo "No release dir"
+            exit 1
+          }
+
+          echo ""
+          echo "=== Build completed. Checking outputs ==="
+
+          # Check both possible locations (with and without target in path)
+          echo "Checking standard location:"
+          if [ -d "src-tauri/target/release/bundle" ]; then
+            echo "✅ Bundle found at: src-tauri/target/release/bundle"
+            find src-tauri/target/release/bundle -maxdepth 2 -type d
+          elif [ -d "src-tauri/target/aarch64-apple-darwin/release/bundle" ]; then
+            echo "✅ Bundle found at: src-tauri/target/aarch64-apple-darwin/release/bundle"
+            find src-tauri/target/aarch64-apple-darwin/release/bundle -maxdepth 2 -type d
+          else
+            echo "❌ Bundle directory not found in either location"
+            echo ""
+            echo "Checking target directories:"
+            echo "src-tauri/target/release exists: $([ -d src-tauri/target/release ] && echo 'yes' || echo 'no')"
+            echo "src-tauri/target/aarch64-apple-darwin/release exists: $([ -d src-tauri/target/aarch64-apple-darwin/release ] && echo 'yes' || echo 'no')"
+            echo ""
+            echo "Contents of src-tauri/target/release:"
+            ls -la src-tauri/target/release/ 2>/dev/null | head -20 || echo "Directory doesn't exist"
+            echo ""
+            echo "Searching for any .app or .dmg files:"
+            find src-tauri/target -name "*.app" -o -name "*.dmg" 2>/dev/null | head -10 || echo "None found"
+          fi
+
+      - name: Find bundle location
+        id: bundle
+        run: |
+          # Check both possible bundle locations
+          if [ -d "src-tauri/target/release/bundle" ]; then
+            BUNDLE_PATH="src-tauri/target/release/bundle"
+          elif [ -d "src-tauri/target/aarch64-apple-darwin/release/bundle" ]; then
+            BUNDLE_PATH="src-tauri/target/aarch64-apple-darwin/release/bundle"
+          else
+            echo "❌ Bundle directory not found in either location!"
+            exit 1
+          fi
+          echo "bundle_path=$BUNDLE_PATH" >> $GITHUB_OUTPUT
+          echo "✅ Found bundle at: $BUNDLE_PATH"
 
       - name: Sign app with ad-hoc identity
         run: |
-          echo "Looking for app bundle to sign..."
-          APP_BUNDLE=$(find src-tauri/target/release/bundle -name "*.app" -type d 2>/dev/null | head -1)
+          BUNDLE_PATH="${{ steps.bundle.outputs.bundle_path }}"
+          echo "Looking for app bundle to sign in: $BUNDLE_PATH"
+          APP_BUNDLE=$(find "$BUNDLE_PATH" -name "*.app" -type d 2>/dev/null | head -1)
           if [ -n "$APP_BUNDLE" ]; then
             echo "Found app bundle at: $APP_BUNDLE"
             codesign --force --deep --sign - "$APP_BUNDLE"
             echo "✅ App signed with ad-hoc identity"
           else
-            echo "⚠️ App bundle not found for signing, but continuing..."
-            find src-tauri/target/release/bundle -type f -o -type d 2>/dev/null | head -20 || echo "Bundle directory structure:"
-            ls -R src-tauri/target/release/bundle 2>/dev/null || true
+            echo "⚠️ App bundle not found for signing"
+            exit 1
           fi
 
       - name: Upload DMG artifact
@@ -86,48 +136,40 @@ jobs:
         with:
           name: pausa-macos
           path: |
-            src-tauri/target/release/bundle/macos/pausa.app
-            src-tauri/target/release/bundle/dmg/*.dmg
+            ${{ steps.bundle.outputs.bundle_path }}/macos/*.app
+            ${{ steps.bundle.outputs.bundle_path }}/dmg/*.dmg
           retention-days: 90
 
       - name: Verify build artifacts exist
         if: github.ref == 'refs/heads/main' && github.event_name != 'pull_request'
         run: |
-          echo "=== Checking for build artifacts ==="
+          BUNDLE_PATH="${{ steps.bundle.outputs.bundle_path }}"
+          echo "=== Verifying build artifacts ==="
+          echo "Bundle path: $BUNDLE_PATH"
           echo ""
-          echo "1. Checking if bundle directory exists:"
-          if [ -d "src-tauri/target/release/bundle" ]; then
-            echo "✅ Bundle directory exists"
-            echo "Structure:"
-            tree src-tauri/target/release/bundle -L 3 || find src-tauri/target/release/bundle -maxdepth 3 2>/dev/null || ls -R src-tauri/target/release/bundle 2>/dev/null
-          else
-            echo "❌ Bundle directory does not exist!"
-            echo "Checking target/release:"
-            ls -la src-tauri/target/release/ 2>/dev/null || echo "target/release not found"
-            exit 1
-          fi
-          echo ""
-          echo "2. Searching for .app bundles:"
-          APP_BUNDLE=$(find src-tauri/target/release/bundle -name "*.app" -type d 2>/dev/null | head -1)
+
+          echo "1. Searching for .app bundles:"
+          APP_BUNDLE=$(find "$BUNDLE_PATH" -name "*.app" -type d 2>/dev/null | head -1)
           if [ -n "$APP_BUNDLE" ]; then
             echo "✅ App bundle found at: $APP_BUNDLE"
             ls -lh "$APP_BUNDLE"
           else
             echo "❌ App bundle not found!"
-            echo "All .app files in bundle:"
-            find src-tauri/target/release/bundle -name "*.app" 2>/dev/null || echo "None found"
+            echo "Contents of bundle directory:"
+            find "$BUNDLE_PATH" -maxdepth 2 2>/dev/null || echo "Directory doesn't exist"
             exit 1
           fi
           echo ""
-          echo "3. Searching for .dmg files:"
-          DMG_FILE=$(find src-tauri/target/release/bundle -name "*.dmg" 2>/dev/null | head -1)
+
+          echo "2. Searching for .dmg files:"
+          DMG_FILE=$(find "$BUNDLE_PATH" -name "*.dmg" 2>/dev/null | head -1)
           if [ -n "$DMG_FILE" ]; then
             echo "✅ DMG file found at: $DMG_FILE"
             ls -lh "$DMG_FILE"
           else
             echo "❌ DMG file not found!"
-            echo "All .dmg files in bundle:"
-            find src-tauri/target/release/bundle -name "*.dmg" 2>/dev/null || echo "None found"
+            echo "All files in bundle directory:"
+            find "$BUNDLE_PATH" -type f 2>/dev/null | head -10 || echo "None found"
             exit 1
           fi
           echo ""

@@ -27,12 +27,19 @@
       {
         "assets": [
           {
-            "path": "src-tauri/target/release/bundle/macos/pausa.app",
-            "label": "Pausa.app",
-            "name": "pausa.app"
+            "path": "src-tauri/target/release/bundle/macos/*.app",
+            "label": "Pausa.app"
           },
           {
             "path": "src-tauri/target/release/bundle/dmg/*.dmg",
+            "label": "macOS DMG"
+          },
+          {
+            "path": "src-tauri/target/aarch64-apple-darwin/release/bundle/macos/*.app",
+            "label": "Pausa.app"
+          },
+          {
+            "path": "src-tauri/target/aarch64-apple-darwin/release/bundle/dmg/*.dmg",
             "label": "macOS DMG"
           }
         ]
