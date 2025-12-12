@@ -53,21 +53,20 @@ pub fn run() -> Result<(), String> {
                 // Create context menu
                 let app_handle = app.handle();
                 
-                // Menu items
-                let show_window = MenuItem::with_id(app_handle, "show-window", "Mostrar Ventana", true, None::<&str>)?;
+                let show_window = MenuItem::with_id(app_handle, "show-window", "Show Window", true, None::<&str>)?;
                 let separator1 = PredefinedMenuItem::separator(app_handle)?;
-                let start_focus = MenuItem::with_id(app_handle, "start-focus", "Iniciar Sesión de Enfoque", true, None::<&str>)?;
-                let start_break = MenuItem::with_id(app_handle, "start-break", "Iniciar Descanso", true, None::<&str>)?;
+                let toggle_strict_mode = MenuItem::with_id(app_handle, "toggle-strict-mode", "Toggle Strict Mode", true, None::<&str>)?;
+                let view_stats = MenuItem::with_id(app_handle, "view-stats", "View Statistics", true, None::<&str>)?;
                 let separator2 = PredefinedMenuItem::separator(app_handle)?;
-                let settings = MenuItem::with_id(app_handle, "settings", "Configuración...", true, None::<&str>)?;
+                let settings = MenuItem::with_id(app_handle, "settings", "Settings...", true, None::<&str>)?;
                 let separator3 = PredefinedMenuItem::separator(app_handle)?;
-                let quit = PredefinedMenuItem::quit(app_handle, Some("Salir de Pausa"))?;
+                let quit = PredefinedMenuItem::quit(app_handle, Some("Quit Pausa"))?;
                 
                 let menu = Menu::with_items(app_handle, &[
                     &show_window,
                     &separator1,
-                    &start_focus,
-                    &start_break,
+                    &toggle_strict_mode,
+                    &view_stats,
                     &separator2,
                     &settings,
                     &separator3,
@@ -95,24 +94,22 @@ pub fn run() -> Result<(), String> {
                                 let _ = window.set_focus();
                             }
                         }
-                        "start-focus" => {
-                            println!("🖱️ [TrayMenu] Start focus clicked");
-                            let app_handle_inner = app_handle.clone();
-                            // Emit event that frontend can listen to, or show window to let user start from UI
-                            if let Some(window) = app_handle_inner.get_webview_window("main") {
+                        "toggle-strict-mode" => {
+                            println!("🖱️ [TrayMenu] Toggle strict mode clicked - redirecting to settings");
+                            if let Some(window) = app_handle.get_webview_window("main") {
                                 let _ = window.show();
                                 let _ = window.set_focus();
-                                // Frontend will handle starting the focus session when window is shown
+                                // Navigate to settings page where user can toggle strict mode
+                                let _ = window.eval("window.location.hash = '#/settings';");
                             }
                         }
-                        "start-break" => {
-                            println!("🖱️ [TrayMenu] Start break clicked");
-                            let app_handle_inner = app_handle.clone();
-                            // Emit event that frontend can listen to, or show window to let user start from UI
-                            if let Some(window) = app_handle_inner.get_webview_window("main") {
+                        "view-stats" => {
+                            println!("🖱️ [TrayMenu] View stats clicked");
+                            if let Some(window) = app_handle.get_webview_window("main") {
                                 let _ = window.show();
                                 let _ = window.set_focus();
-                                // Frontend will handle starting the break session when window is shown
+                                // Navigate to stats page
+                                let _ = window.eval("window.location.hash = '#/stats';");
                             }
                         }
                         "settings" => {
@@ -120,7 +117,8 @@ pub fn run() -> Result<(), String> {
                             if let Some(window) = app_handle.get_webview_window("main") {
                                 let _ = window.show();
                                 let _ = window.set_focus();
-                                // TODO: Navigate to settings page
+                                // Navigate to settings page
+                                let _ = window.eval("window.location.hash = '#/settings';");
                             }
                         }
                         "quit" => {

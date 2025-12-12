@@ -157,8 +157,7 @@ export const tauriCommands = {
   completeOnboarding: (finalConfig: any) =>
     invokeCommand<void>("complete_onboarding", { finalConfig }),
 
-  getOnboardingStatus: () =>
-    invokeCommand<boolean>("get_onboarding_status"),
+  getOnboardingStatus: () => invokeCommand<boolean>("get_onboarding_status"),
 
   // Strict mode commands
   registerEmergencyHotkey: (combination: string) =>
@@ -169,4 +168,15 @@ export const tauriCommands = {
 
   emergencyExitStrictMode: () =>
     invokeCommand<void>("emergency_exit_strict_mode"),
+
+  getStrictModeConfig: () =>
+    invokeCommand<{
+      strict_mode: boolean;
+      emergency_key_combination: string | null;
+    }>("get_strict_mode_config"),
+
+  saveStrictModeConfig: (config: {
+    strict_mode: boolean;
+    emergency_key_combination?: string | null;
+  }) => invokeCommand<void>("save_strict_mode_config", { config }),
 } as const;

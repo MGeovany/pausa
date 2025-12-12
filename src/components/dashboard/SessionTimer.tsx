@@ -63,7 +63,6 @@ export function SessionTimer({
       <div className="flex flex-col items-center justify-center gap-4 py-6">
         <div className="text-center">
           <div className="text-5xl sm:text-6xl md:text-7xl font-mono font-semibold">
-            TIME{" "}
             {cycleState
               ? cycleState.phase === "idle"
                 ? "--:--"

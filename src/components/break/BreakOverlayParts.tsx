@@ -190,17 +190,10 @@ export function StrictModeBreakUI({
       <div className="text-8xl font-bbh font-normal text-blue-100 mb-4">
         PAUSA
       </div>
-      <div className="text-[64px] font-semibold text-gray-200 font-mono">
+      <div className="text-9xl font-semibold text-gray-200 font-mono">
         {minutes.toString().padStart(2, "0")}:
         {seconds.toString().padStart(2, "0")}
       </div>
-
-      {/* Show break type indicator */}
-      {isBreakPhase && (
-        <div className="text-sm text-gray-400 uppercase tracking-wider">
-          {breakType === "long" ? "🌟 Long Break" : "☕ Short Break"}
-        </div>
-      )}
 
       <div className="flex items-center justify-center my-8">
         <div className="relative w-[200px] h-[200px]">
