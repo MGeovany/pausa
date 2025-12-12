@@ -382,7 +382,7 @@ impl WindowManager {
             )
             .title("Pausa Settings")
             .inner_size(800.0, 600.0)
-            .resizable(true)
+            .resizable(false)
             .decorations(true)
             .center()
             .skip_taskbar(false)

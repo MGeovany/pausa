@@ -24,10 +24,19 @@ export function CycleSync() {
     try {
       const win = getCurrentWindow();
       if (win.label !== "main") return;
-      await win.setSize(new LogicalSize(1280, 800));
-      await win.center();
+
+      try {
+        await win.setSize(new LogicalSize(800, 600));
+        await win.center();
+      } catch (windowError: any) {
+        // Silently ignore permission errors - they're expected in some contexts
+        if (!windowError?.message?.includes("not allowed")) {
+          console.error("Failed to normalize main window:", windowError);
+        }
+      }
     } catch (error) {
-      console.error("Failed to normalize main window:", error);
+      // Ignore errors if window operations are not available
+      console.debug("Window operations not available:", error);
     }
   };
 
@@ -121,14 +130,25 @@ export function CycleSync() {
                       const { getCurrentWindow } = await import(
                         "@tauri-apps/api/window"
                       );
-                      const currentWindow = await getCurrentWindow();
+                      const currentWindow = getCurrentWindow();
                       if (currentWindow.label === "main") {
-                        await currentWindow.show();
-                        await currentWindow.setFocus();
+                        try {
+                          await currentWindow.show();
+                          await currentWindow.setFocus();
+                        } catch (windowError: any) {
+                          // Silently ignore permission errors - they're expected in some windows
+                          if (!windowError?.message?.includes("not allowed")) {
+                            console.error(
+                              "❌ [Frontend] Failed to show main window:",
+                              windowError
+                            );
+                          }
+                        }
                       }
                     } catch (error) {
-                      console.error(
-                        "❌ [Frontend] Failed to show main window:",
+                      // Ignore errors if not in main window
+                      console.debug(
+                        "[Frontend] Window operations not available:",
                         error
                       );
                     }

@@ -3,5 +3,18 @@
   "identifier": "default",
   "description": "Capability for the main window",
   "windows": ["main"],
-  "permissions": ["core:default", "shell:default"]
+  "permissions": [
+    "core:default",
+    "shell:default",
+    "core:window:allow-set-size",
+    "core:window:allow-show",
+    "core:window:allow-hide",
+    "core:window:allow-center",
+    "core:window:allow-set-focus",
+    "core:window:allow-close",
+    "notification:default",
+    "notification:allow-is-permission-granted",
+    "notification:allow-request-permission",
+    "notification:allow-show"
+  ]
 }

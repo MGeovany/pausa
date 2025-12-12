@@ -118,7 +118,7 @@ export default function App() {
     const normalizeMainWindow = async () => {
       try {
         const win = getCurrentWindow();
-        await win.setSize(new LogicalSize(1280, 800));
+        await win.setSize(new LogicalSize(800, 600));
         await win.center();
       } catch (error) {
         console.error("Failed to normalize main window position/size:", error);
