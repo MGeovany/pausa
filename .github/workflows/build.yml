@@ -70,9 +70,16 @@ jobs:
           path: |
             src-tauri/target/release/bundle/macos/pausa.app
             src-tauri/target/release/bundle/dmg/*.dmg
-          retention-days: 30
+          retention-days: 90
 
-      - name: Create Release (only on tags)
+      - name: Get version from package.json
+        id: version
+        run: |
+          VERSION=$(node -p "require('./package.json').version")
+          echo "version=$VERSION" >> $GITHUB_OUTPUT
+          echo "Version: $VERSION"
+
+      - name: Create or Update Release (on tags)
         if: startsWith(github.ref, 'refs/tags/v')
         uses: softprops/action-gh-release@v1
         with:
@@ -81,3 +88,29 @@ jobs:
             src-tauri/target/release/bundle/dmg/*.dmg
           draft: false
           prerelease: false
+          generate_release_notes: true
+
+      - name: Create Release for main branch
+        if: github.ref == 'refs/heads/main' && github.event_name != 'pull_request'
+        uses: softprops/action-gh-release@v1
+        with:
+          tag_name: "v${{ steps.version.outputs.version }}-${{ github.run_number }}"
+          name: "Pausa v${{ steps.version.outputs.version }}-${{ github.run_number }}"
+          body: |
+            ## 🚀 Build #${{ github.run_number }}
+
+            **Commit**: ${{ github.sha }}
+            **Branch**: ${{ github.ref_name }}
+            **Version**: ${{ steps.version.outputs.version }}
+
+            ### 📦 Downloads
+            - **DMG**: Descarga el archivo `.dmg` para instalar en macOS
+            - **App Bundle**: O descarga el `.app` directamente
+
+            ### ⚠️ Nota
+            Este es un build automático de la rama `main`. Para builds estables, crea un tag (ej: `v1.0.0`).
+          files: |
+            src-tauri/target/release/bundle/macos/pausa.app
+            src-tauri/target/release/bundle/dmg/*.dmg
+          draft: false
+          prerelease: true
