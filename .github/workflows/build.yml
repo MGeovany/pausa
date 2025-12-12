@@ -48,6 +48,11 @@ jobs:
         run: npm run build
 
       - name: Build Tauri app
+        env:
+          GOOGLE_CLIENT_ID: ${{ secrets.GOOGLE_CLIENT_ID }}
+          GOOGLE_CLIENT_SECRET: ${{ secrets.GOOGLE_CLIENT_SECRET }}
+          OAUTH_REDIRECT_URI: ${{ secrets.OAUTH_REDIRECT_URI || 'http://localhost:8080' }}
+          POSTHOG_API_KEY: ${{ secrets.POSTHOG_API_KEY }}
         run: npm run tauri:build:macos
 
       - name: Sign app with ad-hoc identity

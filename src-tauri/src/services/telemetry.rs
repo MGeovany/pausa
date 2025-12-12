@@ -48,15 +48,16 @@ pub struct TelemetryService {
 
 impl TelemetryService {
     pub fn new() -> Self {
-        // Try PostHog API key from env, or use default
-        let api_key = std::env::var("POSTHOG_API_KEY")
-            .ok()
-            .or_else(|| {
-                // Default API key provided by user
-                Some("phc_wfSFStKUOOz5DEdaLzZZJlWA0Rbd8hOz3TAp58qHstl".to_string())
-            });
+      
+        let api_key = std::env::var("POSTHOG_API_KEY").ok();
         
+
         let enabled = api_key.is_some();
+        
+        if !enabled {
+            println!("⚠️ [Telemetry] PostHog API key not found. Telemetry disabled.");
+            println!("   Set POSTHOG_API_KEY environment variable to enable telemetry.");
+        }
         
         Self {
             api_key,
