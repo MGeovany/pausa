@@ -81,7 +81,7 @@ export default function OnboardingWizard({
 
   const createBackup = async (): Promise<void> => {
     try {
-      const backupId = await invoke<string>("create_configuration_backup", {
+      await invoke<string>("create_configuration_backup", {
         backupType: "pre_update",
         description: `Backup before ${currentStep} step`,
       });
@@ -98,7 +98,7 @@ export default function OnboardingWizard({
 
     try {
       // Try to get configuration health check
-      const healthCheck = await invoke("get_configuration_health_check");
+      await invoke("get_configuration_health_check");
 
       // Reset onboarding if needed
       await invoke("reset_onboarding_for_testing");
@@ -122,7 +122,19 @@ export default function OnboardingWizard({
 
     try {
       // Get step data for current step
-      const currentStepData = stepData[currentStep] || null;
+      let currentStepData = stepData[currentStep] || null;
+
+      // Normalize userName: convert empty strings to null
+      if (
+        currentStepData &&
+        currentStep === "StrictMode" &&
+        currentStepData.userName !== undefined
+      ) {
+        currentStepData = {
+          ...currentStepData,
+          userName: currentStepData.userName?.trim() || null,
+        };
+      }
 
       // Validate current step data before proceeding
       if (currentStepData && !(await validateCurrentStep(currentStepData))) {
@@ -172,10 +184,13 @@ export default function OnboardingWizard({
       // Save strict mode configuration if we're leaving the StrictMode step
       if (currentStep === "StrictMode" && currentStepData) {
         try {
-          // Save user name if provided
-          if (currentStepData.userName) {
+          // Save user name if provided and not empty
+          if (
+            currentStepData.userName &&
+            currentStepData.userName.trim() !== ""
+          ) {
             await invoke("update_user_name", {
-              userName: currentStepData.userName,
+              userName: currentStepData.userName.trim(),
             });
           }
 
@@ -228,7 +243,7 @@ export default function OnboardingWizard({
           // Strict mode configuration
           strictMode: stepData.StrictMode?.strictMode || false,
           emergencyKey: stepData.StrictMode?.emergencyKey || null,
-          userName: stepData.StrictMode?.userName || null,
+          userName: stepData.StrictMode?.userName?.trim() || null,
         };
 
         // Validate final configuration before completion

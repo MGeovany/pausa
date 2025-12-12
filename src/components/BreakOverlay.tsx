@@ -34,8 +34,6 @@ export function BreakOverlay({
     activity,
     currentCycleState,
     settings,
-    canCompleteBreak,
-    showCompletionInterface,
     accentColor,
     bypassAttempts,
     showEmergencyModal,

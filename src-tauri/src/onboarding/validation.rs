@@ -60,9 +60,14 @@ impl OnboardingValidator {
         // Validate strict mode configuration
         self.validate_strict_mode_configuration(config);
 
-        // Validate user name if provided
+        // Validate user name if provided and not empty (userName is optional)
         if let Some(user_name) = config.get("userName") {
-            self.validate_user_name(user_name);
+            if let Some(name_str) = user_name.as_str() {
+                // Only validate if the string is not empty
+                if !name_str.trim().is_empty() {
+                    self.validate_user_name(user_name);
+                }
+            }
         }
 
         // Check for configuration conflicts
@@ -424,8 +429,14 @@ pub fn validate_step_data(step: &str, data: &serde_json::Value) -> ValidationRes
         }
         "StrictMode" => {
             validator.validate_strict_mode_configuration(data);
+            // Only validate userName if it's provided and not empty
             if let Some(user_name) = data.get("userName") {
-                validator.validate_user_name(user_name);
+                if let Some(name_str) = user_name.as_str() {
+                    // Only validate if the string is not empty (userName is optional)
+                    if !name_str.trim().is_empty() {
+                        validator.validate_user_name(user_name);
+                    }
+                }
             }
         }
         _ => {

@@ -1,5 +1,3 @@
-import { formatShortcut } from "../../utils";
-
 export function ShortcutsCard() {
   const isMac = navigator.platform.toUpperCase().indexOf("MAC") >= 0;
   const cmdKey = isMac ? "⌘" : "Ctrl";

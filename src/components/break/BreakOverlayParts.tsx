@@ -180,11 +180,6 @@ export function StrictModeBreakUI({
   const minutes = Math.floor(safeRemaining / 60);
   const seconds = safeRemaining % 60;
 
-  // Determine if we're actually in a break phase
-  const isBreakPhase =
-    cycleState?.phase === "short_break" || cycleState?.phase === "long_break";
-  const breakType = cycleState?.phase === "long_break" ? "long" : "short";
-
   return (
     <div className="flex flex-col items-center justify-center text-center gap-10">
       <div className="text-8xl font-bbh font-normal text-blue-100 mb-4">

@@ -12,7 +12,7 @@ export function useShortcuts(options: UseShortcutsOptions = {}) {
   const { enabled = true, onToggleCommandPalette } = options;
   const { startRoutine, pauseCycle, resumeCycle, endSession } =
     useCycleManager();
-  const { cycleState, settings, toggleCommandPalette } = useAppStore();
+  const { cycleState, toggleCommandPalette } = useAppStore();
   const navigate = useNavigate();
 
   useEffect(() => {

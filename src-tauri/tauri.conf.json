@@ -53,10 +53,7 @@
       "minimumSystemVersion": "10.13",
       "exceptionDomain": "",
       "signingIdentity": null,
-      "entitlements": null,
-      "info": {
-        "LSUIElement": true
-      }
+      "entitlements": null
     }
   }
 }

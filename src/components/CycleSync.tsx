@@ -62,7 +62,7 @@ export function CycleSync() {
       try {
         unlisten = await listen<CycleEventData>("cycle-event", (event) => {
           const cycleEvent = event.payload;
-          const phaseLabel = "phase" in cycleEvent ? cycleEvent.phase : "n/a";
+
           normalizeMainWindow();
 
           // Handle different event types
