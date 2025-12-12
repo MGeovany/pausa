@@ -19,18 +19,14 @@ jobs:
       - name: Checkout repository
         uses: actions/checkout@v4
 
-      - name: Setup pnpm
-        uses: pnpm/action-setup@v4
-        with:
-          version: 8
-
       - name: Setup Node.js
         uses: actions/setup-node@v4
         with:
           node-version: "20"
+          cache: "npm"
 
-      - name: Install pnpm dependencies
-        run: pnpm install --frozen-lockfile
+      - name: Install npm dependencies
+        run: npm ci
 
       - name: Setup Rust
         uses: dtolnay/rust-toolchain@stable
@@ -49,10 +45,10 @@ jobs:
           key: ${{ runner.os }}-cargo-universal-${{ hashFiles('**/Cargo.lock') }}
 
       - name: Build frontend
-        run: pnpm build
+        run: npm run build
 
       - name: Build Tauri app (Universal)
-        run: pnpm tauri:build:universal
+        run: npm run tauri:build:universal
 
       - name: Sign app with ad-hoc identity
         run: |
