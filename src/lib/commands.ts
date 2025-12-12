@@ -1,12 +1,12 @@
-import type { Command } from '../types';
-import { useAppStore } from '../store';
-import { tauriCommands } from './tauri';
+import type { Command } from "../types";
+import { useAppStore } from "../store";
+import { tauriCommands } from "./tauri";
 
 // Command factory functions for creating commands
 export const createCommand = (
   id: string,
   label: string,
-  category: Command['category'],
+  category: Command["category"],
   action: () => Promise<void>,
   shortcut?: string
 ): Command => ({
@@ -20,71 +20,74 @@ export const createCommand = (
 // Command implementations
 export const createStartFocusCommand = (): Command =>
   createCommand(
-    'start-focus',
-    'Start Focus Session',
-    'focus',
+    "start-focus",
+    "Start Focus Session",
+    "focus",
     async () => {
       const { settings } = useAppStore.getState();
       await tauriCommands.startFocusSession(settings.strictMode);
     },
-    '⌘⇧F'
-  );
-
-export const createLockNowCommand = (): Command =>
-  createCommand(
-    'lock-now',
-    'Lock Now',
-    'lock',
-    async () => {
-      // Start an immediate short break
-      await tauriCommands.startFocusSession(true);
-      await tauriCommands.endSession();
-    },
-    '⌘⇧L'
+    "⌘⇧F"
   );
 
 export const createHydrateBreakCommand = (): Command =>
-  createCommand(
-    'hydrate-break',
-    'Take Hydrate Break',
-    'break',
-    async () => {
-      // Start a short break session
-      await tauriCommands.startFocusSession(false);
-      await tauriCommands.endSession();
-    }
-  );
+  createCommand("hydrate-break", "Take Hydrate Break", "break", async () => {
+    // Start a short break session
+    await tauriCommands.startFocusSession(false);
+    await tauriCommands.endSession();
+  });
 
-export const createStatsCommand = (): Command =>
-  createCommand(
-    'stats',
-    'View Statistics',
-    'stats',
-    async () => {
-      window.location.hash = '#/stats';
+export const createStatsCommand = (
+  navigateFn?: (path: string) => void
+): Command =>
+  createCommand("stats", "View Statistics", "stats", async () => {
+    // Navigate to stats page
+    if (navigateFn) {
+      navigateFn("/stats");
+    } else {
+      // Fallback to hash navigation
+      if (window.location.hash !== "#/stats") {
+        window.location.hash = "#/stats";
+      } else {
+        // Force a re-render if we're already there
+        window.dispatchEvent(new PopStateEvent("popstate"));
+      }
     }
-  );
+  });
 
 export const createSettingsCommand = (): Command =>
-  createCommand(
-    'settings',
-    'Open Settings',
-    'settings',
-    async () => {
-      window.location.hash = '#/settings';
-    }
-  );
+  createCommand("settings", "Open Settings", "settings", async () => {
+    window.location.hash = "#/settings";
+  });
 
 export const createBreakActivitiesCommand = (): Command =>
   createCommand(
-    'break-activities',
-    'Manage Break Activities',
-    'settings',
+    "break-activities",
+    "Manage Break Activities",
+    "settings",
     async () => {
       // This will be handled by the parent component
-      console.log('Opening break activities settings...');
+      console.log("Opening break activities settings...");
     }
   );
+
+// Pause command - only available when session is running
+export const createPauseCommand = (onPause: () => Promise<void>): Command =>
+  createCommand("pause-session", "Pause Session", "focus", async () => {
+    await onPause();
+  });
+
+// Resume command - only available when session is paused
+export const createResumeCommand = (onResume: () => Promise<void>): Command =>
+  createCommand("resume-session", "Resume Session", "focus", async () => {
+    await onResume();
+  });
+
+// End session command - only available when session is active
+export const createEndSessionCommand = (onEnd: () => Promise<void>): Command =>
+  createCommand("end-session", "End Session", "focus", async () => {
+    await onEnd();
+  });
 
 // Session management functions for use in components
 export const SessionManager = {
@@ -125,13 +128,15 @@ export const SessionManager = {
 
   async completeBreak() {
     await tauriCommands.completeBreak();
-  }
+  },
 };
 
 // Command registry with search indexing
 export class CommandRegistry {
-  private commands: Command[] = [];
+  private baseCommands: Command[] = [];
+  private dynamicCommands: Command[] = [];
   private searchIndex: Map<string, Command[]> = new Map();
+  private navigateFn?: (path: string) => void;
 
   constructor() {
     this.registerDefaultCommands();
@@ -139,23 +144,59 @@ export class CommandRegistry {
   }
 
   private registerDefaultCommands() {
-    this.commands = [
+    this.baseCommands = [
       createStartFocusCommand(),
-      createLockNowCommand(),
-      createHydrateBreakCommand(),
-      createStatsCommand(),
+      createStatsCommand(this.navigateFn),
       createSettingsCommand(),
-      createBreakActivitiesCommand(),
     ];
+  }
+
+  // Re-register commands with navigation function
+  registerWithNavigation(navigateFn: (path: string) => void) {
+    this.navigateFn = navigateFn;
+    this.registerDefaultCommands();
+    this.buildSearchIndex();
+  }
+
+  // Update dynamic commands based on cycle state
+  updateDynamicCommands(
+    cycleState: any,
+    handlers: {
+      onPause: () => Promise<void>;
+      onResume: () => Promise<void>;
+      onEnd: () => Promise<void>;
+    }
+  ) {
+    this.dynamicCommands = [];
+
+    // Only add pause/resume/end commands if there's an active session
+    if (cycleState && cycleState.phase !== "idle") {
+      if (cycleState.is_running) {
+        // Session is running, show pause
+        this.dynamicCommands.push(createPauseCommand(handlers.onPause));
+      } else {
+        // Session is paused, show resume
+        this.dynamicCommands.push(createResumeCommand(handlers.onResume));
+      }
+      // Always show end when there's an active session
+      this.dynamicCommands.push(createEndSessionCommand(handlers.onEnd));
+    }
+
+    this.buildSearchIndex();
+  }
+
+  private getAllCommandsInternal(): Command[] {
+    return [...this.baseCommands, ...this.dynamicCommands];
   }
 
   private buildSearchIndex() {
     this.searchIndex.clear();
+    const allCommands = this.getAllCommandsInternal();
 
-    this.commands.forEach(command => {
+    allCommands.forEach((command) => {
       // Index by label words
-      const labelWords = command.label.toLowerCase().split(' ');
-      labelWords.forEach(word => {
+      const labelWords = command.label.toLowerCase().split(" ");
+      labelWords.forEach((word) => {
         if (!this.searchIndex.has(word)) {
           this.searchIndex.set(word, []);
         }
@@ -179,12 +220,13 @@ export class CommandRegistry {
   }
 
   getAllCommands(): Command[] {
-    return [...this.commands];
+    return this.getAllCommandsInternal();
   }
 
   searchCommands(query: string): Command[] {
+    const allCommands = this.getAllCommandsInternal();
     if (!query.trim()) {
-      return this.getAllCommands();
+      return allCommands;
     }
 
     const normalizedQuery = query.toLowerCase().trim();
@@ -192,25 +234,27 @@ export class CommandRegistry {
 
     // Exact matches first
     if (this.searchIndex.has(normalizedQuery)) {
-      this.searchIndex.get(normalizedQuery)!.forEach(cmd => results.add(cmd));
+      this.searchIndex.get(normalizedQuery)!.forEach((cmd) => results.add(cmd));
     }
 
     // Partial matches
     for (const [key, commands] of this.searchIndex.entries()) {
       if (key.includes(normalizedQuery) || normalizedQuery.includes(key)) {
-        commands.forEach(cmd => results.add(cmd));
+        commands.forEach((cmd) => results.add(cmd));
       }
     }
 
     // Fuzzy matching for remaining commands
-    this.commands.forEach(command => {
+    allCommands.forEach((command) => {
       if (!results.has(command)) {
         const label = command.label.toLowerCase();
         const category = command.category.toLowerCase();
 
         // Simple fuzzy matching - check if query characters appear in order
-        if (this.fuzzyMatch(normalizedQuery, label) ||
-          this.fuzzyMatch(normalizedQuery, category)) {
+        if (
+          this.fuzzyMatch(normalizedQuery, label) ||
+          this.fuzzyMatch(normalizedQuery, category)
+        ) {
           results.add(command);
         }
       }
@@ -234,17 +278,18 @@ export class CommandRegistry {
   }
 
   addCommand(command: Command) {
-    this.commands.push(command);
+    this.baseCommands.push(command);
     this.buildSearchIndex();
   }
 
   removeCommand(commandId: string) {
-    this.commands = this.commands.filter(cmd => cmd.id !== commandId);
+    this.baseCommands = this.baseCommands.filter((cmd) => cmd.id !== commandId);
     this.buildSearchIndex();
   }
 
   getCommand(commandId: string): Command | undefined {
-    return this.commands.find(cmd => cmd.id === commandId);
+    const allCommands = this.getAllCommandsInternal();
+    return allCommands.find((cmd) => cmd.id === commandId);
   }
 }
 

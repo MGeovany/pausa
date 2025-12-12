@@ -150,6 +150,21 @@ const CommandGroup: React.FC<CommandGroupProps> = ({
   );
 };
 
+// Simple fuzzy matching function - defined outside component to avoid hoisting issues
+const fuzzyMatch = (query: string, target: string): boolean => {
+  let queryIndex = 0;
+  let targetIndex = 0;
+
+  while (queryIndex < query.length && targetIndex < target.length) {
+    if (query[queryIndex] === target[targetIndex]) {
+      queryIndex++;
+    }
+    targetIndex++;
+  }
+
+  return queryIndex === query.length;
+};
+
 export const CommandPalette: React.FC<CommandPaletteProps> = ({
   isOpen,
   onClose,
@@ -213,21 +228,6 @@ export const CommandPalette: React.FC<CommandPaletteProps> = ({
   }, [filteredCommands]);
 
   const totalCommands = filteredCommands.length;
-
-  // Simple fuzzy matching function
-  const fuzzyMatch = (query: string, target: string): boolean => {
-    let queryIndex = 0;
-    let targetIndex = 0;
-
-    while (queryIndex < query.length && targetIndex < target.length) {
-      if (query[queryIndex] === target[targetIndex]) {
-        queryIndex++;
-      }
-      targetIndex++;
-    }
-
-    return queryIndex === query.length;
-  };
 
   // Reset selection when filtered commands change
   useEffect(() => {
@@ -330,11 +330,12 @@ export const CommandPalette: React.FC<CommandPaletteProps> = ({
             placeholder="Search commands..."
             value={searchQuery}
             onChange={handleSearchChange}
-            className="flex-1 bg-transparent text-white placeholder-gray-500 outline-none text-lg font-medium"
+            className="flex-1 bg-transparent text-white placeholder-gray-500 outline-none text-lg font-medium rounded-md"
             style={{
               fontFamily: "Inter, SF Pro Display, system-ui, sans-serif",
             }}
           />
+
           {searchQuery && (
             <button
               onClick={() => setSearchQuery("")}

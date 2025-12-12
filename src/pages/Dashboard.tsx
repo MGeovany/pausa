@@ -1,8 +1,12 @@
 import { useEffect } from "react";
+import { useNavigate } from "react-router-dom";
 import { useCycleManager } from "../lib/useCycleManager";
 import { useCycleState, useAppStore, useStrictModeState } from "../store";
 import { tauriCommands } from "../lib/tauri";
 import { CycleManager } from "../lib/cycleCommands";
+import { useShortcuts } from "../lib/useShortcuts";
+import { CommandPalette } from "../components/CommandPalette";
+import { commandRegistry } from "../lib/commands";
 import {
   Sidebar,
   DashboardHeader,
@@ -12,11 +16,31 @@ import {
 } from "../components/dashboard";
 
 export default function Dashboard() {
+  const navigate = useNavigate();
   const cycleState = useCycleState();
   const strictModeState = useStrictModeState();
-  const { setCycleState, updateSettings, settings } = useAppStore();
+  const {
+    setCycleState,
+    updateSettings,
+    settings,
+    isCommandPaletteOpen,
+    toggleCommandPalette,
+  } = useAppStore();
   const { startRoutine, pauseCycle, resumeCycle, endSession, resetCycleCount } =
     useCycleManager();
+
+  // Register commands with navigation function on mount
+  useEffect(() => {
+    commandRegistry.registerWithNavigation((path: string) => {
+      navigate(path);
+    });
+  }, [navigate]);
+
+  // Register keyboard shortcuts
+  useShortcuts({
+    enabled: true,
+    onToggleCommandPalette: toggleCommandPalette,
+  });
 
   // Load settings from database on mount
   useEffect(() => {
@@ -73,8 +97,22 @@ export default function Dashboard() {
     }
   };
 
+  // Update command registry with dynamic commands based on cycle state
+  useEffect(() => {
+    commandRegistry.updateDynamicCommands(cycleState, {
+      onPause: pauseCycle,
+      onResume: resumeCycle,
+      onEnd: () => endSession(false),
+    });
+  }, [cycleState, pauseCycle, resumeCycle, endSession]);
+
   return (
     <div className="min-h-screen bg-gray-950 text-gray-200">
+      <CommandPalette
+        isOpen={isCommandPaletteOpen}
+        onClose={toggleCommandPalette}
+        commands={commandRegistry.getAllCommands()}
+      />
       <div className="flex">
         <Sidebar />
 
