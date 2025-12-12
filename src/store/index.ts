@@ -1,6 +1,13 @@
-import { create } from 'zustand';
-import { devtools } from 'zustand/middleware';
-import type { AppState, UserSettings, FocusSession, BreakSession, CycleState, StrictModeState } from '../types';
+import { create } from "zustand";
+import { devtools } from "zustand/middleware";
+import type {
+  AppState,
+  UserSettings,
+  FocusSession,
+  BreakSession,
+  CycleState,
+  StrictModeState,
+} from "../types";
 
 // Default settings based on requirements
 const DEFAULT_SETTINGS: UserSettings = {
@@ -39,54 +46,30 @@ export const useAppStore = create<ExtendedAppState>()(
 
       // Session actions
       setCurrentSession: (session: FocusSession | null) =>
-        set(
-          { currentSession: session },
-          false,
-          'setCurrentSession'
-        ),
+        set({ currentSession: session }, false, "setCurrentSession"),
 
       setCurrentBreak: (breakSession: BreakSession | null) =>
-        set(
-          { currentBreak: breakSession },
-          false,
-          'setCurrentBreak'
-        ),
+        set({ currentBreak: breakSession }, false, "setCurrentBreak"),
 
       // UI actions
       toggleCommandPalette: () =>
         set(
           (state) => ({ isCommandPaletteOpen: !state.isCommandPaletteOpen }),
           false,
-          'toggleCommandPalette'
+          "toggleCommandPalette"
         ),
 
       showFocusWidget: () =>
-        set(
-          { isFocusWidgetVisible: true },
-          false,
-          'showFocusWidget'
-        ),
+        set({ isFocusWidgetVisible: true }, false, "showFocusWidget"),
 
       hideFocusWidget: () =>
-        set(
-          { isFocusWidgetVisible: false },
-          false,
-          'hideFocusWidget'
-        ),
+        set({ isFocusWidgetVisible: false }, false, "hideFocusWidget"),
 
       showBreakOverlay: () =>
-        set(
-          { isBreakOverlayVisible: true },
-          false,
-          'showBreakOverlay'
-        ),
+        set({ isBreakOverlayVisible: true }, false, "showBreakOverlay"),
 
       hideBreakOverlay: () =>
-        set(
-          { isBreakOverlayVisible: false },
-          false,
-          'hideBreakOverlay'
-        ),
+        set({ isBreakOverlayVisible: false }, false, "hideBreakOverlay"),
 
       // Settings actions
       updateSettings: (newSettings: Partial<UserSettings>) =>
@@ -95,39 +78,34 @@ export const useAppStore = create<ExtendedAppState>()(
             settings: { ...state.settings, ...newSettings },
           }),
           false,
-          'updateSettings'
+          "updateSettings"
         ),
 
       // Cycle actions
       setCycleState: (cycleState: CycleState | null) =>
-        set(
-          { cycleState },
-          false,
-          'setCycleState'
-        ),
+        set({ cycleState }, false, "setCycleState"),
 
       // Strict mode actions
       setStrictModeState: (strictModeState: StrictModeState | null) =>
-        set(
-          { strictModeState },
-          false,
-          'setStrictModeState'
-        ),
+        set({ strictModeState }, false, "setStrictModeState"),
     }),
     {
-      name: 'pausa-store',
+      name: "pausa-store",
     }
   )
 );
 
 // Selectors for commonly used state combinations
-export const useCurrentSession = () => useAppStore((state) => state.currentSession);
+export const useCurrentSession = () =>
+  useAppStore((state) => state.currentSession);
 export const useCurrentBreak = () => useAppStore((state) => state.currentBreak);
 export const useSettings = () => useAppStore((state) => state.settings);
-export const useUIState = () => useAppStore((state) => ({
-  isCommandPaletteOpen: state.isCommandPaletteOpen,
-  isFocusWidgetVisible: state.isFocusWidgetVisible,
-  isBreakOverlayVisible: state.isBreakOverlayVisible,
-}));
+export const useUIState = () =>
+  useAppStore((state) => ({
+    isCommandPaletteOpen: state.isCommandPaletteOpen,
+    isFocusWidgetVisible: state.isFocusWidgetVisible,
+    isBreakOverlayVisible: state.isBreakOverlayVisible,
+  }));
 export const useCycleState = () => useAppStore((state) => state.cycleState);
-export const useStrictModeState = () => useAppStore((state) => state.strictModeState);
+export const useStrictModeState = () =>
+  useAppStore((state) => state.strictModeState);

@@ -11,12 +11,13 @@ export class CycleManager {
    */
   static async initialize(): Promise<CycleState> {
     try {
-      console.log("🔄 [Frontend] Initializing cycle orchestrator...");
       const state = await invoke<CycleState>("initialize_cycle_orchestrator");
-      console.log("✅ [Frontend] Cycle orchestrator initialized:", state);
       return state;
     } catch (error) {
-      console.error("❌ [Frontend] Failed to initialize cycle orchestrator:", error);
+      console.error(
+        "❌ [Frontend] Failed to initialize cycle orchestrator:",
+        error
+      );
       throw error;
     }
   }
@@ -28,11 +29,9 @@ export class CycleManager {
     overrideWorkHours?: boolean
   ): Promise<CycleState> {
     try {
-      console.log("🚀 [Frontend] Starting focus session with overrideWorkHours:", overrideWorkHours);
       const state = await invoke<CycleState>("start_focus_session", {
         overrideWorkHours: overrideWorkHours || false,
       });
-      console.log("✅ [Frontend] Focus session started:", state);
       return state;
     } catch (error) {
       console.error("❌ [Frontend] Failed to start focus session:", error);

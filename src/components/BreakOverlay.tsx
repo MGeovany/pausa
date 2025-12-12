@@ -1,13 +1,12 @@
-import { useState, useEffect, useMemo, useCallback, useRef } from "react";
 import { EmergencyOverride } from "./EmergencyOverride";
+import type { BreakSession, CycleState } from "../types";
 import {
-  activityCompletionTracker,
-  breakActivityManager,
-} from "../lib/breakActivities";
-import type { BreakSession, BreakActivity, CycleState } from "../types";
-import { useCycleState, useSettings } from "../store";
-import { invoke } from "@tauri-apps/api/core";
-import { getCurrentWindow } from "@tauri-apps/api/window";
+  BreakActivityChecklist,
+  CountdownTimer,
+  StrictModeBreakUI,
+  CycleProgressIndicator,
+} from "./break/BreakOverlayParts";
+import { useBreakOverlayLogic } from "./break/useBreakOverlayLogic";
 
 interface BreakOverlayProps {
   breakSession: BreakSession;
@@ -19,458 +18,6 @@ interface BreakOverlayProps {
   emergencyKeyCombination?: string;
 }
 
-interface BreakActivityChecklistProps {
-  activity: BreakActivity;
-  onChecklistUpdate: (completedItems: boolean[]) => void;
-}
-
-function CelebrationAnimation({ breakType }: { breakType: "short" | "long" }) {
-  return (
-    <div className="absolute inset-0 pointer-events-none overflow-hidden">
-      {/* Confetti-like particles */}
-      {breakType === "long" && (
-        <>
-          {Array.from({ length: 20 }).map((_, i) => (
-            <div
-              key={i}
-              className="absolute animate-float"
-              style={{
-                left: `${Math.random() * 100}%`,
-                top: "-10%",
-                animationDelay: `${Math.random() * 2}s`,
-                animationDuration: `${3 + Math.random() * 2}s`,
-              }}
-            >
-              <div
-                className={`w-2 h-2 rounded-full ${
-                  [
-                    "bg-amber-400",
-                    "bg-yellow-400",
-                    "bg-orange-400",
-                    "bg-red-400",
-                  ][Math.floor(Math.random() * 4)]
-                }`}
-                style={{
-                  opacity: 0.6 + Math.random() * 0.4,
-                }}
-              />
-            </div>
-          ))}
-        </>
-      )}
-    </div>
-  );
-}
-
-function DailyProgressStats({
-  cyclesCompleted,
-  focusMinutes,
-}: {
-  cyclesCompleted: number;
-  focusMinutes: number;
-}) {
-  return (
-    <div className="bg-gray-800/30 backdrop-blur-sm rounded-xl p-4 mb-6">
-      <h4 className="text-sm text-gray-400 mb-3 text-center">
-        Today's Progress
-      </h4>
-      <div className="flex justify-around">
-        <div className="text-center">
-          <div className="text-3xl font-bold text-blue-400">
-            {cyclesCompleted}
-          </div>
-          <div className="text-xs text-gray-400 mt-1">Cycles</div>
-        </div>
-        <div className="text-center">
-          <div className="text-3xl font-bold text-green-400">
-            {focusMinutes}
-          </div>
-          <div className="text-xs text-gray-400 mt-1">Minutes</div>
-        </div>
-      </div>
-    </div>
-  );
-}
-
-function MilestoneAchievement({
-  cyclesCompleted,
-}: {
-  cyclesCompleted: number;
-}) {
-  const getMilestone = () => {
-    if (cyclesCompleted === 1)
-      return { emoji: "🌱", text: "First Cycle!", color: "text-green-400" };
-    if (cyclesCompleted === 4)
-      return { emoji: "🔥", text: "On Fire!", color: "text-orange-400" };
-    if (cyclesCompleted === 8)
-      return { emoji: "⚡", text: "Unstoppable!", color: "text-yellow-400" };
-    if (cyclesCompleted === 12)
-      return { emoji: "🏆", text: "Champion!", color: "text-amber-400" };
-    if (cyclesCompleted === 16)
-      return { emoji: "💎", text: "Diamond Focus!", color: "text-blue-400" };
-    if (cyclesCompleted === 20)
-      return { emoji: "👑", text: "Legendary!", color: "text-purple-400" };
-    if (cyclesCompleted % 10 === 0)
-      return {
-        emoji: "🎯",
-        text: `${cyclesCompleted} Cycles!`,
-        color: "text-cyan-400",
-      };
-    return null;
-  };
-
-  const milestone = getMilestone();
-
-  if (!milestone) return null;
-
-  return (
-    <div className="mb-4 animate-bounce">
-      <div
-        className={`inline-flex items-center px-4 py-2 bg-gray-800/50 rounded-full border-2 ${milestone.color} border-current`}
-      >
-        <span className="text-2xl mr-2">{milestone.emoji}</span>
-        <span className={`font-bold ${milestone.color}`}>{milestone.text}</span>
-      </div>
-    </div>
-  );
-}
-
-function MotivationalMessage({
-  breakType,
-  userName,
-  cyclesCompleted,
-}: {
-  breakType: "short" | "long";
-  userName?: string;
-  cyclesCompleted: number;
-}) {
-  const getMotivationalMessage = () => {
-    if (breakType === "long") {
-      const messages = [
-        userName
-          ? `Outstanding, ${userName}! You're building incredible focus habits.`
-          : "Outstanding! You're building incredible focus habits.",
-        userName
-          ? `${userName}, you're on fire! Keep this momentum going.`
-          : "You're on fire! Keep this momentum going.",
-        userName
-          ? `Brilliant work, ${userName}. Your dedication is inspiring.`
-          : "Brilliant work. Your dedication is inspiring.",
-        userName
-          ? `${userName}, you've earned this break. Recharge and come back stronger.`
-          : "You've earned this break. Recharge and come back stronger.",
-      ];
-      return messages[Math.floor(Math.random() * messages.length)];
-    }
-
-    // Short break messages with variety
-    const shortMessages = [
-      userName
-        ? `Nice work, ${userName}. Keep the focus flowing.`
-        : "Nice work. Keep the focus flowing.",
-      userName ? `You're doing great, ${userName}!` : "You're doing great!",
-      userName
-        ? `Solid focus, ${userName}. Take a moment to recharge.`
-        : "Solid focus. Take a moment to recharge.",
-    ];
-
-    if (cyclesCompleted >= 3) {
-      return userName
-        ? `Great momentum, ${userName}! You're making real progress.`
-        : "Great momentum! You're making real progress.";
-    }
-
-    return shortMessages[Math.floor(Math.random() * shortMessages.length)];
-  };
-
-  return (
-    <p className="text-gray-300 leading-relaxed text-lg">
-      {getMotivationalMessage()}
-    </p>
-  );
-}
-
-function BreakCompletionInterface({
-  breakType,
-  userName,
-  cyclesCompleted,
-  focusMinutes,
-  onStartNewBlock,
-  onEndSession,
-}: {
-  breakType: "short" | "long";
-  userName?: string;
-  cyclesCompleted: number;
-  focusMinutes: number;
-  onStartNewBlock: () => void;
-  onEndSession: () => void;
-}) {
-  return (
-    <div className="relative">
-      <CelebrationAnimation breakType={breakType} />
-
-      <div className="bg-gray-800/50 backdrop-blur-sm rounded-2xl p-8 max-w-md w-full text-center relative z-10">
-        <div className="mb-6">
-          <div
-            className={`text-6xl mb-4 ${
-              breakType === "long" ? "animate-bounce" : ""
-            }`}
-          >
-            {breakType === "long" ? "🎉" : "✨"}
-          </div>
-
-          {/* Milestone achievement badge */}
-          <MilestoneAchievement cyclesCompleted={cyclesCompleted} />
-
-          <h3 className="text-3xl font-semibold text-white mb-3">
-            {breakType === "long" ? "Cycle Complete!" : "Break Complete"}
-          </h3>
-          <MotivationalMessage
-            breakType={breakType}
-            userName={userName}
-            cyclesCompleted={cyclesCompleted}
-          />
-        </div>
-
-        {/* Show stats for long breaks */}
-        {breakType === "long" && (
-          <DailyProgressStats
-            cyclesCompleted={cyclesCompleted}
-            focusMinutes={focusMinutes}
-          />
-        )}
-
-        <div className="space-y-3">
-          <button
-            onClick={onStartNewBlock}
-            className="w-full px-6 py-4 bg-green-600 hover:bg-green-700 text-white font-medium rounded-xl transition-all duration-200 text-lg transform hover:scale-105"
-          >
-            Start New Block
-          </button>
-          <button
-            onClick={onEndSession}
-            className="w-full px-6 py-4 bg-gray-700 hover:bg-gray-600 text-white font-medium rounded-xl transition-colors duration-200"
-          >
-            End Day Session
-          </button>
-        </div>
-      </div>
-    </div>
-  );
-}
-
-function CycleProgressIndicator({
-  cycleCount,
-  cyclesPerLongBreak,
-  breakType,
-}: {
-  cycleCount: number;
-  cyclesPerLongBreak: number;
-  breakType: "short" | "long";
-}) {
-  const completedCycles =
-    breakType === "long" ? cyclesPerLongBreak : cycleCount % cyclesPerLongBreak;
-
-  return (
-    <div className="mb-6">
-      <div className="flex items-center justify-center space-x-2">
-        <span className="text-sm text-gray-400 mr-2">Cycles completed:</span>
-        {Array.from({ length: cyclesPerLongBreak }).map((_, index) => (
-          <div
-            key={index}
-            className={`w-3 h-3 rounded-full transition-all duration-300 ${
-              index < completedCycles
-                ? breakType === "long"
-                  ? "bg-amber-400 shadow-lg shadow-amber-400/50"
-                  : "bg-blue-400 shadow-lg shadow-blue-400/50"
-                : "bg-gray-600"
-            }`}
-          />
-        ))}
-        <span className="text-sm text-gray-400 ml-2">
-          {completedCycles}/{cyclesPerLongBreak}
-        </span>
-      </div>
-      {breakType === "long" && (
-        <div className="text-center mt-2">
-          <span className="text-amber-300 text-sm font-medium">
-            🎉 Long break earned!
-          </span>
-        </div>
-      )}
-    </div>
-  );
-}
-
-function BreakActivityChecklist({
-  activity,
-  onChecklistUpdate,
-}: BreakActivityChecklistProps) {
-  const [completedItems, setCompletedItems] = useState<boolean[]>(
-    new Array(activity.checklist.length).fill(false)
-  );
-
-  const handleItemToggle = (index: number) => {
-    const newCompletedItems = [...completedItems];
-    newCompletedItems[index] = !newCompletedItems[index];
-    setCompletedItems(newCompletedItems);
-    onChecklistUpdate(newCompletedItems);
-  };
-
-  return (
-    <div className="bg-gray-800/50 backdrop-blur-sm rounded-2xl p-8 max-w-md w-full">
-      <h3 className="text-2xl font-semibold text-white mb-2">
-        {activity.title}
-      </h3>
-      <p className="text-gray-300 mb-6 leading-relaxed">
-        {activity.description}
-      </p>
-
-      <div className="space-y-3">
-        {activity.checklist.map((item, index) => (
-          <label
-            key={index}
-            className="flex items-center space-x-3 cursor-pointer group"
-          >
-            <div className="relative">
-              <input
-                type="checkbox"
-                checked={completedItems[index]}
-                onChange={() => handleItemToggle(index)}
-                className="sr-only"
-              />
-              <div
-                className={`w-5 h-5 rounded border-2 transition-all duration-200 ${
-                  completedItems[index]
-                    ? "bg-blue-500 border-blue-500"
-                    : "border-gray-400 group-hover:border-blue-400"
-                }`}
-              >
-                {completedItems[index] && (
-                  <svg
-                    className="w-3 h-3 text-white absolute top-0.5 left-0.5"
-                    fill="currentColor"
-                    viewBox="0 0 20 20"
-                  >
-                    <path
-                      fillRule="evenodd"
-                      d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z"
-                      clipRule="evenodd"
-                    />
-                  </svg>
-                )}
-              </div>
-            </div>
-            <span
-              className={`text-lg transition-all duration-200 ${
-                completedItems[index]
-                  ? "text-gray-400 line-through"
-                  : "text-white group-hover:text-blue-200"
-              }`}
-            >
-              {item}
-            </span>
-          </label>
-        ))}
-      </div>
-    </div>
-  );
-}
-
-function CountdownTimer({
-  remaining,
-  breakType,
-  userName,
-}: {
-  remaining: number;
-  breakType: "short" | "long";
-  userName?: string;
-}) {
-  const minutes = Math.floor(remaining / 60);
-  const seconds = remaining % 60;
-
-  // Different messages based on break type and time remaining
-  const getMessage = () => {
-    if (breakType === "long") {
-      if (remaining > 600)
-        return userName
-          ? `Great work, ${userName}. Take a proper rest`
-          : "Take a proper rest";
-      if (remaining > 60) return "Enjoy your long break";
-      return "Long break ending soon";
-    } else {
-      if (remaining > 60) return "Take your time to recharge";
-      return "Break ending soon";
-    }
-  };
-
-  return (
-    <div className="text-center mb-8">
-      <div
-        className={`font-light text-white mb-4 font-mono tracking-wider ${
-          breakType === "long" ? "text-9xl" : "text-8xl"
-        }`}
-      >
-        {minutes.toString().padStart(2, "0")}:
-        {seconds.toString().padStart(2, "0")}
-      </div>
-      <div className="text-xl text-gray-300">{getMessage()}</div>
-    </div>
-  );
-}
-
-function StrictModeBreakUI({ remaining }: { remaining: number }) {
-  const minutes = Math.floor(remaining / 60);
-  const seconds = remaining % 60;
-
-  console.log(
-    "🖥️ [StrictModeBreakUI] Rendering - remaining:",
-    remaining,
-    "minutes:",
-    minutes,
-    "seconds:",
-    seconds
-  );
-
-  return (
-    <div className="flex flex-col items-center justify-center text-center gap-10">
-      <div className="text-2xl font-black tracking-[0.35em] text-blue-100">
-        PAUSA
-      </div>
-
-      {/* Timer in MM:SS format */}
-      <div className="text-[64px] font-semibold text-gray-200 font-mono">
-        {minutes.toString().padStart(2, "0")}:
-        {seconds.toString().padStart(2, "0")}
-      </div>
-
-      {/* Breathing circle animation */}
-      <div className="flex items-center justify-center">
-        <div className="relative w-[200px] h-[200px]">
-          <div
-            className="absolute inset-0 rounded-full animate-breathing-circle"
-            style={{
-              background:
-                "radial-gradient(circle at 35% 30%, rgba(130,180,255,0.4), rgba(35,69,122,0.25) 45%, rgba(12,26,53,0.45) 70%, rgba(5,12,25,0.7))",
-              boxShadow:
-                "0 20px 50px rgba(7, 17, 35, 0.55), 0 0 35px rgba(65, 105, 225, 0.18)",
-            }}
-          />
-          <div
-            className="absolute inset-0 rounded-full pointer-events-none"
-            style={{
-              background:
-                "radial-gradient(circle at 70% 60%, rgba(255,255,255,0.25), transparent 40%)",
-              filter: "blur(14px)",
-              opacity: 0.75,
-            }}
-          />
-        </div>
-      </div>
-    </div>
-  );
-}
-
 export function BreakOverlay({
   breakSession,
   onCompleteBreak,
@@ -480,407 +27,36 @@ export function BreakOverlay({
   isStrictMode = false,
   emergencyKeyCombination,
 }: BreakOverlayProps) {
-  console.log(
-    "🖥️ [BreakOverlay] MOUNTED - remaining:",
-    breakSession.remaining,
-    "isStrictMode:",
-    isStrictMode
-  );
-
-  const [checklistCompleted, setChecklistCompleted] = useState<boolean[]>([]);
-  const [showEmergencyModal, setShowEmergencyModal] = useState(false);
-  const [bypassAttempts, setBypassAttempts] = useState(0);
-  const storeCycleState = useCycleState();
-  const settings = useSettings();
-  const [remaining, setRemaining] = useState(breakSession.remaining);
-  const [isVisible, setIsVisible] = useState(true); // Start visible to show content immediately
-  const windowRef = useRef<ReturnType<typeof getCurrentWindow> | null>(null);
-  const alertShownRef = useRef(false);
-
-  // Use provided cycleState or fall back to store
-  const currentCycleState = cycleState || storeCycleState;
-
-  // Memoize activity to avoid recalculation
-  const activity = useMemo(
-    () =>
-      breakSession.activity ||
-      breakActivityManager.getActivityForBreak(
-        breakSession.type,
-        breakSession.duration
-      ),
-    [breakSession.activity, breakSession.type, breakSession.duration]
-  );
-
-  // Keep remaining time in sync with backend so the fullscreen overlay shows a live countdown
-  useEffect(() => {
-    setRemaining(breakSession.remaining);
-  }, [breakSession.id, breakSession.remaining]);
-
-  useEffect(() => {
-    let cancelled = false;
-
-    const syncRemaining = async () => {
-      if (cancelled) return;
-
-      try {
-        const state = await invoke<CycleState>("get_cycle_state");
-
-        // Only sync if we're still in a break phase
-        if (
-          !cancelled &&
-          (state.phase === "short_break" || state.phase === "long_break")
-        ) {
-          setRemaining(state.remaining_seconds);
-
-          // Only hide if break actually ended (remaining is 0)
-          if (state.remaining_seconds === 0) {
-            cancelled = true;
-            try {
-              await invoke("hide_fullscreen_break_overlay");
-            } catch (error) {
-              console.error("❌ [BreakOverlay] Failed to hide:", error);
-            }
-          }
-        } else if (
-          !cancelled &&
-          state.phase !== "short_break" &&
-          state.phase !== "long_break" &&
-          state.phase !== "idle"
-        ) {
-          // Break phase ended (transitioned to focus), hide overlay
-          cancelled = true;
-          try {
-            await invoke("hide_fullscreen_break_overlay");
-          } catch (error) {
-            console.error("❌ [BreakOverlay] Failed to hide:", error);
-          }
-        }
-      } catch (error) {
-        console.error("❌ [BreakOverlay] Sync error:", error);
-      }
-    };
-
-    syncRemaining();
-    const interval = setInterval(syncRemaining, 1000);
-
-    return () => {
-      cancelled = true;
-      clearInterval(interval);
-    };
-  }, []);
-
-  // Aggressively keep the window focused to deter Cmd+Tab and other switches
-  useEffect(() => {
-    const refocus = async (reason: string, shouldLog = false) => {
-      try {
-        const win = windowRef.current ?? getCurrentWindow();
-        windowRef.current = win;
-        await win.setAlwaysOnTop(true);
-        await win.setFullscreen(true);
-        await win.setFocus();
-        if (shouldLog) {
-          logBypassAttempt(`refocus_${reason}`);
-        }
-      } catch (error) {
-        console.error("Failed to refocus window:", error);
-      }
-    };
-
-    const handleBlur = (e: FocusEvent) => {
-      e.preventDefault();
-      logBypassAttempt("window_blur_detected");
-      refocus("window_blur", true);
-    };
-
-    const handleVisibility = (e: Event) => {
-      e.preventDefault?.();
-      if (document.hidden) {
-        logBypassAttempt("visibility_change_detected");
-        refocus("visibility_change", true);
-      }
-    };
-
-    window.addEventListener("blur", handleBlur, true);
-    document.addEventListener("visibilitychange", handleVisibility, true);
-
-    // Frequent refocus loop to override system switches like Cmd+Tab
-    const interval = setInterval(() => refocus("interval"), 350);
-    refocus("mount");
-
-    return () => {
-      window.removeEventListener("blur", handleBlur, true);
-      document.removeEventListener("visibilitychange", handleVisibility, true);
-      clearInterval(interval);
-    };
-  }, [isStrictMode]);
-
-  // Fade in animation on mount
-  useEffect(() => {
-    setIsVisible(true);
-    windowRef.current = getCurrentWindow();
-  }, []);
-
-  // Keyboard blocking - prevent all inputs except emergency key combo when provided
-  useEffect(() => {
-    const blockKeyboardInput = (e: KeyboardEvent) => {
-      // Check if this is the emergency key combination
-      if (emergencyKeyCombination) {
-        const keys = emergencyKeyCombination
-          .split("+")
-          .map((k) => k.trim().toLowerCase());
-        const mainKey = keys.find(
-          (k) => !["cmd", "ctrl", "alt", "shift", "meta"].includes(k)
-        );
-
-        // Check modifiers match exactly
-        const needsCmd = keys.includes("cmd") || keys.includes("meta");
-        const needsCtrl = keys.includes("ctrl");
-        const needsAlt = keys.includes("alt");
-        const needsShift = keys.includes("shift");
-
-        const hasCmd = needsCmd && (e.metaKey || e.key === "Meta");
-        const hasCtrl = needsCtrl && e.ctrlKey;
-        const hasAlt = needsAlt && e.altKey;
-        const hasShift = needsShift && e.shiftKey;
-
-        // Check main key matches (case-insensitive)
-        const hasMainKey =
-          !mainKey || e.key.toLowerCase() === mainKey.toLowerCase();
-
-        // All required modifiers must be present, and no extra modifiers should be present
-        const modifiersMatch =
-          (needsCmd ? hasCmd : !e.metaKey) &&
-          (needsCtrl ? hasCtrl : !e.ctrlKey) &&
-          (needsAlt ? hasAlt : !e.altKey) &&
-          (needsShift ? hasShift : !e.shiftKey) &&
-          hasMainKey;
-
-        if (modifiersMatch) {
-          // Trigger emergency exit
-          invoke("emergency_exit_strict_mode").catch((error) => {
-            console.error("❌ [BreakOverlay] Emergency exit failed:", error);
-          });
-
-          return; // Allow emergency key through
-        }
-      }
-
-      // Block all keyboard inputs including system shortcuts
-      e.preventDefault();
-      e.stopPropagation();
-      e.stopImmediatePropagation();
-
-      // Log specific blocked attempts for common shortcuts
-      if (e.metaKey || e.ctrlKey) {
-        if (e.key === "q" || e.key === "Q") {
-          logBypassAttempt("cmd_q_blocked");
-        } else if (e.key === "w" || e.key === "W") {
-          logBypassAttempt("cmd_w_blocked");
-        } else if (e.key === "m" || e.key === "M") {
-          logBypassAttempt("cmd_m_blocked");
-        } else if (e.key === "Tab") {
-          logBypassAttempt("cmd_tab_blocked");
-        } else if (e.key === "h" || e.key === "H") {
-          logBypassAttempt("cmd_h_blocked");
-        } else if (e.key === "`" || e.key === "~") {
-          logBypassAttempt("cmd_backtick_blocked");
-        }
-      }
-
-      // Block function keys that might trigger system actions
-      if (e.key.startsWith("F") && e.key.length <= 3) {
-        logBypassAttempt(`function_key_blocked_${e.key}`);
-      }
-
-      // Block Escape key (except if it's part of emergency combination)
-      if (e.key === "Escape" || e.key === "Esc") {
-        logBypassAttempt("escape_blocked");
-      }
-
-      // Log blocked attempt
-      logBypassAttempt(`keyboard_blocked_${e.key}`);
-    };
-
-    // Block all keyboard events with capture phase to intercept before any other handlers
-    window.addEventListener("keydown", blockKeyboardInput, true);
-    window.addEventListener("keyup", blockKeyboardInput, true);
-    window.addEventListener("keypress", blockKeyboardInput, true);
-
-    return () => {
-      window.removeEventListener("keydown", blockKeyboardInput, true);
-      window.removeEventListener("keyup", blockKeyboardInput, true);
-      window.removeEventListener("keypress", blockKeyboardInput, true);
-    };
-  }, [isStrictMode, emergencyKeyCombination]);
-
-  // Strict mode mouse blocking - allow movement but block all clicks
-  useEffect(() => {
-    if (!isStrictMode) {
-      return;
-    }
-
-    const blockMouseInput = (e: MouseEvent) => {
-      // Allow mouse movement (cursor can move) - this is important for UX
-      if (e.type === "mousemove") {
-        return;
-      }
-
-      // Block all click events, wheel events, and context menus
-      e.preventDefault();
-      e.stopPropagation();
-      e.stopImmediatePropagation();
-
-      // Log blocked attempt
-      logBypassAttempt(`mouse_blocked_${e.type}`);
-    };
-
-    // Block mouse click events, wheel, and context menus but allow movement
-    window.addEventListener("click", blockMouseInput, true);
-    window.addEventListener("mousedown", blockMouseInput, true);
-    window.addEventListener("mouseup", blockMouseInput, true);
-    window.addEventListener("dblclick", blockMouseInput, true);
-    window.addEventListener("contextmenu", blockMouseInput, true);
-    window.addEventListener("wheel", blockMouseInput, true);
-
-    return () => {
-      window.removeEventListener("click", blockMouseInput, true);
-      window.removeEventListener("mousedown", blockMouseInput, true);
-      window.removeEventListener("mouseup", blockMouseInput, true);
-      window.removeEventListener("dblclick", blockMouseInput, true);
-      window.removeEventListener("contextmenu", blockMouseInput, true);
-      window.removeEventListener("wheel", blockMouseInput, true);
-    };
-  }, [isStrictMode]);
-
-  // Prevent window close/minimize in strict mode
-  useEffect(() => {
-    if (!isStrictMode) return;
-
-    const preventWindowClose = (e: BeforeUnloadEvent) => {
-      e.preventDefault();
-      e.returnValue = "";
-      logBypassAttempt("window_close_blocked");
-    };
-
-    const preventVisibilityChange = () => {
-      if (document.hidden) {
-        logBypassAttempt("visibility_change_blocked");
-      }
-    };
-
-    // Prevent window close
-    window.addEventListener("beforeunload", preventWindowClose);
-
-    // Monitor visibility changes (tab switching, minimization)
-    document.addEventListener("visibilitychange", preventVisibilityChange);
-
-    return () => {
-      window.removeEventListener("beforeunload", preventWindowClose);
-      document.removeEventListener("visibilitychange", preventVisibilityChange);
-    };
-  }, [isStrictMode]);
-
-  // Auto-close overlay and unlock system when break ends in strict mode
-  useEffect(() => {
-    if (!isStrictMode || remaining > 0) {
-      return;
-    }
-
-    const handleBreakEnd = async () => {
-      try {
-        await invoke("hide_fullscreen_break_overlay");
-        onCompleteBreak();
-      } catch (error) {
-        console.error("❌ [BreakOverlay] Failed to unlock system:", error);
-        onCompleteBreak();
-      }
-    };
-
-    handleBreakEnd();
-  }, [isStrictMode, remaining, onCompleteBreak]);
-
-  // Log bypass attempts
-  const logBypassAttempt = async (method: string) => {
-    const timestamp = new Date().toISOString();
-    console.warn(
-      `[BYPASS ATTEMPT] ${timestamp} - Method: ${method} - Session: ${breakSession.id}`
-    );
-    setBypassAttempts((prev) => prev + 1);
-
-    // Send to backend for persistent logging
-    try {
-      await invoke("log_bypass_attempt", {
-        sessionId: breakSession.id,
-        method,
-        timestamp,
-      });
-    } catch (error) {
-      console.error("Failed to log bypass attempt:", error);
-    }
-  };
-
-  const handleEmergencyOverride = useCallback(
-    async (pin: string): Promise<boolean> => {
-      const success = await onEmergencyOverride(pin);
-      if (success) {
-        setShowEmergencyModal(false);
-        logBypassAttempt("emergency_override_success");
-      } else {
-        logBypassAttempt("emergency_override_failed");
-      }
-      return success;
-    },
-    [onEmergencyOverride]
-  );
-
-  const handleChecklistUpdate = useCallback(
-    (completedItems: boolean[]) => {
-      setChecklistCompleted(completedItems);
-
-      // Record completion progress for analytics
-      activityCompletionTracker.recordCompletion(
-        activity.title,
-        completedItems,
-        breakSession.id
-      );
-    },
-    [activity.title, breakSession.id]
-  );
-
-  // Memoize computed values
-  const canCompleteBreak = useMemo(
-    () =>
-      remaining <= 0 ||
-      (checklistCompleted.length > 0 &&
-        checklistCompleted.every((item) => item)),
-    [remaining, checklistCompleted]
-  );
-
-  const showCompletionInterface = useMemo(() => remaining <= 0, [remaining]);
-
-  const accentColor = useMemo(
-    () => (breakSession.type === "long" ? "amber" : "blue"),
-    [breakSession.type]
-  );
-
-  // Determine background color based on mode and break type
-  const strictModeBg = "#000000"; // Completely black background for strict mode
-  const normalModeBg = useMemo(
-    () =>
-      breakSession.type === "long"
-        ? "bg-gradient-to-br from-amber-900/40 via-gray-900 to-gray-900"
-        : "bg-gray-900",
-    [breakSession.type]
-  );
-
-  console.log(
-    "🖥️ [BreakOverlay] RENDER - remaining:",
+  const {
+    resolvedBreakType,
     remaining,
-    "isStrictMode:",
+    clampedRemaining,
+    activity,
+    currentCycleState,
+    settings,
+    canCompleteBreak,
+    showCompletionInterface,
+    accentColor,
+    bypassAttempts,
+    showEmergencyModal,
+    setShowEmergencyModal,
+    handleChecklistUpdate,
+    handleEmergencyOverride,
+  } = useBreakOverlayLogic({
+    breakSession,
+    cycleState,
     isStrictMode,
-    "breakSession:",
-    breakSession
-  );
+    emergencyKeyCombination,
+    onCompleteBreak,
+    onEmergencyOverride,
+  });
+
+  console.log("🔍 [BreakOverlay] Render:", {
+    isStrictMode,
+    currentCycleState,
+    cycleStateProp: cycleState,
+    remaining,
+  });
 
   return (
     <div
@@ -893,106 +69,80 @@ export function BreakOverlay({
         left: 0,
         right: 0,
         bottom: 0,
-        backgroundColor: isStrictMode ? strictModeBg : undefined,
+        backgroundColor: isStrictMode ? "#000000" : undefined,
       }}
     >
       {/* Main break content */}
       <div className="flex flex-col items-center justify-center min-h-screen p-8 w-full">
         {(() => {
-          console.log(
-            "🖥️ [BreakOverlay] RENDER CHECK - remaining:",
-            remaining,
-            "isStrictMode:",
-            isStrictMode
-          );
+          console.log("🔍 [BreakOverlay] Rendering content:", {
+            isStrictMode,
+            currentCycleState,
+          });
 
-          // Always show timer if remaining > 0, regardless of mode
-          if (remaining > 0) {
-            if (isStrictMode) {
-              console.log("🖥️ [BreakOverlay] ✅ RENDERING StrictModeBreakUI");
-              return <StrictModeBreakUI remaining={remaining} />;
-            } else {
-              console.log("🖥️ [BreakOverlay] ✅ RENDERING Normal mode UI");
-              return (
-                <>
-                  {/* Normal mode: Show full UI with activities */}
-                  {/* Break type indicator */}
-                  <div className="mb-8">
-                    <div
-                      className={`inline-flex items-center px-4 py-2 bg-${accentColor}-500/20 rounded-full`}
-                    >
-                      <div
-                        className={`w-2 h-2 bg-${accentColor}-400 rounded-full mr-3 animate-pulse`}
-                      ></div>
-                      <span className={`text-${accentColor}-200 font-medium`}>
-                        {breakSession.type === "short"
-                          ? "☕ Short Break"
-                          : "🌟 Long Break"}
-                      </span>
-                    </div>
-                  </div>
-
-                  {/* Cycle progress indicator */}
-                  {currentCycleState && currentCycleState.cycle_count > 0 && (
-                    <CycleProgressIndicator
-                      cycleCount={currentCycleState.cycle_count}
-                      cyclesPerLongBreak={settings.cyclesPerLongBreak}
-                      breakType={breakSession.type}
-                    />
-                  )}
-
-                  {/* Countdown timer */}
-                  <CountdownTimer
-                    remaining={remaining}
-                    breakType={breakSession.type}
-                    userName={userName}
-                  />
-
-                  {/* Break activity checklist */}
-                  <BreakActivityChecklist
-                    activity={activity}
-                    onChecklistUpdate={handleChecklistUpdate}
-                  />
-
-                  {/* Complete break button (only if checklist is done) */}
-                  {canCompleteBreak && !showCompletionInterface && (
-                    <button
-                      onClick={onCompleteBreak}
-                      className="mt-8 px-8 py-3 bg-green-600 hover:bg-green-700 text-white font-medium rounded-xl transition-colors duration-200"
-                    >
-                      Complete Break
-                    </button>
-                  )}
-
-                  {/* Bypass attempts indicator (for debugging/awareness) */}
-                  {bypassAttempts > 0 && (
-                    <div className="absolute top-8 right-8">
-                      <div className="bg-red-500/20 border border-red-500/30 rounded-lg px-4 py-2">
-                        <p className="text-red-400 text-sm">
-                          Bypass attempts: {bypassAttempts}
-                        </p>
-                      </div>
-                    </div>
-                  )}
-                </>
-              );
-            }
-          } else {
-            // Break completed - show completion interface
-            console.log("🖥️ [BreakOverlay] ✅ RENDERING completion interface");
-            return (
-              <BreakCompletionInterface
-                breakType={breakSession.type}
-                userName={userName}
-                cyclesCompleted={currentCycleState?.cycle_count || 0}
-                focusMinutes={
-                  (currentCycleState?.cycle_count || 0) * settings.focusDuration
-                }
-                onStartNewBlock={onCompleteBreak}
-                onEndSession={onCompleteBreak}
-              />
+          if (isStrictMode) {
+            // Use cycleState directly - it's the source of truth from cycle_handler
+            // This ensures we're always in sync with the backend
+            console.log(
+              "🔍 [BreakOverlay] Rendering StrictModeBreakUI with:",
+              currentCycleState
             );
+            return <StrictModeBreakUI cycleState={currentCycleState} />;
           }
+
+          return (
+            <>
+              {/* Normal mode: Show full UI with activities */}
+              {/* Break type indicator */}
+              <div className="mb-8">
+                <div
+                  className={`inline-flex items-center px-4 py-2 bg-${accentColor}-500/20 rounded-full`}
+                >
+                  <div
+                    className={`w-2 h-2 bg-${accentColor}-400 rounded-full mr-3 animate-pulse`}
+                  ></div>
+                  <span className={`text-${accentColor}-200 font-medium`}>
+                    {resolvedBreakType === "short"
+                      ? "☕ Short Break"
+                      : "🌟 Long Break"}
+                  </span>
+                </div>
+              </div>
+
+              {/* Cycle progress indicator */}
+              {currentCycleState && currentCycleState.cycle_count > 0 && (
+                <CycleProgressIndicator
+                  cycleCount={currentCycleState.cycle_count}
+                  cyclesPerLongBreak={settings.cyclesPerLongBreak}
+                  breakType={resolvedBreakType}
+                />
+              )}
+
+              {/* Countdown timer */}
+              <CountdownTimer
+                remaining={clampedRemaining}
+                breakType={resolvedBreakType}
+                userName={userName}
+              />
+
+              {/* Break activity checklist */}
+              <BreakActivityChecklist
+                activity={activity}
+                onChecklistUpdate={handleChecklistUpdate}
+              />
+
+              {/* Bypass attempts indicator (for debugging/awareness) */}
+              {bypassAttempts > 0 && (
+                <div className="absolute top-8 right-8">
+                  <div className="bg-red-500/20 border border-red-500/30 rounded-lg px-4 py-2">
+                    <p className="text-red-400 text-sm">
+                      Bypass attempts: {bypassAttempts}
+                    </p>
+                  </div>
+                </div>
+              )}
+            </>
+          );
         })()}
       </div>
 

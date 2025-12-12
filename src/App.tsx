@@ -12,7 +12,7 @@ import { BreakOverlay } from "./components/BreakOverlay";
 import { errorHandler } from "./lib/errorHandler";
 import Stats from "./pages/Stats";
 import Settings from "./pages/Settings";
-import type { BreakSession } from "./types";
+import type { BreakSession, CycleState } from "./types";
 
 export default function App() {
   const [needsOnboarding, setNeedsOnboarding] = useState<boolean | null>(null);
@@ -23,6 +23,7 @@ export default function App() {
   const [emergencyKeyCombination, setEmergencyKeyCombination] = useState<
     string | undefined
   >(undefined);
+  const [cycleState, setCycleState] = useState<CycleState | null>(null);
 
   useEffect(() => {
     const checkAppState = async () => {
@@ -53,6 +54,20 @@ export default function App() {
               console.log("🖥️ [App] Strict mode:", strictMode);
               setIsStrictMode(strictMode);
               setEmergencyKeyCombination(settings.emergencyKeyCombination);
+
+              // Fetch cycle state for break-overlay window
+              // This ensures StrictModeBreakUI has access to cycleState
+              const { CycleManager } = await import("./lib/cycleCommands");
+              try {
+                const cycleState = await CycleManager.getState();
+                console.log(
+                  "🖥️ [App] Cycle state loaded for break-overlay:",
+                  cycleState
+                );
+                setCycleState(cycleState);
+              } catch (error) {
+                console.error("❌ [App] Failed to fetch cycle state:", error);
+              }
             } catch (error) {
               console.error(
                 "❌ [App] Failed to fetch break session or settings:",
@@ -113,6 +128,81 @@ export default function App() {
     normalizeMainWindow();
   }, [windowLabel]);
 
+  // Sync cycle state for break-overlay window (similar to CycleSync but for this window)
+  useEffect(() => {
+    if (windowLabel !== "break-overlay") return;
+
+    const syncCycleState = async () => {
+      try {
+        const { CycleManager } = await import("./lib/cycleCommands");
+        const state = await CycleManager.getState();
+        setCycleState(state);
+      } catch (error) {
+        console.error("❌ [App] Failed to sync cycle state:", error);
+      }
+    };
+
+    // Initial sync
+    syncCycleState();
+
+    // Sync every second to keep cycleState updated
+    const interval = setInterval(syncCycleState, 1000);
+
+    return () => clearInterval(interval);
+  }, [windowLabel]);
+
+  // Listen for break updates to refresh breakSession when a new break starts
+  useEffect(() => {
+    if (windowLabel !== "break-overlay") return;
+
+    let unlisten: (() => void) | null = null;
+
+    const setupBreakListener = async () => {
+      try {
+        // Listen for cycle events to detect when a new break starts
+        const { listen } = await import("@tauri-apps/api/event");
+        unlisten = await listen<any>("cycle-event", async (event) => {
+          const cycleEvent = event.payload;
+
+          // When a break phase starts, refresh the break session
+          if (
+            cycleEvent.type === "phase_started" &&
+            (cycleEvent.phase === "short_break" ||
+              cycleEvent.phase === "long_break")
+          ) {
+            console.log(
+              "🔄 [App] Break phase started, refreshing break session"
+            );
+            try {
+              const currentBreak = await invoke<BreakSession | null>(
+                "get_current_break"
+              );
+              if (currentBreak) {
+                console.log(
+                  "✅ [App] Break session refreshed:",
+                  `remaining:${currentBreak.remaining}`
+                );
+                setBreakSession(currentBreak);
+              }
+            } catch (error) {
+              console.error("❌ [App] Failed to refresh break session:", error);
+            }
+          }
+        });
+      } catch (error) {
+        console.error("❌ [App] Failed to setup break listener:", error);
+      }
+    };
+
+    setupBreakListener();
+
+    return () => {
+      if (unlisten) {
+        unlisten();
+      }
+    };
+  }, [windowLabel]);
+
   const handleOnboardingComplete = async (config: any) => {
     try {
       // Apply the onboarding configuration to settings
@@ -161,6 +251,7 @@ export default function App() {
       <ErrorBoundary>
         <BreakOverlay
           breakSession={breakSession}
+          cycleState={cycleState}
           onCompleteBreak={async () => {
             try {
               await invoke("hide_fullscreen_break_overlay");

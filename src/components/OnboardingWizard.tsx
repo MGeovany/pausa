@@ -32,7 +32,9 @@ export default function OnboardingWizard({
   const [validationErrors, setValidationErrors] = useState<string[]>([]);
   const [isRecovering, setIsRecovering] = useState(false);
   const [isTransitioning, setIsTransitioning] = useState(false);
-  const [transitionDirection, setTransitionDirection] = useState<'forward' | 'backward'>('forward');
+  const [transitionDirection, setTransitionDirection] = useState<
+    "forward" | "backward"
+  >("forward");
 
   // Initialize onboarding when component mounts
   useEffect(() => {
@@ -69,7 +71,9 @@ export default function OnboardingWizard({
         const errors = err.replace("Step validation errors: ", "").split("; ");
         setValidationErrors(errors);
       } else {
-        setValidationErrors([typeof err === "string" ? err : "Validation failed"]);
+        setValidationErrors([
+          typeof err === "string" ? err : "Validation failed",
+        ]);
       }
       return false;
     }
@@ -81,7 +85,6 @@ export default function OnboardingWizard({
         backupType: "pre_update",
         description: `Backup before ${currentStep} step`,
       });
-      console.log("✅ [Frontend] Backup created:", backupId);
     } catch (err) {
       console.warn("⚠️ [Frontend] Failed to create backup:", err);
       // Don't block the flow for backup failures
@@ -96,11 +99,10 @@ export default function OnboardingWizard({
     try {
       // Try to get configuration health check
       const healthCheck = await invoke("get_configuration_health_check");
-      console.log("🏥 [Frontend] Health check:", healthCheck);
 
       // Reset onboarding if needed
       await invoke("reset_onboarding_for_testing");
-      
+
       // Reinitialize
       await initializeOnboarding();
     } catch (err) {
@@ -130,7 +132,6 @@ export default function OnboardingWizard({
 
       // Create backup before making changes
       await createBackup();
-      console.log(`🔄 [Frontend] Attempting to navigate from ${currentStep}`);
 
       // Save work schedule data if we're leaving the WorkHours step
       if (currentStep === "WorkHours" && currentStepData) {
@@ -143,15 +144,12 @@ export default function OnboardingWizard({
               timezone: currentStepData.timezone,
             },
           });
-          console.log("✅ [Frontend] Work schedule saved successfully");
         } catch (saveErr) {
           console.error("❌ [Frontend] Failed to save work schedule:", saveErr);
           setError("Failed to save work schedule. Please try again.");
           return;
         }
       }
-
-
 
       // Save cycle configuration if we're leaving the CycleConfig step
       if (currentStep === "CycleConfig" && currentStepData) {
@@ -164,7 +162,6 @@ export default function OnboardingWizard({
               cycles_per_long_break: currentStepData.cyclesPerLongBreak,
             },
           });
-          console.log("✅ [Frontend] Cycle configuration saved successfully");
         } catch (saveErr) {
           console.error("❌ [Frontend] Failed to save cycle config:", saveErr);
           setError("Failed to save cycle configuration. Please try again.");
@@ -189,9 +186,6 @@ export default function OnboardingWizard({
               emergency_key_combination: currentStepData.emergencyKey || null,
             },
           });
-          console.log(
-            "✅ [Frontend] Strict mode configuration saved successfully"
-          );
         } catch (saveErr) {
           console.error(
             "❌ [Frontend] Failed to save strict mode config:",
@@ -208,11 +202,9 @@ export default function OnboardingWizard({
         stepData: currentStepData,
       });
 
-      console.log(`✅ [Frontend] Successfully navigated to ${nextStep}`);
-      
       // Add smooth transition animation
       setIsTransitioning(true);
-      setTransitionDirection('forward');
+      setTransitionDirection("forward");
       setTimeout(() => {
         setCurrentStep(nextStep);
         setIsTransitioning(false);
@@ -220,8 +212,6 @@ export default function OnboardingWizard({
 
       // Handle completion
       if (nextStep === "Complete") {
-        console.log("🎉 [Frontend] Onboarding completed");
-        
         // Collect all configuration data
         const finalConfig = {
           // Work schedule configuration - always enabled now
@@ -241,14 +231,14 @@ export default function OnboardingWizard({
           userName: stepData.StrictMode?.userName || null,
         };
 
-        console.log("📋 [Frontend] Final onboarding configuration:", finalConfig);
-
         // Validate final configuration before completion
         try {
           await invoke("validate_onboarding_config", { config: finalConfig });
-          console.log("✅ [Frontend] Final configuration validation passed");
         } catch (validationErr) {
-          console.error("❌ [Frontend] Final configuration validation failed:", validationErr);
+          console.error(
+            "❌ [Frontend] Final configuration validation failed:",
+            validationErr
+          );
           setError(`Configuration validation failed: ${validationErr}`);
           return;
         }
@@ -256,9 +246,11 @@ export default function OnboardingWizard({
         // Complete onboarding in backend
         try {
           await invoke("complete_onboarding", { finalConfig });
-          console.log("✅ [Frontend] Onboarding completion saved to backend");
         } catch (completeErr) {
-          console.error("❌ [Frontend] Failed to complete onboarding:", completeErr);
+          console.error(
+            "❌ [Frontend] Failed to complete onboarding:",
+            completeErr
+          );
           setError("Failed to complete onboarding. Please try again.");
           return;
         }
@@ -293,21 +285,13 @@ export default function OnboardingWizard({
     setError(null);
 
     try {
-      console.log(
-        `🔙 [Frontend] Attempting to navigate back from ${currentStep}`
-      );
-
       const previousStep = await invoke<OnboardingStep>(
         "previous_onboarding_step"
       );
 
-      console.log(
-        `✅ [Frontend] Successfully navigated back to ${previousStep}`
-      );
-      
       // Add smooth transition animation
       setIsTransitioning(true);
-      setTransitionDirection('backward');
+      setTransitionDirection("backward");
       setTimeout(() => {
         setCurrentStep(previousStep);
         setIsTransitioning(false);
@@ -332,7 +316,9 @@ export default function OnboardingWizard({
   };
 
   const canGoNext = () => {
-    return currentStep !== "Complete" && currentStep !== "Summary" && !isLoading;
+    return (
+      currentStep !== "Complete" && currentStep !== "Summary" && !isLoading
+    );
   };
 
   const canGoPrevious = () => {
@@ -478,7 +464,9 @@ export default function OnboardingWizard({
         {/* Validation errors display */}
         {validationErrors.length > 0 && (
           <div className="mb-6 p-4 bg-yellow-900/50 border border-yellow-700 rounded-lg text-yellow-200">
-            <div className="font-medium mb-2">Please fix the following issues:</div>
+            <div className="font-medium mb-2">
+              Please fix the following issues:
+            </div>
             <ul className="list-disc list-inside space-y-1 text-sm">
               {validationErrors.map((error, index) => (
                 <li key={index}>{error}</li>
@@ -488,16 +476,19 @@ export default function OnboardingWizard({
         )}
 
         {/* Current step content */}
-        <div className={`
+        <div
+          className={`
           bg-black/20 backdrop-blur-sm rounded-xl px-8 border border-white/10
           transition-all duration-300 ease-out
-          ${isTransitioning 
-            ? transitionDirection === 'forward' 
-              ? 'opacity-0 translate-x-4' 
-              : 'opacity-0 -translate-x-4'
-            : 'opacity-100 translate-x-0'
+          ${
+            isTransitioning
+              ? transitionDirection === "forward"
+                ? "opacity-0 translate-x-4"
+                : "opacity-0 -translate-x-4"
+              : "opacity-100 translate-x-0"
           }
-        `}>
+        `}
+        >
           {renderCurrentStep()}
         </div>
 
