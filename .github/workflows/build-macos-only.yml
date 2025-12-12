@@ -30,7 +30,7 @@ jobs:
       - name: Setup Rust
         uses: dtolnay/rust-toolchain@stable
         with:
-          targets: universal-apple-darwin
+          targets: aarch64-apple-darwin
 
       - name: Cache Rust dependencies
         uses: actions/cache@v4
@@ -41,19 +41,18 @@ jobs:
             ~/.cargo/registry/cache/
             ~/.cargo/git/db/
             src-tauri/target/
-          key: ${{ runner.os }}-cargo-universal-${{ hashFiles('**/Cargo.lock') }}
+          key: ${{ runner.os }}-cargo-${{ hashFiles('**/Cargo.lock') }}
 
       - name: Build frontend
         run: npm run build
 
-      - name: Build Tauri app (Universal)
-        run: |
-          npm run tauri:build:universal
+      - name: Build Tauri app (Apple Silicon)
+        run: npm run tauri:build:macos
 
       - name: Upload artifacts
         uses: actions/upload-artifact@v4
         with:
-          name: pausa-macos-universal
+          name: pausa-macos
           path: |
             src-tauri/target/release/bundle/macos/*.app
             src-tauri/target/release/bundle/dmg/*.dmg
