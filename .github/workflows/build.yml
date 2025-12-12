@@ -14,10 +14,16 @@ on:
 jobs:
   build-macos:
     runs-on: macos-latest
+    permissions:
+      contents: write # Required for semantic-release to create releases and tags
+      issues: write # Optional: for semantic-release issue tracking
+      pull-requests: write # Optional: for semantic-release PR tracking
 
     steps:
       - name: Checkout repository
         uses: actions/checkout@v4
+        with:
+          fetch-depth: 0 # Required for semantic-release to analyze all commits
 
       - name: Setup Node.js
         uses: actions/setup-node@v4
@@ -72,45 +78,27 @@ jobs:
             src-tauri/target/release/bundle/dmg/*.dmg
           retention-days: 90
 
-      - name: Get version from package.json
-        id: version
-        run: |
-          VERSION=$(node -p "require('./package.json').version")
-          echo "version=$VERSION" >> $GITHUB_OUTPUT
-          echo "Version: $VERSION"
-
-      - name: Create or Update Release (on tags)
-        if: startsWith(github.ref, 'refs/tags/v')
-        uses: softprops/action-gh-release@v1
-        with:
-          files: |
-            src-tauri/target/release/bundle/macos/pausa.app
-            src-tauri/target/release/bundle/dmg/*.dmg
-          draft: false
-          prerelease: false
-          generate_release_notes: true
-
-      - name: Create Release for main branch
+      - name: Verify build artifacts exist
         if: github.ref == 'refs/heads/main' && github.event_name != 'pull_request'
-        uses: softprops/action-gh-release@v1
-        with:
-          tag_name: "v${{ steps.version.outputs.version }}-${{ github.run_number }}"
-          name: "Pausa v${{ steps.version.outputs.version }}-${{ github.run_number }}"
-          body: |
-            ## 🚀 Build #${{ github.run_number }}
+        run: |
+          echo "Checking for build artifacts..."
+          if [ -d "src-tauri/target/release/bundle/macos/pausa.app" ]; then
+            echo "✅ App bundle found"
+          else
+            echo "❌ App bundle not found"
+            exit 1
+          fi
+          if ls src-tauri/target/release/bundle/dmg/*.dmg 1> /dev/null 2>&1; then
+            echo "✅ DMG file found"
+            ls -lh src-tauri/target/release/bundle/dmg/*.dmg
+          else
+            echo "❌ DMG file not found"
+            exit 1
+          fi
 
-            **Commit**: ${{ github.sha }}
-            **Branch**: ${{ github.ref_name }}
-            **Version**: ${{ steps.version.outputs.version }}
-
-            ### 📦 Downloads
-            - **DMG**: Descarga el archivo `.dmg` para instalar en macOS
-            - **App Bundle**: O descarga el `.app` directamente
-
-            ### ⚠️ Nota
-            Este es un build automático de la rama `main`. Para builds estables, crea un tag (ej: `v1.0.0`).
-          files: |
-            src-tauri/target/release/bundle/macos/pausa.app
-            src-tauri/target/release/bundle/dmg/*.dmg
-          draft: false
-          prerelease: true
+      - name: Run semantic-release
+        if: github.ref == 'refs/heads/main' && github.event_name != 'pull_request'
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: npx semantic-release
+        continue-on-error: true

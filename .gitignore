@@ -25,3 +25,6 @@ dist-ssr
 *.sw?
 
 .kiro/*
+
+# Semantic Release
+CHANGELOG.md
