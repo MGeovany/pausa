@@ -5,12 +5,26 @@ use crate::{state::AppState, domain::oauth::OAuthProvider, domain::oauth::OAuthC
 pub async fn login_with_google(app: AppHandle, state: State<'_, AppState>) -> Result<String, String> {
     println!("🔐 [Rust] login_with_google called");
     
+    // Log login started
+    use crate::services::telemetry::LoginEvent;
+    state.telemetry_service.log_login(LoginEvent {
+        event: "login_started".to_string(),
+        provider: "google".to_string(),
+        error: None,
+    }).await;
+    
     println!("🔒 [Rust] Acquiring OAuth service lock...");
     let mut svc = state.oauth_google.lock().await;
     
     println!("🚀 [Rust] Starting login...");
     let url = svc.start_login().await.map_err(|e| {
         println!("❌ [Rust] Error starting login: {}", e);
+        // Log login failed
+        let _ = state.telemetry_service.log_login(LoginEvent {
+            event: "login_failed".to_string(),
+            provider: "google".to_string(),
+            error: Some(e.to_string()),
+        });
         format!("Failed to start login: {}", e)
     })?;
     
@@ -75,9 +89,26 @@ pub async fn login_with_google(app: AppHandle, state: State<'_, AppState>) -> Re
                                 // Save tokens
                                 if let Err(e) = state.tokens_storage.save(&tokens) {
                                     println!("❌ [Callback] Error saving tokens: {}", e);
+                                    // Log login failed
+                                    use crate::services::telemetry::LoginEvent;
+                                    let _ = state.telemetry_service.log_login(LoginEvent {
+                                        event: "login_failed".to_string(),
+                                        provider: "google".to_string(),
+                                        error: Some(format!("Failed to save tokens: {}", e)),
+                                    }).await;
                                     let _ = app_handle.emit("auth:error", format!("Failed to save tokens: {}", e));
                                 } else {
                                     println!("✅ [Callback] Tokens saved successfully");
+                                    
+                                    // Log login success
+                                    use crate::services::telemetry::LoginEvent;
+                                    let _ = state.telemetry_service.log_login(LoginEvent {
+                                        event: "login_success".to_string(),
+                                        provider: "google".to_string(),
+                                        error: None,
+                                    }).await;
+                                    
+                                    // User ID will be set when get_user_info is called
                                     println!("📤 [Callback] Emitting auth:success event...");
                                     
                                     // Try to emit to the main window
@@ -95,6 +126,13 @@ pub async fn login_with_google(app: AppHandle, state: State<'_, AppState>) -> Re
                             }
                             Err(e) => {
                                 println!("❌ [Callback] Error handling callback: {}", e);
+                                // Log login failed
+                                use crate::services::telemetry::LoginEvent;
+                                let _ = state.telemetry_service.log_login(LoginEvent {
+                                    event: "login_failed".to_string(),
+                                    provider: "google".to_string(),
+                                    error: Some(e.to_string()),
+                                }).await;
                                 let _ = app_handle.emit("auth:error", e.to_string());
                             }
                         }
@@ -216,6 +254,11 @@ pub async fn get_user_info(state: State<'_, AppState>) -> Result<Option<UserInfo
                 let name = json["name"].as_str().unwrap_or("User").to_string();
                 let email = json["email"].as_str().unwrap_or("").to_string();
                 let picture = json["picture"].as_str().unwrap_or("").to_string();
+                
+                // Set user ID for telemetry
+                if !email.is_empty() {
+                    state.telemetry_service.set_user_id(Some(email.clone())).await;
+                }
                 
                 return Ok(Some(UserInfo { name, email, picture }));
             }

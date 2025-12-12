@@ -3,7 +3,7 @@ use tauri::Manager;
 
 use crate::handlers::{
     auth_handler, cycle_config_handler, cycle_handler, notification_handler, onboarding_handler,
-    stats_handler, strict_mode_handler, work_schedule_handler,
+    stats_handler, strict_mode_handler, telemetry_handler, work_schedule_handler,
 };
 use crate::{config::AppConfig, onboarding::OnboardingManager, state::AppState};
 
@@ -217,7 +217,11 @@ pub fn run() -> Result<(), String> {
             strict_mode_handler::hide_fullscreen_break_overlay,
             strict_mode_handler::emergency_exit_strict_mode,
             strict_mode_handler::register_emergency_hotkey,
-            strict_mode_handler::unregister_emergency_hotkey
+            strict_mode_handler::unregister_emergency_hotkey,
+            telemetry_handler::send_error_event,
+            telemetry_handler::send_login_event,
+            telemetry_handler::send_metric,
+            telemetry_handler::flush_telemetry
         ])
         .run(tauri::generate_context!())
         .map_err(|e| e.to_string())

@@ -1,12 +1,13 @@
 use tauri::{AppHandle, Manager};
 use tokio::sync::Mutex;
+use std::sync::Arc;
 
 use crate::config::{tokens_path, AppConfig};
 use crate::cycle_orchestrator::CycleOrchestrator;
 use crate::database::DatabaseManager;
 use crate::domain::tokens::TokenStorage;
 use crate::notification_service::NotificationService;
-use crate::services::google_oauth::GoogleOAuthService;
+use crate::services::{google_oauth::GoogleOAuthService, telemetry::TelemetryService};
 use crate::strict_mode::StrictModeOrchestrator;
 
 pub struct AppState {
@@ -17,6 +18,7 @@ pub struct AppState {
     pub cycle_orchestrator: Mutex<Option<CycleOrchestrator>>,
     pub notification_service: Mutex<NotificationService>,
     pub strict_mode_orchestrator: Mutex<Option<StrictModeOrchestrator>>,
+    pub telemetry_service: Arc<TelemetryService>,
 }
 
 impl AppState {
@@ -36,6 +38,9 @@ impl AppState {
 
         // Initialize notification service
         let notification_service = NotificationService::new();
+        
+        // Initialize telemetry service
+        let telemetry_service = Arc::new(TelemetryService::new());
 
         Ok(Self {
             oauth_google: Mutex::new(svc),
@@ -45,6 +50,7 @@ impl AppState {
             cycle_orchestrator: Mutex::new(None),
             notification_service: Mutex::new(notification_service),
             strict_mode_orchestrator: Mutex::new(None),
+            telemetry_service,
         })
     }
 }

@@ -179,4 +179,46 @@ export const tauriCommands = {
     strict_mode: boolean;
     emergency_key_combination?: string | null;
   }) => invokeCommand<void>("save_strict_mode_config", { config }),
+
+  // Telemetry commands
+  sendErrorEvent: (error: {
+    errorType: string;
+    message: string;
+    context?: string;
+    stack?: string;
+    userAction?: string;
+    recoverable: boolean;
+  }) =>
+    invokeCommand<void>("send_error_event", {
+      error_type: error.errorType,
+      message: error.message,
+      context: error.context,
+      stack: error.stack,
+      user_action: error.userAction,
+      recoverable: error.recoverable,
+    }),
+
+  sendLoginEvent: (event: {
+    event: string;
+    provider: string;
+    error?: string;
+  }) =>
+    invokeCommand<void>("send_login_event", {
+      event: event.event,
+      provider: event.provider,
+      error: event.error,
+    }),
+
+  sendMetric: (metric: {
+    metricName: string;
+    value: number;
+    tags?: Record<string, any>;
+  }) =>
+    invokeCommand<void>("send_metric", {
+      metric_name: metric.metricName,
+      value: metric.value,
+      tags: metric.tags,
+    }),
+
+  flushTelemetry: () => invokeCommand<void>("flush_telemetry"),
 } as const;

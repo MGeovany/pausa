@@ -4,7 +4,7 @@
 
 export interface ErrorLog {
   timestamp: string;
-  level: 'error' | 'warning' | 'info';
+  level: "error" | "warning" | "info";
   message: string;
   context?: string;
   stack?: string;
@@ -32,14 +32,14 @@ class ErrorHandler {
     error: Error | string,
     context?: string,
     userAction?: string,
-    level: 'error' | 'warning' | 'info' = 'error'
+    level: "error" | "warning" | "info" = "error"
   ): void {
     const errorLog: ErrorLog = {
       timestamp: new Date().toISOString(),
       level,
-      message: typeof error === 'string' ? error : error.message,
+      message: typeof error === "string" ? error : error.message,
       context,
-      stack: typeof error === 'object' ? error.stack : undefined,
+      stack: typeof error === "object" ? error.stack : undefined,
       userAction,
       recoverable: this.isRecoverable(error),
     };
@@ -53,27 +53,35 @@ class ErrorHandler {
     }
 
     // Console logging with formatting
-    const logMethod = level === 'error' ? console.error : level === 'warning' ? console.warn : console.info;
+    const logMethod =
+      level === "error"
+        ? console.error
+        : level === "warning"
+        ? console.warn
+        : console.info;
     logMethod(
       `[${level.toUpperCase()}] ${errorLog.timestamp}`,
-      `\nContext: ${context || 'N/A'}`,
+      `\nContext: ${context || "N/A"}`,
       `\nMessage: ${errorLog.message}`,
-      userAction ? `\nUser Action: ${userAction}` : '',
-      errorLog.stack ? `\nStack: ${errorLog.stack}` : ''
+      userAction ? `\nUser Action: ${userAction}` : "",
+      errorLog.stack ? `\nStack: ${errorLog.stack}` : ""
     );
 
     // Notify callbacks
-    this.errorCallbacks.forEach(callback => callback(errorLog));
+    this.errorCallbacks.forEach((callback) => callback(errorLog));
 
     // Store in localStorage for persistence
     this.persistErrorLogs();
+
+    // Send to telemetry service (non-blocking)
+    this.sendToTelemetry(errorLog);
   }
 
   /**
    * Determine if an error is recoverable
    */
   private isRecoverable(error: Error | string): boolean {
-    const errorMessage = typeof error === 'string' ? error : error.message;
+    const errorMessage = typeof error === "string" ? error : error.message;
 
     // Non-recoverable errors
     const nonRecoverablePatterns = [
@@ -83,102 +91,112 @@ class ErrorHandler {
       /permission denied/i,
     ];
 
-    return !nonRecoverablePatterns.some(pattern => pattern.test(errorMessage));
+    return !nonRecoverablePatterns.some((pattern) =>
+      pattern.test(errorMessage)
+    );
   }
 
   /**
    * Get recovery strategy for an error
    */
   getRecoveryStrategy(error: Error | string): ErrorRecoveryStrategy {
-    const errorMessage = typeof error === 'string' ? error : error.message;
+    const errorMessage = typeof error === "string" ? error : error.message;
     const errorLower = errorMessage.toLowerCase();
 
     // Network errors
-    if (errorLower.includes('network') || errorLower.includes('fetch') || errorLower.includes('connection')) {
+    if (
+      errorLower.includes("network") ||
+      errorLower.includes("fetch") ||
+      errorLower.includes("connection")
+    ) {
       return {
         canRecover: true,
         retryable: true,
-        userMessage: 'Network connection issue. Please check your internet connection.',
+        userMessage:
+          "Network connection issue. Please check your internet connection.",
         technicalMessage: errorMessage,
         suggestedActions: [
-          'Check your internet connection',
-          'Try again in a moment',
-          'Restart the application if the problem persists',
+          "Check your internet connection",
+          "Try again in a moment",
+          "Restart the application if the problem persists",
         ],
       };
     }
 
     // Validation errors
-    if (errorLower.includes('validation') || errorLower.includes('invalid')) {
+    if (errorLower.includes("validation") || errorLower.includes("invalid")) {
       return {
         canRecover: true,
         retryable: false,
-        userMessage: 'Invalid input. Please check your entries and try again.',
+        userMessage: "Invalid input. Please check your entries and try again.",
         technicalMessage: errorMessage,
         suggestedActions: [
-          'Review your input for errors',
-          'Ensure all required fields are filled',
-          'Check that values are in the correct format',
+          "Review your input for errors",
+          "Ensure all required fields are filled",
+          "Check that values are in the correct format",
         ],
       };
     }
 
     // Work hours errors
-    if (errorLower.includes('work hours') || errorLower.includes('outside work')) {
+    if (
+      errorLower.includes("work hours") ||
+      errorLower.includes("outside work")
+    ) {
       return {
         canRecover: true,
         retryable: false,
-        userMessage: 'This action is outside your configured work hours.',
+        userMessage: "This action is outside your configured work hours.",
         technicalMessage: errorMessage,
         suggestedActions: [
-          'Wait until your work hours begin',
-          'Override work hours if needed',
-          'Adjust your work schedule in settings',
+          "Wait until your work hours begin",
+          "Override work hours if needed",
+          "Adjust your work schedule in settings",
         ],
       };
     }
 
     // Database errors
-    if (errorLower.includes('database') || errorLower.includes('sqlite')) {
+    if (errorLower.includes("database") || errorLower.includes("sqlite")) {
       return {
         canRecover: false,
         retryable: false,
-        userMessage: 'Database error. Your data may need recovery.',
+        userMessage: "Database error. Your data may need recovery.",
         technicalMessage: errorMessage,
         suggestedActions: [
-          'Restart the application',
-          'Check available disk space',
-          'Contact support if the problem persists',
+          "Restart the application",
+          "Check available disk space",
+          "Contact support if the problem persists",
         ],
       };
     }
 
     // Onboarding errors
-    if (errorLower.includes('onboarding')) {
+    if (errorLower.includes("onboarding")) {
       return {
         canRecover: true,
         retryable: true,
-        userMessage: 'Setup error. Please try again.',
+        userMessage: "Setup error. Please try again.",
         technicalMessage: errorMessage,
         suggestedActions: [
-          'Go back and review your settings',
-          'Restart the onboarding process',
-          'Contact support if you continue to have issues',
+          "Go back and review your settings",
+          "Restart the onboarding process",
+          "Contact support if you continue to have issues",
         ],
       };
     }
 
     // Cycle/session errors
-    if (errorLower.includes('cycle') || errorLower.includes('session')) {
+    if (errorLower.includes("cycle") || errorLower.includes("session")) {
       return {
         canRecover: true,
         retryable: true,
-        userMessage: 'Session error. Please try restarting.',
+        userMessage: "Session error. Please try restarting.",
         technicalMessage: errorMessage,
         suggestedActions: [
-          'End the current session and start a new one',
-          'Check your cycle configuration',
-          'Restart the application if needed',
+          "End the current session and start a new one",
+          "Check your cycle configuration",
+          "Restart the application if needed",
         ],
       };
     }
@@ -187,12 +205,12 @@ class ErrorHandler {
     return {
       canRecover: true,
       retryable: true,
-      userMessage: 'An unexpected error occurred. Please try again.',
+      userMessage: "An unexpected error occurred. Please try again.",
       technicalMessage: errorMessage,
       suggestedActions: [
-        'Try the action again',
-        'Restart the application',
-        'Contact support if the problem persists',
+        "Try the action again",
+        "Restart the application",
+        "Contact support if the problem persists",
       ],
     };
   }
@@ -205,7 +223,7 @@ class ErrorHandler {
 
     // Return unsubscribe function
     return () => {
-      this.errorCallbacks = this.errorCallbacks.filter(cb => cb !== callback);
+      this.errorCallbacks = this.errorCallbacks.filter((cb) => cb !== callback);
     };
   }
 
@@ -228,7 +246,7 @@ class ErrorHandler {
    */
   clearLogs(): void {
     this.errorLogs = [];
-    localStorage.removeItem('pausa-error-logs');
+    localStorage.removeItem("pausa-error-logs");
   }
 
   /**
@@ -237,9 +255,9 @@ class ErrorHandler {
   private persistErrorLogs(): void {
     try {
       const recentLogs = this.errorLogs.slice(-50); // Keep last 50 logs
-      localStorage.setItem('pausa-error-logs', JSON.stringify(recentLogs));
+      localStorage.setItem("pausa-error-logs", JSON.stringify(recentLogs));
     } catch (error) {
-      console.warn('Failed to persist error logs:', error);
+      console.warn("Failed to persist error logs:", error);
     }
   }
 
@@ -248,13 +266,33 @@ class ErrorHandler {
    */
   loadPersistedLogs(): void {
     try {
-      const stored = localStorage.getItem('pausa-error-logs');
+      const stored = localStorage.getItem("pausa-error-logs");
       if (stored) {
         const logs = JSON.parse(stored) as ErrorLog[];
         this.errorLogs = logs;
       }
     } catch (error) {
-      console.warn('Failed to load persisted error logs:', error);
+      console.warn("Failed to load persisted error logs:", error);
+    }
+  }
+
+  /**
+   * Send error to telemetry service (non-blocking)
+   */
+  private async sendToTelemetry(errorLog: ErrorLog) {
+    try {
+      const { tauriCommands } = await import("./tauri");
+      await tauriCommands.sendErrorEvent({
+        errorType: errorLog.level,
+        message: errorLog.message,
+        context: errorLog.context,
+        stack: errorLog.stack,
+        userAction: errorLog.userAction,
+        recoverable: errorLog.recoverable,
+      });
+    } catch (error) {
+      // Silently fail - telemetry should not break the app
+      console.debug("Failed to send error to telemetry:", error);
     }
   }
 
@@ -276,7 +314,7 @@ class ErrorHandler {
     const strategy = this.getRecoveryStrategy(error);
 
     if (!strategy.retryable) {
-      this.logError(error, 'Recovery', 'Not retryable', 'warning');
+      this.logError(error, "Recovery", "Not retryable", "warning");
       return false;
     }
 
@@ -284,30 +322,32 @@ class ErrorHandler {
       try {
         this.logError(
           `Recovery attempt ${attempt}/${maxRetries}`,
-          'Recovery',
-          'Automatic retry',
-          'info'
+          "Recovery",
+          "Automatic retry",
+          "info"
         );
 
         // Exponential backoff
-        await new Promise(resolve => setTimeout(resolve, Math.pow(2, attempt) * 1000));
+        await new Promise((resolve) =>
+          setTimeout(resolve, Math.pow(2, attempt) * 1000)
+        );
 
         await retryFn();
 
         this.logError(
           `Recovery successful on attempt ${attempt}`,
-          'Recovery',
-          'Automatic retry succeeded',
-          'info'
+          "Recovery",
+          "Automatic retry succeeded",
+          "info"
         );
 
         return true;
       } catch (retryError) {
         this.logError(
           retryError as Error,
-          'Recovery',
+          "Recovery",
           `Retry attempt ${attempt} failed`,
-          'warning'
+          "warning"
         );
 
         if (attempt === maxRetries) {
@@ -327,22 +367,22 @@ export const errorHandler = new ErrorHandler();
 errorHandler.loadPersistedLogs();
 
 // Global error handler for unhandled errors
-if (typeof window !== 'undefined') {
-  window.addEventListener('error', (event) => {
+if (typeof window !== "undefined") {
+  window.addEventListener("error", (event) => {
     errorHandler.logError(
       event.error || event.message,
-      'Global',
-      'Unhandled error',
-      'error'
+      "Global",
+      "Unhandled error",
+      "error"
     );
   });
 
-  window.addEventListener('unhandledrejection', (event) => {
+  window.addEventListener("unhandledrejection", (event) => {
     errorHandler.logError(
       event.reason,
-      'Global',
-      'Unhandled promise rejection',
-      'error'
+      "Global",
+      "Unhandled promise rejection",
+      "error"
     );
   });
 }
