@@ -175,9 +175,58 @@ jobs:
           echo ""
           echo "✅ All artifacts verified successfully!"
 
+      - name: Prepare assets for semantic-release
+        if: github.ref == 'refs/heads/main' && github.event_name != 'pull_request'
+        id: assets
+        run: |
+          BUNDLE_PATH="${{ steps.bundle.outputs.bundle_path }}"
+          APP_BUNDLE=$(find "$BUNDLE_PATH" -name "*.app" -type d 2>/dev/null | head -1)
+          DMG_FILE=$(find "$BUNDLE_PATH" -name "*.dmg" 2>/dev/null | head -1)
+
+          if [ -z "$APP_BUNDLE" ] || [ -z "$DMG_FILE" ]; then
+            echo "❌ Required assets not found"
+            exit 1
+          fi
+
+          echo "app_bundle=$APP_BUNDLE" >> $GITHUB_OUTPUT
+          echo "dmg_file=$DMG_FILE" >> $GITHUB_OUTPUT
+          echo "✅ Assets found:"
+          echo "  App: $APP_BUNDLE"
+          echo "  DMG: $DMG_FILE"
+
       - name: Run semantic-release
         if: github.ref == 'refs/heads/main' && github.event_name != 'pull_request'
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-        run: npx semantic-release
+          APP_BUNDLE_PATH: ${{ steps.assets.outputs.app_bundle }}
+          DMG_FILE_PATH: ${{ steps.assets.outputs.dmg_file }}
+        run: |
+          echo "Running semantic-release..."
+          echo "App bundle: $APP_BUNDLE_PATH"
+          echo "DMG file: $DMG_FILE_PATH"
+
+          # Create temporary release config with actual paths
+          cat > .releaserc.tmp.json << EOF
+          {
+            "branches": ["main"],
+            "plugins": [
+              "@semantic-release/commit-analyzer",
+              "@semantic-release/release-notes-generator",
+              ["@semantic-release/changelog", {"changelogFile": "CHANGELOG.md"}],
+              ["@semantic-release/npm", {"npmPublish": false}],
+              ["@semantic-release/git", {
+                "assets": ["package.json", "CHANGELOG.md"],
+                "message": "chore(release): \${nextRelease.version} [skip ci]\n\n\${nextRelease.notes}"
+              }],
+              ["@semantic-release/github", {
+                "assets": [
+                  {"path": "$APP_BUNDLE_PATH", "label": "Pausa.app"},
+                  {"path": "$DMG_FILE_PATH", "label": "macOS DMG"}
+                ]
+              }]
+            ]
+          }
+          EOF
+
+          npx semantic-release --extends .releaserc.tmp.json
         continue-on-error: true

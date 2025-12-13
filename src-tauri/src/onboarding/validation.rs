@@ -65,7 +65,7 @@ impl OnboardingValidator {
             if let Some(name_str) = user_name.as_str() {
                 // Only validate if the string is not empty
                 if !name_str.trim().is_empty() {
-                    self.validate_user_name(user_name);
+            self.validate_user_name(user_name);
                 }
             }
         }
@@ -434,7 +434,7 @@ pub fn validate_step_data(step: &str, data: &serde_json::Value) -> ValidationRes
                 if let Some(name_str) = user_name.as_str() {
                     // Only validate if the string is not empty (userName is optional)
                     if !name_str.trim().is_empty() {
-                        validator.validate_user_name(user_name);
+                validator.validate_user_name(user_name);
                     }
                 }
             }

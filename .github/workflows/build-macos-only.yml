@@ -47,13 +47,52 @@ jobs:
         run: npm run build
 
       - name: Build Tauri app (Apple Silicon)
-        run: npm run tauri:build:macos
+        env:
+          GOOGLE_CLIENT_ID: ${{ secrets.GOOGLE_CLIENT_ID }}
+          GOOGLE_CLIENT_SECRET: ${{ secrets.GOOGLE_CLIENT_SECRET }}
+          OAUTH_REDIRECT_URI: ${{ secrets.OAUTH_REDIRECT_URI || 'http://localhost:8080' }}
+          POSTHOG_API_KEY: ${{ secrets.POSTHOG_API_KEY }}
+        run: |
+          echo "Building Tauri app for macOS..."
+          npm run tauri:build:macos
+
+      - name: Find bundle location
+        id: bundle
+        run: |
+          # Check both possible bundle locations
+          if [ -d "src-tauri/target/release/bundle" ]; then
+            BUNDLE_PATH="src-tauri/target/release/bundle"
+          elif [ -d "src-tauri/target/aarch64-apple-darwin/release/bundle" ]; then
+            BUNDLE_PATH="src-tauri/target/aarch64-apple-darwin/release/bundle"
+          else
+            echo "❌ Bundle directory not found in either location!"
+            echo "Checking what was built:"
+            find src-tauri/target -name "*.app" -o -name "*.dmg" 2>/dev/null | head -10 || echo "No bundles found"
+            exit 1
+          fi
+          echo "bundle_path=$BUNDLE_PATH" >> $GITHUB_OUTPUT
+          echo "✅ Found bundle at: $BUNDLE_PATH"
+          echo "Contents:"
+          find "$BUNDLE_PATH" -maxdepth 2 -type d
+
+      - name: Sign app with ad-hoc identity
+        run: |
+          BUNDLE_PATH="${{ steps.bundle.outputs.bundle_path }}"
+          APP_BUNDLE=$(find "$BUNDLE_PATH" -name "*.app" -type d 2>/dev/null | head -1)
+          if [ -n "$APP_BUNDLE" ]; then
+            echo "Signing app bundle at: $APP_BUNDLE"
+            codesign --force --deep --sign - "$APP_BUNDLE"
+            echo "✅ App signed with ad-hoc identity"
+          else
+            echo "⚠️ App bundle not found for signing"
+            exit 1
+          fi
 
       - name: Upload artifacts
         uses: actions/upload-artifact@v4
         with:
           name: pausa-macos
           path: |
-            src-tauri/target/release/bundle/macos/*.app
-            src-tauri/target/release/bundle/dmg/*.dmg
-          retention-days: 30
+            ${{ steps.bundle.outputs.bundle_path }}/macos/*.app
+            ${{ steps.bundle.outputs.bundle_path }}/dmg/*.dmg
+          retention-days: 90
